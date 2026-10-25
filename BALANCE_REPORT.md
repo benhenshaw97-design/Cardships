@@ -1,0 +1,89 @@
+# Balance report
+
+Tuned with a headless simulator and a greedy bot. Targets: **every Core wins 35–50% of runs**, and **no single part appears on more than 60% of winning ships**.
+
+## Method
+
+- `node tools/simulate.js 1000` plays 1,000 complete runs per Core (4,000 runs, about 5 seconds) through the real rules engine, with every unlockable part available.
+- The bot is greedy, not random. In combat it scores every legal action each step (expected damage after Block and status, Steam value, how much an Evade or a Swap reduces the telegraphed threat, kill bonuses) and takes the best until nothing scores above zero. For loot it simulates each slot and installs where its layout score rises most. On the map it picks nodes by Core health and repair needs. It is a reasonable but imperfect player: it never rearranges at the Sky Dock and it undervalues utility parts.
+- "Parts on winning ships" counts each part type present on the ship at the moment of victory, as a share of all winning runs across all Cores.
+- `TUNE='{...}'` overrides any data value for an experiment without editing files; `BRIEF=1` prints one line. The final numbers were confirmed on three different seed sets (`--seed 1/2/3`); results moved by under 3 points.
+
+## Results
+
+### Win rate by Core
+
+| Core | Before | After | Reached the boss | Average column reached (boss = 12) |
+| --- | --- | --- | --- | --- |
+| Airship | 89.4% | **47.9%** | 94.7% → 65.9% | 11.6 → 10.1 |
+| Battleship | 35.7% | **39.8%** | 56.1% → 67.3% | 10.5 → 11.1 |
+| Zeppelin | 98.5% | **41.0%** | 99.6% → 75.1% | 12.0 → 11.3 |
+| Clockwork | 67.9% | **38.2%** | 80.5% → 59.7% | 11.2 → 10.4 |
+
+Before tuning, the Zeppelin and Airship won almost every run while the Battleship sat at the bottom of the band. After tuning all four sit between 38.2% and 47.9%. Across seed sets 1–3 the ranges were: Airship 46.7–47.9%, Battleship 38.2–41.6%, Zeppelin 37.7–41.0%, Clockwork 38.2–41.7%.
+
+### Boss fights (share won by the player once the boss is reached)
+
+| Boss | Before | After |
+| --- | --- | --- |
+| Iron Leviathan | 84.3% | **58.4%** |
+| Storm Queen | 91.7% | **63.2%** |
+| Clockwork Colossus | 88.5% | **65.4%** |
+
+### Most common parts on winning ships
+
+The most common part is now on 42.4% of winning ships (before: 54.6%), well under the 60% ceiling.
+
+| Part | Before | After |
+| --- | --- | --- |
+| Repair Bay | 54.6% | 42.4% |
+| Brass Plating | 51.7% | 40.7% |
+| Mortar | 53.1% | 35.2% |
+| Deck Cannon | 42.7% | 30.7% |
+| Flamethrower | 24.2% | 30.7% |
+| Harpoon Gun | 22.2% | 21.6% |
+| Tesla Coil | 27.9% | 21.0% |
+| Ironclad Bulwark | 24.4% | 17.9% |
+| Auxiliary Boiler | 19.4% | 17.0% |
+| Clockwork Heart | 13.3% | 11.6% |
+| Gasbag | 13.5% | 11.0% |
+| Sniper Nest | 10.5% | 8.4% |
+| Gyro Stabilizer | 6.2% | 6.6% |
+| Gas Grenadiers | 6.3% | 6.4% |
+| Overpressure Valve | 7.3% | 6.2% |
+| Glue Gatling | 7.0% | 6.2% |
+| Deflector Vane | 3.4% | 6.2% |
+| Crew Quarters | 6.6% | 5.4% |
+| Autoloader | 6.4% | 4.4% |
+| Telescope | 7.2% | 3.5% |
+| Sprinkler Tank | 1.3% | 1.9% |
+| Supply Hatch | 1.4% | 1.1% |
+| Air Scrubber | 0.3% | 0.7% |
+| Lightning Rod | 0.7% | 0.7% |
+| Propeller | 0.2% | 0.4% |
+| Cargo Hold | 0.0% | 0.0% |
+
+## What changed and why
+
+| Change | Before | After | Why |
+| --- | --- | --- | --- |
+| Evade cost | 1 + Weight/3 (Airship always 1) | 2 + Weight/3, Airship −1, Propeller −1, minimum 1 | Cheap Evades let light ships dodge almost every telegraphed hit; this was the single biggest lever (Zeppelin 96% → 61% on its own). |
+| Evade fatigue | +1 Steam per consecutive Evade | +2 | Chain-dodging every turn should be a real cost. |
+| Pirate Durability per column | +6% | +8% | Keep late fights threatening once Evade got pricier. |
+| Veteran damage | +1 from column 8 | +1 from column 6, +2 from column 11 | A steadier difficulty ramp into the boss. |
+| Boss Durability | ×1 | ×1.35 | Bosses were won 84–92% of the time once reached. |
+| Iron Leviathan base Durability | 30 | 26 | It was the hardest boss (its Ironclad Hull already blunts every hit). |
+| Storm Queen base Durability | 28 | 33 | It was the easiest boss. |
+| Clockwork Colossus base Durability | 32 | 37 | Second easiest. |
+| Bombard | 2 per Pressure, max 9 | 1½ per Pressure (rounded down), max 6 | One saved-up bomb could delete a boss phase. |
+| Battleship | 12 Durability, 3 Steam | 15 Durability, 4 Steam | It can't Evade, so it needs to out-tank and out-act. |
+| Zeppelin | 6 Durability | 6 (tested 5, settled back on 6) | 5 left it at the band's floor once Bombard was trimmed. |
+| Clockwork | 9 Durability, Overclock 1 Steam | 10 Durability, Overclock free (once a turn) | With Steam 4 it fell to 31%, with Steam 5 it rose to 54%; a free Overclock landed it at 40%. |
+
+All global knobs live in the `BALANCE` block at the top of `js/data.js`.
+
+## Caveats
+
+- These are bot numbers. A human who reads intents, rearranges at Sky Docks and values utility parts will win more often; expect real win rates above these, especially for the Airship and Clockwork, which reward clever play the bot doesn't attempt.
+- The bot almost never takes Cargo Hold, Propeller, Lightning Rod or Air Scrubber because its layout score undervalues them. Their low numbers say more about the bot than the parts.
+- The Airship dies early more often than the others (light hull, few starting modules) but wins the most once established; it is the high-variance Core by design.

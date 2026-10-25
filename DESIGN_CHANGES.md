@@ -156,3 +156,16 @@ Every change to the rules, content and presentation, with a one-line reason. New
 - **Seeded runs:** every run has a short code (base-36 of its seed), shown on the map and end screens. Enter any code or word on the title screen to fly the same route with the same dice. *Reason: share and replay runs.*
 - **One seeded generator** drives every random event (map, loot, shop stock, enemy rolls, event rolls, the boss pick). Its state is saved with the run, so a resumed run continues with the same dice it would have had. *Reason: seeds must reproduce runs exactly.*
 - **Autosave after every action** (so always after every node), with "Continue run" and "Abandon" on the title screen. The save is cleared when a run ends. *Reason: never lose a run to a closed tab.*
+
+## Phase 8: balance by simulation
+
+Full numbers, method and caveats are in `BALANCE_REPORT.md`. Summary of the changes:
+
+- **Evade costs 2 + Weight/3 Steam (minimum 1); the Airship's Nimble and an outside Propeller each take 1 off; consecutive Evades cost +2 each.** *Reason: cheap, repeatable Evades made light ships nearly unbeatable (Zeppelin 98.5%, Airship 89.4%).*
+- **Pirates gain 8% Durability per column (was 6%) and +1 damage per hit from columns 6 and 11 (was column 8 only).** *Reason: a steadier difficulty ramp to the boss.*
+- **Bosses have 1.35× Durability; base Durability is Leviathan 26, Storm Queen 33, Colossus 37 (was 30 / 28 / 32).** *Reason: bosses fell 84–92% of the time; now 58–65%, and within 7 points of each other.*
+- **Bombard deals 1½ per Pressure (rounded down), max 6 Pressure** (was 2 per Pressure, max 9). *Reason: a single banked bomb could skip a boss phase.*
+- **Battleship: 15 Durability and 4 Steam** (was 12 and 3). *Reason: it can't Evade, so it has to out-tank and out-act.*
+- **Clockwork: 10 Durability and a free Overclock (once a turn)** (was 9 Durability and a 1-Steam Overclock). *Reason: lands it mid-band between the 31% and 54% versions tested.*
+- **Global knobs moved into one `BALANCE` block in `js/data.js`,** and the simulator takes a `TUNE` override for experiments. *Reason: make future tuning quick and visible.*
+- **Result: Airship 47.9%, Battleship 39.8%, Zeppelin 41.0%, Clockwork 38.2% (1,000 runs each); the most common part is on 42.4% of winning ships.** *Reason: hits both targets with margin.*

@@ -147,7 +147,7 @@
       let s = 0;
       if (a === 'strafe') s = g.weaponsInstalled() * 2 + killBonus(g.weaponsInstalled());
       if (a === 'ram') s = g.ramDamage() * 2 - 1.5 + killBonus(g.ramDamage());
-      if (a === 'bombard') { const dmg = 2 * g.core.pressure; s = (g.core.pressure >= 5 || dmg >= en.hp) ? dmg * 2 + killBonus(dmg) : -1; }
+      if (a === 'bombard') { const dmg = Math.floor(D.BALANCE.bombardPerPressure * g.core.pressure); s = (g.core.pressure >= 5 || dmg >= en.hp) ? dmg * 2 + killBonus(dmg) : -1; }
       if (a === 'overclock') s = g.cards().some((x) => { const i = g.fireInfo(x.uid); return i && !i.blocked && g.combat.steam - 1 >= i.cost; }) ? 4 : -1;
       acts.push({ score: s - core.cost * steamWorth, run: () => g.useCore() });
     }

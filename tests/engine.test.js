@@ -24,14 +24,14 @@ test('an attack on an empty layer hits the next module inward', () => {
   assert.equal(plan[0].uid, g.left[0].uid);
   g.endTurn();
   assert.equal(g.left[0].hp, 1);
-  assert.equal(g.core.hp, 12);
+  assert.equal(g.core.hp, 15);
 });
 
 test('only a completely empty side exposes the Core', () => {
   const g = fight('battleship', [], ['cannon'], 'gunship', shot(2, 'left', 0));
   assert.equal(g.previewIntent().plan[0].uid, 'core');
   g.endTurn();
-  assert.equal(g.core.hp, 10);
+  assert.equal(g.core.hp, 13);
 });
 
 test('outside plating intercepts, buried plating soaks 1 for a neighbour', () => {
@@ -65,13 +65,13 @@ test('the enemy intent is rolled before you act, and the preview matches what ha
 
 test('Steam refills every turn and pays for actions; weapons fire once per turn from outside', () => {
   const g = fight('battleship', ['harpoon', 'cannon'], ['harpoon'], 'gunship', shot(0, 'left', 0));
-  assert.equal(g.combat.steam, 3);
+  assert.equal(g.combat.steam, 4);
   assert.ok(g.fireInfo(g.left[0].uid).blocked);
   assert.ok(g.fire(g.right[0].uid));
-  assert.equal(g.combat.steam, 2);
+  assert.equal(g.combat.steam, 3);
   assert.equal(g.fireInfo(g.right[0].uid).blocked, 'Already fired');
   g.endTurn();
-  assert.equal(g.combat.steam, 3);
+  assert.equal(g.combat.steam, 4);
 });
 
 test('Durability is health only: firing never costs Durability', () => {
@@ -106,7 +106,7 @@ test('back-to-back Evades get more expensive, and long fights Enrage the enemy',
   const g = fight('airship', ['propeller'], ['harpoon'], 'gunship', shot(1, 'right', 0));
   g.evade(); g.endTurn();
   g.combat.enemy.intent = shot(1, 'right', 0);
-  assert.equal(g.evadeCost(), 2);
+  assert.equal(g.evadeCost(), 3);
   g.combat.round = 13;
   assert.equal(g.intentDamage(shot(1, 'right', 0)), 4);
 });
@@ -115,7 +115,7 @@ test('swapping adjacent modules costs Steam (Airship: first one free); glue pins
   const g = fight('battleship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'left', 0));
   assert.ok(g.swap(g.left[0].uid, g.left[1].uid));
   assert.equal(g.left[0].id, 'plating');
-  assert.equal(g.combat.steam, 2);
+  assert.equal(g.combat.steam, 3);
   const a = fight('airship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'left', 0));
   a.swap(a.left[0].uid, a.left[1].uid);
   assert.equal(a.combat.steam, 4);
@@ -148,7 +148,7 @@ test('the Zeppelin banks unspent Steam as Pressure and Bombards with it', () => 
   const hp = g.combat.enemy.hp;
   g.combat.enemy.block = 5;
   assert.ok(g.useCore());
-  assert.equal(g.combat.enemy.hp, hp - 6);
+  assert.equal(g.combat.enemy.hp, hp - 4); // floor(1.5 x 3)
   assert.equal(g.core.pressure, 0);
 });
 

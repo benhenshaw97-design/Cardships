@@ -7,12 +7,12 @@
       id: 'airship', name: 'Airship Core', weight: 1, hp: 8, steam: 4,
       style: 'Skirmisher',
       blurb: 'Light and slippery. Dodges telegraphed shots and reshuffles its modules on the fly.',
-      passive: { name: 'Nimble', text: 'Your first Swap each turn is free. Evade costs 1 Steam.' },
+      passive: { name: 'Nimble', text: 'Your first Swap each turn is free. Evade costs 1 less Steam.' },
       ability: { id: 'strafe', name: 'Strafing Run', cost: 2, text: 'Deal 1 damage for every weapon installed, at any layer.' },
       start: { left: ['propeller'], right: ['harpoon'] },
     },
     battleship: {
-      id: 'battleship', name: 'Battleship Core', weight: 4, hp: 12, steam: 3,
+      id: 'battleship', name: 'Battleship Core', weight: 4, hp: 15, steam: 4,
       style: 'Juggernaut',
       blurb: 'A flying fortress. Never dodges; shrugs off rams and rams back harder the heavier it gets.',
       passive: { name: 'Ironsides', text: 'Rams against you deal 2 less damage. You cannot Evade.' },
@@ -23,16 +23,16 @@
       id: 'zeppelin', name: 'Zeppelin Core', weight: -1, hp: 6, steam: 3,
       style: 'Bombardier',
       blurb: 'A fragile gasbag that banks pressure across turns for a devastating payload.',
-      passive: { name: 'Pressure Vessel', text: 'Steam left over at the end of your turn is stored as Pressure (max 9).' },
-      ability: { id: 'bombard', name: 'Bombard', cost: 1, text: 'Spend all Pressure: deal 2 damage per Pressure, ignoring Block.' },
+      passive: { name: 'Pressure Vessel', text: 'Steam left over at the end of your turn is stored as Pressure (max 6).' },
+      ability: { id: 'bombard', name: 'Bombard', cost: 1, text: 'Spend all Pressure: deal 1½ damage per Pressure (rounded down), ignoring Block.' },
       start: { left: ['gasbag'], right: ['mortar'] },
     },
     clockwork: {
-      id: 'clockwork', name: 'Clockwork Core', weight: 2, hp: 9, steam: 4,
+      id: 'clockwork', name: 'Clockwork Core', weight: 2, hp: 10, steam: 4,
       style: 'Engineer', locked: true,
       blurb: 'A self-winding engine that keeps its modules ticking and fires its guns twice.',
       passive: { name: 'Self-Winding', text: 'At the start of each turn, repair 1 on your most damaged module.' },
-      ability: { id: 'overclock', name: 'Overclock', cost: 1, text: 'The next weapon you fire this turn fires twice.' },
+      ability: { id: 'overclock', name: 'Overclock', cost: 0, text: 'Once a turn: the next weapon you fire this turn fires twice.' },
       start: { left: ['repair'], right: ['harpoon'] },
     },
   };
@@ -229,7 +229,7 @@
       ],
     },
     stormqueen: {
-      name: 'The Storm Queen', weight: 3, hp: 28, look: 'stormqueen', boss: true,
+      name: 'The Storm Queen', weight: 3, hp: 33, look: 'stormqueen', boss: true,
       gimmick: 'Gale Force: after every move, her winds shove your two outside modules on one side past each other. Lightning ignores outside plating.',
       phases: [
         { name: 'Gathering Clouds', min: 19, table: [I.lightning(2), I.lightning(2), I.rake(1, 'Tornado'), I.token('gas', 0, 'Static Charge'), I.block(5, 'Eye Wall'), I.charge(3, 'Build Charge')] },
@@ -238,7 +238,7 @@
       ],
     },
     colossus: {
-      name: 'The Clockwork Colossus', weight: 12, hp: 32, look: 'colossus', boss: true,
+      name: 'The Clockwork Colossus', weight: 12, hp: 37, look: 'colossus', boss: true,
       gimmick: 'Wind-Up: its Mainspring tightens every turn, adding +1 damage per hit. Deal 6+ damage in one turn to snap it: the spring resets and it loses its next move.',
       phases: [
         { name: 'Ticking', min: 22, table: [I.shot(2, 'Gear Fist'), I.shot(2, 'Gear Fist'), I.block(5, 'Brass Carapace'), I.broadside(2, 'Cog Spray'), I.ram(4, 2, 'Stomp'), I.charge(2, 'Turn the Key')] },
@@ -247,7 +247,7 @@
       ],
     },
     leviathan: {
-      name: 'The Iron Leviathan', weight: 10, hp: 30, look: 'leviathan', boss: true,
+      name: 'The Iron Leviathan', weight: 10, hp: 26, look: 'leviathan', boss: true,
       gimmick: 'Ironclad Hull: every hit deals 1 less unless it pierces (Tesla, Steady Aim, Bombard, Burn). Rearms at each phase.',
       phases: [
         { name: 'Artillery & Disruption', min: 21, table: [I.shot(3, 'Heavy Cannon'), I.shot(3, 'Heavy Cannon'), I.token('gas', 1, 'Toxic Shell'), I.block(6, 'Armor Plating'), I.broadside(2), I.charge(3, 'Load Main Battery')] },
@@ -330,7 +330,21 @@
   // Targeting: side d6 (1-3 left, 4-6 right); layer d6 (1-2 → 1, 3-4 → 2, 5-6 → 3).
   const LAYER_TABLE = [1, 1, 2, 2, 3, 3];
 
-  const data = { CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE };
+  // Global difficulty knobs, tuned by simulation (see BALANCE_REPORT.md).
+  const BALANCE = {
+    hpPerColumn: 0.08,       // pirate Durability +8% per map column
+    veteranColumns: [6, 11], // +1 damage per hit from each listed column onward
+    bossHp: 1.35,            // boss Durability multiplier
+    startCogs: 20,
+    bombardPerPressure: 1.5, // Zeppelin Bombard damage per point of Pressure (rounded down)
+    maxPressure: 6,
+    enrageRound: 10,
+    evadeBase: 2,            // Evade costs evadeBase + Weight/3 Steam (minimum 1)
+    nimbleDiscount: 1,       // Airship Evade discount
+    evadeFatigue: 2,         // extra Steam per consecutive Evade
+  };
+
+  const data = { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);

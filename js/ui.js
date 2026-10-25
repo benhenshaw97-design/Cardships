@@ -605,7 +605,7 @@
         h('div', { class: 'row' }, h('span', { class: `kind k-${info.kind.replace(' ', '')}` }, info.kind), h('span', { class: 'muted' }, `Column ${sel.col} of ${game.maxDepth}`)),
         h('h3', {}, info.name),
         h('p', {}, info.text),
-        info.enemy ? statline(`Weight ${info.enemy.weight}`, `Durability ~${Math.round(info.enemy.hp * (info.enemy.boss ? 1 : 1 + 0.06 * (sel.col - 1)))}`) : null,
+        info.enemy ? statline(`Weight ${info.enemy.weight}`, `Durability ~${Math.round(info.enemy.hp * (info.enemy.boss ? D.BALANCE.bossHp : 1 + D.BALANCE.hpPerColumn * (sel.col - 1)))}`) : null,
         info.table ? d6List(info.table) : null,
         h('div', { class: 'enc-foot' },
           h('span', { class: 'muted' }, reachable ? 'Reachable from here.' : sel.id === cur.id ? 'You are here.' : 'Not reachable from here yet.'),

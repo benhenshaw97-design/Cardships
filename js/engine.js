@@ -7,17 +7,16 @@
   if (isNode) module.exports = api;
   else root.CardshipsEngine = api;
 })(this, function (D) {
-  const { CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE } = D;
+  const { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE } = D;
 
   const MAX_LAYERS = 3;
   const BOSS_COL = 12;
   const BASE_SIGHT = 2;
-  const START_COGS = 20;
   const SNAP_DAMAGE = 6;
   const STORAGE_SLOTS = 2;
-  const MAX_PRESSURE = 9;
+  const MAX_PRESSURE = BALANCE.maxPressure;
   const VENT_COST = 2;
-  const ENRAGE_ROUND = 10;
+  const ENRAGE_ROUND = BALANCE.enrageRound;
   const SIDES = ['left', 'right'];
   const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 } };
 
@@ -48,7 +47,7 @@
       this.map = null;
       this.bossId = opts.boss || null;
       this.sightMoves = 0;
-      this.cogs = START_COGS;
+      this.cogs = BALANCE.startCogs;
       this.shop = null;
       this.quest = null;
       this.combatBonusSteam = 0;
@@ -896,16 +895,16 @@
     }
 
     // ---------- combat ----------
-    // Pirates further along the route are tougher: +6% Durability per column, +1 damage from column 8.
+    // Pirates further along the route are tougher (BALANCE.hpPerColumn, BALANCE.veteranColumns).
     startCombat(enemyId, node, opts = {}) {
       const e = ENEMIES[enemyId];
       const col = node.col || 1;
-      const hpScale = e.boss ? 1 : 1 + 0.06 * (col - 1);
+      const hpScale = e.boss ? BALANCE.bossHp : 1 + BALANCE.hpPerColumn * (col - 1);
       const hp = Math.round(e.hp * hpScale);
       this.event = null;
       this.combat = {
         enc: node.enc || 'patrol', enemyId, col,
-        enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus: !e.boss && col >= 8 ? 1 : 0, block: opts.block || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
+        enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus: e.boss ? 0 : BALANCE.veteranColumns.filter((c) => col >= c).length, block: opts.block || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
         galeSide: 'right', turnDamage: 0, rodCharge: 0,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
@@ -1269,7 +1268,7 @@
       let summary = '';
       if (a.id === 'strafe') summary = `${this.weaponsInstalled()} dmg`;
       if (a.id === 'ram') summary = `${this.ramDamage()} dmg · bow takes 1`;
-      if (a.id === 'bombard') summary = `${2 * this.core.pressure} piercing`;
+      if (a.id === 'bombard') summary = `${BALANCE.bombardPerPressure * this.core.pressure} piercing`;
       if (a.id === 'overclock') summary = 'next weapon fires twice';
       return { ability: a, blocked, summary, cost: a.cost };
     }
@@ -1295,7 +1294,7 @@
           this.damageModule(bow ? bow.uid : 'core', 1, 'recoil');
         }
       }
-      if (a.id === 'bombard') { const p = this.core.pressure; this.core.pressure = 0; this.damageEnemy(2 * p, { pierce: true, source: 'bombard' }); }
+      if (a.id === 'bombard') { const p = this.core.pressure; this.core.pressure = 0; this.damageEnemy(Math.floor(BALANCE.bombardPerPressure * p), { pierce: true, source: 'bombard' }); }
       if (a.id === 'overclock') { this.combat.overclock = true; this.say('Gears whir: your next weapon fires twice.', 'good'); }
       this.checkEnd();
       return true;
@@ -1305,9 +1304,10 @@
       if (this.core.id === 'battleship') return null;
       const fatigue = this.combat ? this.combat.evadeStreak : 0;
       if (this.has('gyro') && this.combat && !this.combat.gyroUsed && !fatigue) return 0;
-      let cost = this.core.id === 'airship' ? 1 : Math.min(4, 1 + Math.floor(Math.max(0, this.weight()) / 3));
-      if (this.core.id !== 'airship' && SIDES.some((s) => { const o = this.outer(s); return o && o.id === 'propeller'; })) cost = Math.max(1, cost - 1);
-      return cost + fatigue;
+      let cost = Math.min(5, BALANCE.evadeBase + Math.floor(Math.max(0, this.weight()) / 3));
+      if (this.core.id === 'airship') cost -= BALANCE.nimbleDiscount;
+      if (SIDES.some((s) => { const o = this.outer(s); return o && o.id === 'propeller'; })) cost -= 1;
+      return Math.max(1, cost) + fatigue * BALANCE.evadeFatigue;
     }
     canEvade() {
       const cost = this.evadeCost();
