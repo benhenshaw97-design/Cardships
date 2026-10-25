@@ -326,3 +326,21 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   - The old install bolts and module popovers in the flight view are gone; tapping your ship in the flight view selects the Core.
   *Reason: building needs room and clear slots, not a crowded hull.*
 - **Part offers no longer show a part portrait**, and the steampunk-parts atlas only loads if something asks for it. *Reason: those were the parts sprites that weren't working.*
+
+## Fire, lightning and glue effects
+
+- **New sprites, cut from your latest uploads.** From the second effects sheet: three small and three large flames, and a lightning crack. From the effects board: three painted lightning bolts (forked, jagged, chain), a glob of glue, a glue spray, napalm and two sticky-fire splashes. The board is a JPEG on a navy grid, so `tools/build_sprites.py` keys its background out. Lightning keeps its glow; everything else drops the dark blue. All of them go into `assets/art/fx.png`. *Reason: use the provided art for the three status effects.* The board's sticky mesh lost its thin strands when keyed, so it is left out.
+- **Fire.**
+  - A burning module (or Core) carries a flickering flame for as long as it burns.
+  - A Burning enemy carries one to three large flames, by its Burn stacks.
+  - Fire landing on you splashes napalm, each burn tick flares, and your Flamethrower's hits leave napalm on the enemy.
+  *Reason: you can see what is burning at a glance.*
+- **Lightning.**
+  - Tesla Coil shots and the Storm Queen's lightning are painted bolts stretched from gun to target, flickering between the three shapes.
+  - Hits crack with lightning at the point of impact.
+  *Reason: the hand-drawn line looked out of place next to the sprite effects.*
+- **Glue.**
+  - The Glue Gatling and the enemy's tar shots fire a tumbling glob of glue that drips as it flies, and splash on impact.
+  - Glued modules carry a glob for as long as they stay glued, and a Gummed enemy carries glue splats until it wears off.
+  *Reason: makes Glue and Gummed readable in the flight view.*
+- **Housekeeping:** the new uploads are moved to `assets/art/source/` as `fx-sheet-2.png`, `effects-board.jpg` and `arsenal-board.jpg`. The arsenal board isn't used yet.

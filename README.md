@@ -64,7 +64,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |
 | `assets/art/ship-parts.png` | Sprite atlas cut from `assets/art/source/ship-parts-sheet.png` (rebuild with `python3 tools/build_sprites.py`): the four full ships (yours and the pirates'), flags, map marker, clouds, smoke trail |
-| `assets/art/fx.png` | Effects atlas cut from `assets/art/source/fx-sheet.png`: explosions, blasts, smoke clouds, muzzle flashes, rockets, bullets, fireballs, lightning, splashes |
+| `assets/art/fx.png` | Effects atlas cut from `assets/art/source/fx-sheet.png`, `fx-sheet-2.png` and `effects-board.jpg` (keyed off its navy background): explosions, blasts, smoke clouds, muzzle flashes, rockets, bullets, fireballs, flames, napalm, lightning bolts and cracks, glue globs and spray, splashes |
 | `assets/art/parts.png` | Steampunk parts atlas cut from `assets/art/source/parts-sheet.png`: guns, gatlings, rocket racks, boilers, engines, gears, armour plates, chests, spyglass, compass, propellers (cut but not used at the moment) |
 | `assets/music/pirate-battle-1` | Title, sky map, docks, victory, defeat |
 | `assets/music/pirate-battle-2` | Standard combat |

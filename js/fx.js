@@ -85,9 +85,15 @@
         if (s.style === 'firepot') { g.fillStyle = '#ff8a3a'; g.beginPath(); g.arc(x, y, 5, 0, TAU); g.fill(); break; }
         for (let i = 0; i < 3; i++) parts.push({ kind: 'flame', x: x + rand(-5, 5), y: y + rand(-5, 5), vx: rand(-20, 20), vy: rand(-30, 0), g: -40, life: rand(0.25, 0.45), max: 0.45, r: rand(5, 10) });
         break;
-      case 'goo':
-        g.fillStyle = '#9fd05a'; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(x - i * 9, y + Math.sin((s.t + i) * 30) * 4, 3, 0, TAU); g.fill(); }
+      case 'goo': case 'tar': {
+        // A tumbling glob of glue that leaves sticky drips behind it.
+        g.save(); g.translate(x, y); g.rotate(s.t * 14);
+        const ok = SP().draw(g, 'glue_glob', 0, 0, s.style === 'tar' ? 26 : 22);
+        g.restore();
+        if (Math.random() < 0.5) parts.push({ kind: 'drip', x, y, vx: 0, vy: 20, g: 200, life: 0.5, max: 0.5, r: 2 });
+        if (!ok) { g.fillStyle = '#c9b37a'; g.beginPath(); g.arc(x, y, 5, 0, TAU); g.fill(); }
         break;
+      }
       case 'rocket': {
         // Point along the flight path, using the last trail point for the heading.
         const prev = s.trail.length > 1 ? s.trail[s.trail.length - 2] : [s.from.x, s.from.y];
@@ -113,6 +119,14 @@
         break;
       }
       case 'lightning': {
+        // A painted bolt stretched from gun to target, flickering between three shapes.
+        const dx = s.to.x - s.from.x, dy = s.to.y - s.from.y, len = Math.hypot(dx, dy);
+        const bolt = BOLTS[Math.floor(s.t * 30) % BOLTS.length];
+        g.save(); g.translate((s.from.x + s.to.x) / 2, (s.from.y + s.to.y) / 2); g.rotate(Math.atan2(dy, dx));
+        g.globalCompositeOperation = 'lighter';
+        const ok = SP().draw(g, bolt, 0, 0, len * 1.05, Math.min(40, len * 0.22));
+        g.restore();
+        if (ok) break;
         g.save(); g.strokeStyle = '#e6f3ff'; g.lineWidth = 2.5; g.shadowColor = '#8fc8ff'; g.shadowBlur = 14;
         g.beginPath(); g.moveTo(s.from.x, s.from.y);
         const n = 8;
@@ -120,10 +134,10 @@
         g.stroke(); g.restore();
         break;
       }
-      case 'gas': case 'tar': {
-        const col = { gas: '#a98ad6', tar: '#8bc34a' }[s.style];
+      case 'gas': {
+        const col = '#a98ad6';
         g.fillStyle = col; g.strokeStyle = '#24170f'; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 5, 0, TAU); g.fill(); g.stroke();
-        if (Math.random() < 0.6) parts.push({ kind: 'smoke', x, y, vx: rand(-10, 10), vy: rand(-10, 10), g: 0, life: 0.4, max: 0.4, r: 4, color: s.style === 'gas' ? 'rgba(170,140,220,' : undefined });
+        if (Math.random() < 0.6) parts.push({ kind: 'smoke', x, y, vx: rand(-10, 10), vy: rand(-10, 10), g: 0, life: 0.4, max: 0.4, r: 4, color: 'rgba(170,140,220,' });
         break;
       }
       case 'bomb':
@@ -136,6 +150,9 @@
       }
     }
   }
+  const BOLTS = ['bolt_forked', 'bolt_jagged', 'bolt_chain'];
+  const FLAMES = ['fire_1', 'fire_2', 'fire_3'];
+  const BIG_FLAMES = ['fire_big_1', 'fire_big_2', 'fire_big_1', 'fire_big_2', 'fire_big_3'];
   const WEAPON_SHOT = { harpoon: ['harpoon', 0.3, 0], cannon: ['ball', 0.32, 18], mortar: ['shell', 0.55, 90], flamethrower: ['flame', 0.35, 0], gatling: ['goo', 0.3, 0], grenadiers: ['rocket', 0.45, 40], sniper: ['tracer', 0.14, 0], tesla: ['lightning', 0.18, 0] };
 
   // ---------- ambient effects ----------
@@ -162,10 +179,35 @@
     if (low && Math.random() < dt * 6) { const c = playerPt('core'); burst(c.x + rand(-15, 15), c.y - 6, 3, 'spark', { min: 40, max: 140, life: 0.5 }); }
   }
 
+  // Lasting status effects, painted every frame: flames on burning modules and on a burning enemy,
+  // globs of glue on glued modules and on a Gummed enemy.
+  function drawStatus(g, t) {
+    const game = window.cardships.game;
+    if (!game || !game.core || !A().player) return;
+    const P = A().player;
+    const flame = (x, y, w, seed, big) => { const set = big ? BIG_FLAMES : FLAMES; SP().draw(g, set[Math.floor(t * 9 + seed * 7) % set.length], x, y, w); };
+    const spots = [...[...P.mods.values()].map((m) => [m.uid, m.tokens]), ['core', game.core.tokens]];
+    for (const [uid, tok] of spots) {
+      if (!tok || (!tok.fire && !tok.glue)) continue;
+      const pt = P.pointOf(uid);
+      if (!pt) continue;
+      const seed = (uid.charCodeAt(uid.length - 1) || 0) % 5;
+      if (tok.glue) SP().draw(g, 'glue_glob', pt.x + 4, pt.y + 2, 20 + seed);
+      if (tok.fire) flame(pt.x - 2, pt.y - 10, 22, seed, false);
+    }
+    const c = game.combat;
+    if (A().enemy && c && !c.over) {
+      const ep = enemyPt();
+      if (c.enemy.weak > 0) for (const [k, dx] of [[0, -0.35], [1, 0.25]]) SP().draw(g, k ? 'glue_spray' : 'glue_glob', ep.x + dx * ep.r, ep.y + 8 + k * 6, 30);
+      if (c.enemy.burn > 0) for (let i = 0; i < Math.min(3, c.enemy.burn); i++) flame(ep.x + (i - 1) * ep.r * 0.45, ep.y - 6 + (i % 2) * 10, 30 + c.enemy.burn * 3, i, true);
+    }
+  }
+
   // ---------- drawing hooks ----------
   function drawFx(g, v) {
     const dt = v.dt;
     ambient(dt, v.t);
+    drawStatus(g, v.t);
     for (const s of shots) { s.t += dt; drawShot(g, s); }
     for (let i = shots.length - 1; i >= 0; i--) if (shots[i].t >= shots[i].dur) shots.splice(i, 1);
     for (const p of parts) {
@@ -284,6 +326,7 @@
   const sfx = (name, opts) => { if (window.CardshipsAudio) window.CardshipsAudio.sfx(name, opts); };
   let lookahead = [];
   let lastFire = null;
+  let lastBolt = false; // the enemy's last shot was lightning
   function nextTarget() {
     const ev = lookahead.find((e) => ['hit', 'block', 'destroyed'].includes(e.type));
     return ev ? ev.uid : null;
@@ -338,7 +381,9 @@
       for (let i = 0; i < Math.min(8, 2 + ev.dmg); i++) parts.push({ kind: Math.random() < 0.5 ? 'bolt' : 'gear', x: p.x, y: p.y, vx: rand(-160, 160), vy: rand(-200, -60), g: 500, life: 1, max: 1, r: rand(2.5, 4.5), rot: 0, vr: rand(-12, 12), color: '#8d9399' });
       smokePuff(p.x, p.y, 4);
       const ex = p.x - p.r * 0.2 + rand(-14, 14), ey = p.y + rand(-12, 12);
-      if (lastFire === 'tesla') sprite(ex, ey, ['zap_blue', 'zap_white'], 60, 0.35, { add: true });
+      if (lastFire === 'tesla') { sprite(ex, ey, ['zap_crack', 'zap_blue', 'zap_white'], 64, 0.4, { add: true }); sprite(ex, ey, 'bolt_chain', 90, 0.2, { add: true, rot: rand(-0.6, 0.6) }); }
+      if (lastFire === 'flamethrower') sprite(ex, ey + 6, ['napalm', 'fire_sticky'], 46, 0.7, { grow: 0.1 });
+      if (lastFire === 'gatling') { sprite(ex, ey, 'glue_spray', 44, 0.6, { grow: 0.2 }); sprite(ex + 6, ey + 4, 'glue_glob', 30, 0.8, { vy: 18, grow: 0 }); }
       explosion(ex, ey, 46 + ev.dmg * 8, big);
       if (big) smokeCloud(ex, ey - 10, 70, 'black');
       lastFire = null;
@@ -363,6 +408,7 @@
     enemyBlock() { const p = enemyPt(); ring(p.x, p.y, 'rgba(147,166,179,0.9)', p.r * 0.4, p.r * 1.1, 0.5, 6); sfx('clang'); return 320; },
     enemyHeal() { const p = enemyPt(); for (let i = 0; i < 6; i++) parts.push({ kind: 'wrench', x: p.x + rand(-p.r * 0.5, p.r * 0.5), y: p.y, vx: rand(-30, 30), vy: rand(-90, -40), g: 60, life: 0.9, max: 0.9, rot: 0, vr: rand(-12, 12) }); ring(p.x, p.y, 'rgba(120,220,140,0.9)', 10, p.r, 0.5, 5); sfx('ratchet'); return 300; },
     enemyShot(ev) {
+      lastBolt = !!ev.lightning;
       const from = enemyPt();
       const targets = [];
       for (const e of lookahead) { if (e.type === 'enemyShot' || e.type === 'roll' || e.type === 'intent') break; if (['hit', 'block', 'token'].includes(e.type) && !targets.includes(e.uid)) targets.push(e.uid); }
@@ -380,6 +426,7 @@
       if (m) m.hp = ev.hp;
       if (ev.uid === 'core') A().player.coreHp = ev.hp;
       burst(p.x, p.y, 8 + ev.dmg * 3, 'spark', { min: 60, max: 240, life: 0.5 });
+      if (lastBolt) { sprite(p.x, p.y, ['zap_crack', 'zap_white'], 52, 0.4, { add: true }); lastBolt = false; }
       for (let i = 0; i < Math.min(6, ev.dmg + 1); i++) parts.push({ kind: 'bolt', x: p.x, y: p.y, vx: rand(-140, 140), vy: rand(-180, -40), g: 520, life: 0.9, max: 0.9, rot: 0, vr: rand(-14, 14) });
       if (ev.src !== 'fire') explosion(p.x + rand(-8, 8), p.y + rand(-8, 4), 34 + ev.dmg * 7, ev.dmg >= 4);
       numberAt(p.x, p.y - 30, `-${ev.dmg}`, ev.uid === 'core' ? '#ff8f7a' : '#ffd6a0', 17 + Math.min(14, ev.dmg * 3));
@@ -414,16 +461,15 @@
     },
     token(ev) {
       const p = playerPt(ev.uid);
-      if (ev.token === 'fire') burst(p.x, p.y - 4, 16, 'flame', { min: 20, max: 120, g: -60, life: 0.6, rmin: 4, rmax: 9 });
-      if (ev.token === 'glue') burst(p.x, p.y, 14, 'drip', { min: 40, max: 160, g: 300, life: 0.7, rmin: 2, rmax: 4 });
+      if (ev.token === 'fire') { sprite(p.x, p.y - 8, ['napalm', 'sticky_fire', 'fire_sticky'], 44, 0.7, { grow: 0.15 }); burst(p.x, p.y - 4, 10, 'flame', { min: 20, max: 120, g: -60, life: 0.6, rmin: 4, rmax: 9 }); }
+      if (ev.token === 'glue') { sprite(p.x, p.y - 4, 'glue_spray', 40, 0.6, { grow: 0.2 }); burst(p.x, p.y, 10, 'drip', { min: 40, max: 160, g: 300, life: 0.7, rmin: 2, rmax: 4 }); }
       if (ev.token === 'gas') smokeCloud(p.x, p.y - 6, 60, 'green', { life: 1.4, vy: -8 });
-      if (ev.token === 'glue') sprite(p.x, p.y - 4, 'orb_green', 34, 0.5);
       if (ev.token === 'gas') for (let i = 0; i < 8; i++) parts.push({ kind: 'gas', x: p.x + rand(-20, 20), y: p.y + rand(-12, 12), vx: rand(-30, 30), vy: rand(-20, 10), g: 0, life: 1.4, max: 1.4, r: rand(10, 16) });
       sfx(ev.token === 'fire' ? 'crackle' : 'splat');
       return 220;
     },
-    burn(ev) { const p = playerPt(ev.uid); burst(p.x, p.y - 8, 12, 'flame', { up: 80, min: 10, max: 60, g: -80, life: 0.5, rmin: 4, rmax: 9 }); ring(p.x, p.y, 'rgba(255,140,60,0.9)', 6, 30, 0.3, 4); return 120; },
-    enemyBurn() { const p = enemyPt(); burst(p.x, p.y, 18, 'flame', { up: 90, min: 10, max: 80, g: -80, life: 0.6, rmin: 6, rmax: 11 }); sfx('crackle'); return 200; },
+    burn(ev) { const p = playerPt(ev.uid); sprite(p.x, p.y - 10, 'sticky_fire', 34, 0.6, { grow: 0.2 }); burst(p.x, p.y - 8, 12, 'flame', { up: 80, min: 10, max: 60, g: -80, life: 0.5, rmin: 4, rmax: 9 }); ring(p.x, p.y, 'rgba(255,140,60,0.9)', 6, 30, 0.3, 4); return 120; },
+    enemyBurn() { const p = enemyPt(); sprite(p.x, p.y - 4, ['fire_big_3', 'fire_big_1'], 70, 0.6, { grow: 0.2 }); burst(p.x, p.y, 18, 'flame', { up: 90, min: 10, max: 80, g: -80, life: 0.6, rmin: 6, rmax: 11 }); sfx('crackle'); return 200; },
     heal(ev) {
       const p = playerPt(ev.uid);
       const m = A().player.mods.get(ev.uid);

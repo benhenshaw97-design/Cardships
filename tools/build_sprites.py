@@ -133,6 +133,18 @@ PARTS_AREAS = {
  'motor_a': (384, 642, 485, 732), 'motor_b': (486, 642, 586, 732), 'rudder': (587, 634, 684, 738),
  'fin_a': (706, 638, 784, 740), 'fin_b': (788, 638, 882, 740), 'fin_c': (884, 638, 960, 740),
 }
+# The second effects sheet (transparent): flames and a lightning crack.
+FX2_AREAS = {
+ 'fire_1': (15, 604, 48, 642), 'fire_2': (55, 604, 98, 642), 'fire_3': (100, 604, 146, 642),
+ 'fire_big_1': (18, 648, 96, 746), 'fire_big_2': (106, 648, 184, 746), 'fire_big_3': (200, 648, 288, 746),
+ 'zap_crack': (995, 220, 1060, 292),
+}
+# The effects board is a JPEG on a navy grid, so its pieces are cut by rectangle and keyed (see keyed()).
+BOARD_CUTS = {
+ 'bolt_jagged': (412, 470, 610, 516), 'bolt_chain': (412, 545, 610, 602), 'bolt_forked': (412, 625, 610, 676),
+ 'glue_glob': (650, 468, 708, 522), 'glue_mesh': (728, 468, 792, 522), 'glue_spray': (815, 468, 878, 522),
+ 'napalm': (650, 545, 708, 604), 'fire_sticky': (732, 545, 790, 604), 'sticky_fire': (650, 625, 708, 682),
+}
 PARTS_CUTS = {'panel_iron': (986, 536, 1124, 638), 'crate_wood': (1132, 536, 1238, 638)}
 
 
@@ -156,6 +168,28 @@ def area_pieces(path, areas, cuts={}):
     return pieces
 
 
+def keyed(path, cuts):
+    """Cuts pieces off a dark navy background: lightning keeps its bright glow, everything else
+    drops the bluish-dark backdrop and grid lines."""
+    A = np.array(Image.open(path).convert('RGB')).astype(float)
+    pieces = {}
+    for nm, (x0, y0, x1, y1) in cuts.items():
+        c = A[y0:y1, x0:x1]
+        r, g, b = c[:, :, 0], c[:, :, 1], c[:, :, 2]
+        lum = 0.3 * r + 0.59 * g + 0.11 * b
+        if nm.startswith('bolt_'):
+            alpha = np.clip((lum - 95) / 110, 0, 1)
+        else:
+            blue = (b > r + 18) & (b >= g - 4) & (lum < 170)
+            alpha = np.where(blue, 0.0, 1.0)
+            alpha = np.where(lum < 40, 0.0, alpha)
+        rgba = np.dstack([c, alpha * 255]).astype(np.uint8)
+        ys, xs = np.where(rgba[:, :, 3] > 40)
+        rgba = rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+        pieces[nm] = Image.fromarray(rgba, 'RGBA')
+    return pieces
+
+
 def pack(pieces, path):
     """Shelf-packs pieces into a 1024-wide atlas and returns their frames."""
     order = sorted(pieces, key=lambda n: -pieces[n].size[1])
@@ -175,7 +209,8 @@ def pack(pieces, path):
 def main():
     frames = {}
     sheets = [(ship_pieces(), ATLAS),
-              (area_pieces(os.path.join(SRC, 'fx-sheet.png'), FX_AREAS), os.path.join(ROOT, 'assets/art/fx.png')),
+              ({**area_pieces(os.path.join(SRC, 'fx-sheet.png'), FX_AREAS), **area_pieces(os.path.join(SRC, 'fx-sheet-2.png'), FX2_AREAS),
+                **keyed(os.path.join(SRC, 'effects-board.jpg'), BOARD_CUTS)}, os.path.join(ROOT, 'assets/art/fx.png')),
               (area_pieces(os.path.join(SRC, 'parts-sheet.png'), PARTS_AREAS, PARTS_CUTS), os.path.join(ROOT, 'assets/art/parts.png'))]
     for i, (pieces, path) in enumerate(sheets):
         for k, f in pack(pieces, path).items():
