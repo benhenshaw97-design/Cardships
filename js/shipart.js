@@ -297,21 +297,27 @@
     }
     flash(uid) { if (uid === 'core') this.core.flash = 1; const m = this.mods.get(uid); if (m) m.flash = 1; }
     recoil(uid) { const m = this.mods.get(uid); if (m) m.recoil = 1; }
-    extent() {
-      const l = this.leftN || 0, r = this.rightN || 0;
+    // includeGhost=false gives the real ship, so a preview never re-centres or rescales it.
+    extent(includeGhost = true) {
+      const g = includeGhost ? this.ghost : null;
+      const l = (this.leftN || 0) + (g && g.side === 'left' ? 1 : 0), r = (this.rightN || 0) + (g && g.side === 'right' ? 1 : 0);
       return { left: CORE_W / 2 + l * (M + GAP) + 10, right: CORE_W / 2 + r * (M + GAP) + 10 };
     }
-    width() { const e = this.extent(); return e.left + e.right + 50; }
+    width() { const e = this.extent(false); return e.left + e.right + 50; }
     // World position of a module (or the Core) in canvas pixels, for effects and arrows.
     pointOf(uid) {
       if (uid === 'core') return { x: this.x, y: this.y, r: CORE_W * this.scale * 0.5 };
       const m = this.mods.get(uid);
       if (!m) return null;
-      return { x: this.x + m.x * this.scale * this.facing, y: this.y, r: M * this.scale * 0.5 };
+      return { x: this.x + (m.x + (m.shift || 0)) * this.scale * this.facing, y: this.y, r: M * this.scale * 0.5 };
     }
     update(dt) {
       for (const m of this.mods.values()) {
         m.x += (m.tx - m.x) * Math.min(1, dt * 7);
+        // Make room for a previewed install: modules at or beyond the slot slide outward.
+        const g = this.ghost;
+        const want = g && g.side === m.side && m.idx >= g.pos ? (m.side === 'left' ? -1 : 1) * (M + GAP) : 0;
+        m.shift = (m.shift || 0) + (want - (m.shift || 0)) * Math.min(1, dt * 9);
         if (m.install < 1) {
           m.install = Math.min(1, m.install + dt * 2.2);
           if (m.install >= 1) { this.boltSparks(m); if (PlayerShip.onClank) PlayerShip.onClank(m); }
@@ -385,6 +391,7 @@
       if (!sternMod || sternMod.id !== 'propeller') prop(g, left - 4, 0, 18, t);
       this.drawCore(g, t);
       for (const m of [...this.mods.values()].sort((a, b) => a.idx - b.idx)) this.drawModule(g, m, t, opts);
+      if (this.ghost) this.drawGhost(g, t);
       // Insertion bolts for installing a part.
       if (this.inserts.length) {
         for (const ins of this.inserts) {
@@ -464,11 +471,23 @@
       }
       g.restore();
     }
+    // A see-through preview of a part about to be installed.
+    drawGhost(g, t) {
+      const gh = this.ghost;
+      const dir = gh.side === 'left' ? -1 : 1;
+      const x = dir * (CORE_W / 2 + GAP + M / 2 + gh.pos * (M + GAP));
+      const m = { uid: 'ghost', id: gh.id, side: gh.side, idx: gh.pos, hp: 1, max: 1, tokens: {}, recoil: 0, outer: gh.outer };
+      g.save(); g.translate(x, -4 + Math.sin(t * 3) * 2); g.globalAlpha = 0.55;
+      this.drawModuleBody(g, m, t, false);
+      g.globalAlpha = 1; g.strokeStyle = '#f0cf84'; g.lineWidth = 2; g.setLineDash([5, 4]);
+      rr(g, -M / 2 - 4, -H / 2 - 6, M + 8, H + 12, 6); g.stroke(); g.setLineDash([]);
+      g.restore();
+    }
     drawModule(g, m, t, opts) {
       const ease = 1 - Math.pow(1 - m.install, 3);
       const drop = (1 - ease) * -70;
       g.save();
-      g.translate(m.x, drop);
+      g.translate(m.x + (m.shift || 0), drop);
       g.globalAlpha = Math.min(1, 0.2 + ease);
       this.drawModuleBody(g, m, t, false);
       this.drawTokens(g, 0, m.tokens, t);
@@ -482,7 +501,7 @@
       if (this.highlight.has(m.uid)) this.drawSelect(g, 0, M);
       if (opts.synergy && opts.synergy.has(m.uid)) { g.strokeStyle = '#7ff0c0'; g.lineWidth = 2.5; g.setLineDash([5, 4]); rr(g, -M / 2 - 4, -H / 2 - 6, M + 8, H + 12, 6); g.stroke(); g.setLineDash([]); }
       g.restore();
-      this.hits.push({ uid: m.uid, ...this.toWorld(m.x, 0, M * 0.55) });
+      this.hits.push({ uid: m.uid, ...this.toWorld(m.x + (m.shift || 0), 0, M * 0.55) });
     }
     drawSelect(g, x, w) { g.strokeStyle = '#f0cf84'; g.lineWidth = 2.5; rr(g, x - w / 2 - 5, -H / 2 - 8, w + 10, H + 22, 7); g.stroke(); }
     drawTargetRing(g, x, r, t, dmg) {

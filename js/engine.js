@@ -79,6 +79,16 @@
       return g;
     }
 
+    // Seeds as short shareable codes, e.g. "K3V9QX".
+    static seedCode(seed) { return (seed >>> 0).toString(36).toUpperCase(); }
+    static seedFromCode(code) {
+      const clean = String(code || '').trim().toUpperCase();
+      if (!clean) return null;
+      if (/^[0-9A-Z]{1,7}$/.test(clean)) { const n = parseInt(clean, 36); if (n <= 0xffffffff) return n >>> 0; }
+      let h = 2166136261; for (const ch of clean) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+      return h >>> 0;
+    }
+
     // ---------- dice & log ----------
     rand() {
       let a = (this.rngState = (this.rngState + 0x6d2b79f5) >>> 0);
@@ -168,6 +178,80 @@
     gainCogs(n, why) { if (n <= 0) return; this.cogs += n; this.stats.cogs += n; this.emit('cogs', { amount: n }); this.say(`+${n} cogs${why ? ` (${why})` : ''}.`, 'good'); }
     isWeapon(card) { return this.def(card).type === 'weapon'; }
     weaponsInstalled() { return this.cards().filter((c) => this.isWeapon(c)).length; }
+
+    // ---------- synergies ----------
+    // Why two modules matter to each other, read from a's point of view (or null).
+    pairSynergy(a, b, side) {
+      const s = this[side];
+      const ia = s.indexOf(a), ib = s.indexOf(b);
+      const last = s.length - 1;
+      const w = (c) => this.isWeapon(c);
+      const name = (c) => this.def(c).name;
+      if (a.id === 'harpoon' && ib === ia + 1 && w(b)) return `Chain Feed: ${name(b)} +1 damage`;
+      if (b.id === 'harpoon' && ia === ib + 1 && w(a)) return `Chain Feed from the Harpoon: +1 damage`;
+      if (a.id === 'quarters' && w(b)) return `Crew: ${name(b)} costs 1 less Steam`;
+      if (b.id === 'quarters' && w(a)) return 'Crewed: costs 1 less Steam';
+      if (a.id === 'telescope' && (b.id === 'mortar' || b.id === 'sniper')) return b.id === 'mortar' ? 'Spotter: Mortar never reloads' : 'Spotter: Sniper +1 damage';
+      if (b.id === 'telescope' && (a.id === 'mortar' || a.id === 'sniper')) return a.id === 'mortar' ? 'Spotted: never reloads' : 'Spotted: +1 damage';
+      if (a.id === 'gatling' && b.id === 'plating') return 'Adhesive: Plating +1 max Durability';
+      if (b.id === 'gatling' && a.id === 'plating') return 'Glued down: +1 max Durability';
+      if (a.id === 'autoloader' && w(b)) return `Autoloader: ${name(b)} fires twice`;
+      if (b.id === 'autoloader' && w(a)) return 'Autoloaded: fires twice a turn';
+      if (a.id === 'sprinkler') return `Sprinklers: ${name(b)} can't catch fire`;
+      if (b.id === 'sprinkler') return 'Fireproofed by the Sprinkler Tank';
+      if (a.id === 'scrubber') return `Scrubbed: ${name(b)} immune to Gas and Glue`;
+      if (b.id === 'scrubber') return 'Immune to Gas and Glue';
+      if (a.id === 'repair') return `Repair Bay can mend the ${name(b)}`;
+      if (b.id === 'repair') return 'Within reach of the Repair Bay';
+      if (ARMOR[a.id] && ia < last && !ARMOR[b.id]) return `Bulkhead: soaks ${ARMOR[a.id].soak} of hits on the ${name(b)}`;
+      if (ARMOR[b.id] && ib < last && !ARMOR[a.id]) return 'Bulkhead next door soaks part of each hit';
+      if (a.id === 'grenadiers') return `If the ${name(b)} is destroyed, the enemy starts Choking`;
+      if (b.id === 'grenadiers') return 'If this is destroyed, the Grenadiers gas the enemy';
+      if (a.id === 'cannon' && ia < last) return `Powder Store: if the ${name(b)} is destroyed, 3 damage to the enemy`;
+      if (b.id === 'cannon' && ib < last) return 'If this is destroyed, the buried Cannon cooks off';
+      if (a.id === 'boiler') return `Danger: the ${name(b)} gets scalded if the boiler bursts`;
+      if (b.id === 'boiler') return 'Danger: scalded if the boiler bursts';
+      return null;
+    }
+    // Every module linked to this one, with the reason. Outside armor also covers its whole side.
+    synergies(uid) {
+      const out = [];
+      if (uid === 'core') {
+        for (const side of SIDES) { const c = this[side][0]; if (c && (c.id === 'repair' || c.id === 'heart')) out.push({ uid: c.uid, text: c.id === 'repair' ? 'Repair Bay can mend the Core' : 'Clockwork Heart: +3 max Durability, repairs 1 a turn' }); }
+        return out;
+      }
+      const loc = this.locate(uid);
+      if (!loc || !loc.side) return out;
+      const s = this[loc.side];
+      for (const n of this.neighbors(loc.side, loc.idx)) { const t = this.pairSynergy(loc.card, n, loc.side); if (t) out.push({ uid: n.uid, text: t }); }
+      if (loc.idx === 0 && (loc.card.id === 'repair' || loc.card.id === 'heart')) out.push({ uid: 'core', text: loc.card.id === 'repair' ? 'Attached to the Core: can mend it' : 'Attached to the Core: +3 max Durability, repairs 1 a turn' });
+      const outer = s[s.length - 1];
+      if (ARMOR[loc.card.id] && loc.card === outer) for (const c of s) if (c !== outer && !out.some((o) => o.uid === c.uid)) out.push({ uid: c.uid, text: `Shields the ${this.def(c).name} from hits` });
+      if (ARMOR[outer.id] && outer !== loc.card && !out.some((o) => o.uid === outer.uid)) out.push({ uid: outer.uid, text: 'Outside armor takes the hits meant for this' });
+      return out;
+    }
+    // What installing a part at side/pos would change, without changing anything.
+    previewInstall(id, side, pos) {
+      if (!this.canInstall(side, pos)) return null;
+      const before = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), outer: { left: this.outer('left'), right: this.outer('right') }, sight: this.sight() };
+      const card = this.makeCard(id);
+      this.nextUid--;
+      this[side].splice(pos, 0, card);
+      const after = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), sight: this.sight() };
+      const links = this.synergies(card.uid).map((x) => x.text);
+      const fires = !this.isWeapon(card) || PARTS[id].arc || this.isOuter(side, pos);
+      const covered = this.outer(side) !== before.outer[side] && before.outer[side] ? this.def(before.outer[side]).name : null;
+      this[side].splice(pos, 1);
+      const notes = [];
+      notes.push(`Weight ${fmt(before.weight)} → ${fmt(after.weight)}`);
+      if (after.steam !== before.steam) notes.push(`Steam ${before.steam} → ${after.steam}`);
+      if (after.evade !== before.evade && after.evade != null) notes.push(`Evade cost ${before.evade} → ${after.evade}`);
+      if (after.sight !== before.sight) notes.push(`Sight ${before.sight} → ${after.sight}`);
+      if (pos === this[side].length) notes.push(`Becomes the outside module on the ${side === 'left' ? 'stern' : 'bow'}`);
+      if (covered) notes.push(`The ${covered} is buried behind it${this.isWeapon(before.outer[side]) && !PARTS[before.outer[side].id].arc ? ' and can no longer fire' : ''}`);
+      if (!fires) notes.push('Buried: this weapon cannot fire here');
+      return { notes, links };
+    }
 
     // ---------- run setup ----------
     chooseCore(id) {

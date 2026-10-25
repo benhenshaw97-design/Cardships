@@ -18,11 +18,26 @@
   Scene.fx = FX.drawFx;
   Scene.overlay = FX.drawOverlay;
   // Taps on the flight view select modules or hit install bolts.
+  const touchFirst = window.matchMedia('(hover: none)').matches;
   document.getElementById('scene').addEventListener('click', (ev) => {
     if (FX.isPlaying()) { FX.skip(); return; }
     const r = ev.currentTarget.getBoundingClientRect();
+    ui.lastTouch = ev.pointerType ? ev.pointerType !== 'mouse' : touchFirst;
     Actors.tap(ev.clientX - r.left, ev.clientY - r.top);
   });
+  document.getElementById('scene').addEventListener('pointermove', (ev) => {
+    if (ev.pointerType !== 'mouse' || FX.isPlaying()) return;
+    const r = ev.currentTarget.getBoundingClientRect();
+    Actors.hover(ev.clientX - r.left, ev.clientY - r.top);
+  });
+  document.getElementById('scene').addEventListener('pointerleave', () => Actors.hover(null, null));
+  // Hovering an install bolt previews the part there.
+  Actors.onHoverInsert = (ins) => {
+    if (!ui.insertFn || !ui.previewId) return;
+    const key = ins ? `${ins.side}:${ins.pos}` : null;
+    if (key === ui.previewKey) return;
+    setPreview(ins ? ins.side : null, ins ? ins.pos : null);
+  };
   Actors.onSelect = (uid) => {
     if (!game) return;
     if (ui.targeting) {
@@ -35,14 +50,46 @@
     ui.confirmScrap = null;
     render();
   };
-  Actors.onInsert = (side, pos) => { if (ui.insertFn) { ui.insertFn(side, pos); ui.insertFn = null; render(); } };
+  // Mouse: click a bolt to install (hovering already previewed it). Touch: first tap previews, second installs.
+  Actors.onInsert = (side, pos) => {
+    if (!ui.insertFn) return;
+    if (ui.lastTouch && ui.previewKey !== `${side}:${pos}`) { setPreview(side, pos); return; }
+    commitInsert(side, pos);
+  };
+  function setPreview(side, pos) {
+    ui.previewKey = side ? `${side}:${pos}` : null;
+    ui.preview = side && ui.previewId ? { id: ui.previewId, side, pos } : null;
+    Actors.previewKey = ui.previewKey;
+    render();
+  }
+  function commitInsert(side, pos) {
+    const fn = ui.insertFn;
+    ui.preview = null; ui.previewKey = null; Actors.previewKey = null;
+    if (fn) { fn(side, pos); ui.insertFn = null; render(); }
+  }
 
   let game = null;
   let meta = Meta.load();
-  const ui = { cardView: false, insertFn: null, selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
+  const ui = { cardView: false, insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
   try { ui.cardView = localStorage.getItem('cardships.cardView') === '1'; } catch (e) { /* storage unavailable */ }
+  const SAVE_KEY = 'cardships.run.v2';
+  function loadSave() { try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage unavailable */ } }
+  // Autosave: the whole run, dice generator included, after every change.
+  function autosave() {
+    if (!game || !game.core) return;
+    if (['gameover', 'victory'].includes(game.phase)) { clearSave(); return; }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(game)); } catch (e) { /* storage unavailable */ }
+  }
+  function continueRun(saved) {
+    game = Game.fromJSON(saved);
+    Actors.reset();
+    ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
+    render();
+  }
   function newRun(coreId) {
-    game = new Game({ unlocked: meta.unlocked });
+    const seed = Game.seedFromCode(ui.seedCode);
+    game = new Game({ unlocked: meta.unlocked, seed: seed == null ? undefined : seed });
     Actors.reset();
     game.chooseCore(coreId);
     game.events = [];
@@ -66,6 +113,8 @@
     return el;
   }
   const $ = (id) => document.getElementById(id);
+  // Like el.append, but skips null/false (which append would print as text).
+  const appendAll = (el, ...kids) => el.append(...kids.flat(Infinity).filter((k) => k != null && k !== false));
   const statline = (...items) => h('span', { class: 'statline' }, items.map((x) => (typeof x === 'string' ? h('span', {}, x) : x)));
   const partName = (id) => D.PARTS[id].name;
 
@@ -134,6 +183,7 @@
     syncScene();
     renderHud();
     ui.insertFn = null;
+    ui.previewId = null;
     $('stage').replaceChildren(...stageContent().filter(Boolean));
     renderLog();
     if (game) {
@@ -144,8 +194,12 @@
       game.flashes.clear();
       game.events = [];
     }
+    ui.intentSummary = game && game.phase === 'combat' && game.combat.enemy.intent ? intentText(game.combat.enemy.intent) : '';
     Actors.sync(game, ui);
     renderPopover();
+    autosave();
+    const lh = $('log-head');
+    if (lh) lh.textContent = game && game.phase === 'combat' ? `Combat log · round ${game.combat.round}` : "Ship's log";
   }
   // A small card over the flight view for the module you tapped, with its actions.
   function renderPopover() {
@@ -231,8 +285,18 @@
       const got = meta.unlocked.includes(u.id);
       return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('b', {}, u.name), h('span', {}, got ? `Unlocked ${u.kind}` : u.how));
     }));
+    const saved = loadSave();
+    const seedBox = h('div', { class: 'row seed-row' },
+      h('label', { for: 'seed-input', class: 'hud-label' }, 'Seed'),
+      h('input', { id: 'seed-input', class: 'seed-input', placeholder: 'Random', value: ui.seedCode, maxlength: '16', autocomplete: 'off', oninput: (e) => { ui.seedCode = e.target.value; } }),
+      h('span', { class: 'muted' }, 'Enter a code (letters or numbers) to replay or share a run.'));
     return [
+      saved && saved.core ? h('div', { class: 'panel row', style: 'justify-content:space-between' },
+        h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, 'Autosaved run'),
+          h('b', {}, `${D.CORES[saved.core.id].name} · column ${saved.depth} of ${saved.maxDepth} · seed ${Game.seedCode(saved.seed)}`)),
+        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => continueRun(saved) }, 'Continue run'), h('button', { class: 'btn', onclick: () => { clearSave(); render(); } }, 'Abandon'))) : null,
       h('div', { class: 'cores' }, cores),
+      seedBox,
       h('div', { class: 'panel stack' },
         h('h3', {}, 'How it flies'),
         h('div', { class: 'primer' },
@@ -296,8 +360,9 @@
     incoming != null ? h('span', { class: 'incoming' }, incoming > 0 ? `−${incoming}` : '0') : null);
   }
 
-  function shipView({ insert = null, title = 'Your ship' } = {}) {
-    if (insert) ui.insertFn = insert;
+  function shipView({ insert = null, title = 'Your ship', previewId = null } = {}) {
+    if (insert) { ui.insertFn = insert; ui.previewId = previewId; }
+    if (!insert || (ui.preview && ui.preview.id !== previewId)) { ui.preview = null; ui.previewKey = null; Actors.previewKey = null; }
     const toggle = h('button', { class: 'btn small', onclick: () => { ui.cardView = !ui.cardView; try { localStorage.setItem('cardships.cardView', ui.cardView ? '1' : '0'); } catch (e) { /* storage unavailable */ } render(); } }, ui.cardView ? 'Hide cards' : 'Card view');
     if (!ui.cardView) {
       const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 modules`), toggle),
@@ -321,9 +386,9 @@
         const slot = h('div', { class: 'slot', style: `grid-column: ${col}; grid-row: 2` });
         if (s[i]) {
           slot.append(cardEl(s[i], hits));
-          if (insert && !full) slot.append(h('button', { class: `insert-tab ${side === 'left' ? 'at-right' : 'at-left'}`, title: `Insert at ${side} layer ${i + 1}`, 'aria-label': `Insert at ${side} layer ${i + 1}`, onclick: act(() => insert(side, i)) }, '+'));
+          if (insert && !full) slot.append(h('button', { class: `insert-tab ${side === 'left' ? 'at-right' : 'at-left'}`, title: `Insert at ${side} layer ${i + 1}`, 'aria-label': `Insert at ${side} layer ${i + 1}`, onmouseenter: () => { if (ui.previewKey !== `${side}:${i}`) setPreview(side, i); }, onclick: () => commitInsert(side, i) }, '+'));
         } else if (insert && i === s.length) {
-          slot.append(h('button', { class: 'slot-attach', onclick: act(() => insert(side, i)) }, `Attach at layer ${i + 1}`));
+          slot.append(h('button', { class: 'slot-attach', onmouseenter: () => { if (ui.previewKey !== `${side}:${i}`) setPreview(side, i); }, onclick: () => commitInsert(side, i) }, `Attach at layer ${i + 1}`));
         } else {
           slot.append(h('div', { class: 'slot-empty' }, s.length === 0 && i === 0 ? 'Bare: Core exposed' : 'Open'));
         }
@@ -371,6 +436,10 @@
       statline(`W${fmt(info.weight)}`, `Dur ${Math.max(0, card.hp)}/${info.max}`)));
     if (card !== game.core) box.append(h('p', { class: 'muted' }, loc.stored ? 'In the Cargo Hold.' : `${loc.side === 'left' ? 'Stern' : 'Bow'} side, layer ${loc.idx + 1}: ${game.isOuter(loc.side, loc.idx) ? 'outside' : 'buried'}.`));
     box.append(rulesBlock(card));
+    if (!loc.stored) {
+      const links = game.synergies(uid);
+      if (links.length) box.append(h('ul', { class: 'notes links' }, links.map((l) => h('li', {}, l.text))));
+    }
     if (card.bonusMax) box.append(h('p', { class: 'muted' }, `Reinforced: +${card.bonusMax} max Durability.`));
     for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
 
@@ -436,9 +505,10 @@
   function lootScreen() {
     const panel = h('section', { class: 'panel stack' }, h('span', { class: 'eyebrow' }, game.lootTitle));
     let insert = null;
+    let previewFor = null;
     if (game.lootOffer) {
       const o = game.lootOffer;
-      panel.append(h('h2', {}, o.keep > 1 ? `Keep ${o.keep}` : 'Choose a part'),
+      appendAll(panel, h('h2', {}, o.keep > 1 ? `Keep ${o.keep}` : 'Choose a part'),
         h('p', { class: 'muted' }, 'Take one, or leave them all if none fit your ship.'),
         h('div', { class: 'choices' }, o.ids.map((id, i) => partSheet(id, h('button', { class: 'btn primary', onclick: act(() => game.pickOffer(i)) }, 'Take')))),
         h('div', { class: 'row' }, h('button', { class: 'btn', onclick: act(() => game.skipOffer()) }, 'Take nothing')));
@@ -447,25 +517,39 @@
       const full = game.left.length >= 3 && game.right.length >= 3;
       const canStore = game.storage.length < game.storageCap();
       insert = (side, pos) => game.installPending(side, pos);
-      panel.append(
+      appendAll(panel, 
         h('h2', {}, `Install: ${partName(id)}`),
-        h('p', {}, full ? 'Both sides are full. Scrap a module to make room (tap it, then Scrap), stow it or jettison it.' : 'Use an orange marker on your ship to bolt it on. A + tab inserts it at that layer and pushes outer modules out.'),
+        h('p', {}, full ? 'Both sides are full. Scrap a module to make room (tap it, then Scrap), stow it or jettison it.' : 'Choose a brass bolt on your ship to bolt it on there. Bolts between modules insert it and push the outer modules out.'),
         game.pendingLoot.length > 1 ? h('p', { class: 'muted' }, `${game.pendingLoot.length - 1} more part${game.pendingLoot.length > 2 ? 's' : ''} waiting.`) : null,
         h('div', { class: 'choices' }, partSheet(id, h('div', { class: 'row' },
           game.has('cargo') ? h('button', { class: 'btn', disabled: !canStore || null, onclick: act(() => game.storePending()) }, 'Stow', h('span', { class: 'sub' }, `${game.storage.length}/2`)) : null,
-          h('button', { class: 'btn', onclick: act(() => game.jettisonPending()) }, 'Jettison')))),
+          h('button', { class: 'btn', onclick: act(() => game.jettisonPending()) }, 'Jettison'))),
+        previewPanel(id)),
       );
+      previewFor = id;
     } else if (game.swapAvailable) {
-      panel.append(h('h2', {}, 'Quick Swap'),
+      appendAll(panel, h('h2', {}, 'Quick Swap'),
         h('p', {}, 'You may swap one installed module with one in the Cargo Hold. Choose the stored part first.'),
         h('div', { class: 'row' },
           game.storage.map((c, i) => h('button', { class: `btn ${ui.swapSel === i ? 'primary' : ''}`, onclick: () => { ui.swapSel = i; startSwap(i); } }, partName(c.id))),
           h('button', { class: 'btn', onclick: act(() => { game.swapAvailable = false; ui.swapSel = null; }) }, 'Skip swap')));
     } else {
-      panel.append(h('h2', {}, 'Ready to sail'), h('p', { class: 'muted' }, 'Check your layout, then chart the next leg.'),
+      appendAll(panel, h('h2', {}, 'Ready to sail'), h('p', { class: 'muted' }, 'Check your layout, then chart the next leg.'),
         h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: game.pendingChoice ? true : null, onclick: act(() => game.finishLoot()) }, 'Chart a course')));
     }
-    return [targetBanner(), panel, shipView({ insert })];
+    return [targetBanner(), panel, shipView({ insert, previewId: previewFor })];
+  }
+  // What happens to the ship if the part goes in the previewed slot.
+  function previewPanel(id) {
+    const pv = ui.preview && ui.preview.id === id ? ui.preview : null;
+    if (!pv) return h('div', { class: 'enc preview' }, h('span', { class: 'eyebrow' }, 'Preview'), h('p', { class: 'muted' }, touchFirst ? 'Tap a brass bolt on your ship to preview the part there; tap it again to install.' : 'Hover a brass bolt on your ship to preview the part there; click to install.'));
+    const res = game.previewInstall(id, pv.side, pv.pos);
+    if (!res) return null;
+    return h('div', { class: 'enc preview' },
+      h('span', { class: 'eyebrow' }, `Preview · ${pv.side === 'left' ? 'stern' : 'bow'} layer ${pv.pos + 1}`),
+      h('ul', { class: 'notes' }, res.notes.map((n) => h('li', {}, n))),
+      res.links.length ? h('ul', { class: 'notes links' }, res.links.map((n) => h('li', {}, n))) : h('p', { class: 'muted' }, 'No synergies with its neighbours here.'),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => commitInsert(pv.side, pv.pos) }, 'Install here'), h('button', { class: 'btn', onclick: () => setPreview(null) }, 'Cancel')));
   }
   function startSwap(i) {
     ui.targeting = {
@@ -533,7 +617,7 @@
       h('span', { class: `k-${D.ENCOUNTERS[id].kind.replace(' ', '')}` }, SkyMap.icon(id, 16), D.ENCOUNTERS[id].name)));
     const panel = h('section', { class: 'panel stack map-panel' },
       h('div', { class: 'row', style: 'justify-content:space-between' },
-        h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, `Column ${game.depth} of ${game.maxDepth} · sight ${game.sight()}`), h('h2', {}, 'Sky route')),
+        h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, `Column ${game.depth} of ${game.maxDepth} · sight ${game.sight()} · seed ${Game.seedCode(game.seed)}`), h('h2', {}, 'Sky route')),
         h('span', { class: 'muted' }, `Ahead: ${D.ENEMIES[game.bossId].name}`)),
       mapEl, detail, legend);
     return [targetBanner(), panel, shipView()];
@@ -563,9 +647,9 @@
       h('ol', { class: 'log inline' }, lines.map((l) => h('li', { class: l.cls }, l.text))),
     );
     if (ev.options) {
-      panel.append(h('div', { class: 'options' }, ev.options.map((o) => h('button', { class: 'option', onclick: act(() => game.chooseOption(o.id)) }, h('b', {}, o.label), h('span', {}, o.desc)))));
+      appendAll(panel, h('div', { class: 'options' }, ev.options.map((o) => h('button', { class: 'option', onclick: act(() => game.chooseOption(o.id)) }, h('b', {}, o.label), h('span', {}, o.desc)))));
     } else {
-      panel.append(h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: game.pendingChoice ? true : null, onclick: act(() => game.continueEvent()) }, ev.next ? 'Battle stations' : ev.loot ? 'Collect' : 'Continue')));
+      appendAll(panel, h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: game.pendingChoice ? true : null, onclick: act(() => game.continueEvent()) }, ev.next ? 'Battle stations' : ev.loot ? 'Collect' : 'Continue')));
     }
     return [targetBanner(), panel, shipView()];
   }
@@ -581,7 +665,7 @@
     const panel = h('section', { class: 'panel stack' },
       h('span', { class: 'kind k-SkyDock', style: 'align-self:flex-start' }, e.kind),
       h('h2', {}, e.name),
-      h('p', {}, 'Full reassembly: detach any modules and reattach them anywhere. Choose a docked part, then an orange marker on your ship.'),
+      h('p', {}, 'Full reassembly: detach any modules and reattach them anywhere. Choose a docked part, then a brass bolt on your ship.'),
       dock,
       h('h3', {}, 'Mechanics'),
       d6List(e.table, y.roll ? [y.roll] : []),
@@ -590,7 +674,8 @@
         h('button', { class: 'btn primary', disabled: !y.roll || game.pendingChoice ? true : null, onclick: act(() => { game.leaveHangar(); ui.dockSel = null; }) }, 'Cast off')),
       y.dock.length ? h('p', { class: 'muted' }, 'Parts left on the dock go into the Cargo Hold if there is room, otherwise they stay behind.') : null,
     );
-    return [targetBanner(), panel, shipView({ insert })];
+    if (insert) appendAll(panel, previewPanel(y.dock[ui.dockSel].id));
+    return [targetBanner(), panel, shipView({ insert, previewId: insert ? y.dock[ui.dockSel].id : null })];
   }
 
   // ---------- Trading Zeppelin ----------
@@ -715,6 +800,7 @@
         h('h2', { style: 'font-size: clamp(40px, 9vw, 72px)' }, won ? `${boss.name.replace('The ', '')} sunk` : 'Core ruptured'),
         h('p', {}, won ? `Your ${D.CORES[game.core.id].name} brought down ${boss.name}.` : `Your ${D.CORES[game.core.id].name} went down at column ${game.depth} of ${game.maxDepth}.`),
         h('div', { class: 'stats' }, stat('Encounters', s.encounters), stat('Enemies downed', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Cogs earned', s.cogs), stat('Contracts', s.quests)),
+        h('p', { class: 'muted' }, `Seed ${Game.seedCode(game.seed)}. Enter it on the title screen to fly the same route again.`),
         ui.newUnlocks.length ? h('div', { class: 'banner unlock-banner' }, h('span', {}, 'Unlocked: ' + ui.newUnlocks.map((u) => `${u.name} (${u.kind})`).join(', '))) : null,
         h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; meta = Meta.load(); render(); } }, 'New run')),
       ),

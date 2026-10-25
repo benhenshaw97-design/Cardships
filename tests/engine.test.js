@@ -252,6 +252,24 @@ test('boss gimmicks: Leviathan hull, Storm Queen gale and lightning, Colossus ma
   assert.equal(g.right[0].hp, 3, 'stunned: no attack');
 });
 
+test('synergies explain adjacency links, and install previews predict the change', () => {
+  const g = fight('battleship', ['harpoon', 'cannon'], ['telescope', 'mortar'], 'gunship', shot(0, 'left', 0));
+  assert.match(g.synergies(g.left[0].uid)[0].text, /Chain Feed/);
+  assert.match(g.synergies(g.right[1].uid)[0].text, /never reloads/);
+  const pv = g.previewInstall('plating', 'left', 2);
+  assert.ok(pv.notes.some((n) => /can no longer fire/.test(n)));
+  assert.ok(pv.links.some((n) => /Shields the Harpoon Gun/.test(n)));
+  assert.equal(g.left.length, 2, 'preview leaves the ship unchanged');
+});
+
+test('seed codes round-trip and any text works as a seed', () => {
+  assert.equal(Game.seedFromCode(Game.seedCode(987654321)), 987654321);
+  assert.equal(Game.seedFromCode('Sky Ship'), Game.seedFromCode('sky ship'));
+  const a = new Game({ seed: Game.seedFromCode('ABC') }); a.chooseCore('airship');
+  const b = new Game({ seed: Game.seedFromCode('abc') }); b.chooseCore('airship');
+  assert.deepEqual(a.map.nodes.map((n) => n.enc), b.map.nodes.map((n) => n.enc));
+});
+
 test('a saved run resumes with identical dice', () => {
   const a = fight('airship', ['plating'], ['harpoon'], 'gunship', null, 77);
   const b = Game.fromJSON(JSON.parse(JSON.stringify(a)));

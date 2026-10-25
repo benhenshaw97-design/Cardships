@@ -353,3 +353,10 @@ body.fx-busy .scene-wrap canvas { cursor: progress; }
 .set-slider { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
 .set-slider input { accent-color: var(--brass); width: 100%; }
 @media (prefers-reduced-motion: reduce) { .die { animation-duration: 0.01s; } }
+.preview { background: var(--panel-3); }
+.notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.notes.links li { color: #a8ecd0; }
+.notes.links li::marker { content: "⟷ "; }
+.seed-row { gap: 10px; }
+.seed-input { background: var(--panel); border: 1px solid var(--rule); color: var(--ink); font: 500 15px var(--f-mono); padding: 7px 10px; border-radius: 3px; width: 11em; text-transform: uppercase; }
+.seed-input:focus { outline: 2px solid var(--brass); outline-offset: 1px; }
