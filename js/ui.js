@@ -5,6 +5,23 @@
   const { Game, fmt, SIDES, VENT_COST } = window.CardshipsEngine;
   const Meta = window.CardshipsMeta;
   const SkyMap = window.CardshipsSkyMap;
+  const Scene = window.CardshipsScene;
+  const scene = new Scene(document.getElementById('scene'));
+  // Placeholder hulls until the module-built ship art lands.
+  Scene.actors = (g, v) => {
+    if (!game || !game.core || ['shop'].includes(game.phase)) return;
+    const bob = Math.sin(v.t * 1.6) * 4;
+    const hull = (x, y, s, color, flip) => {
+      g.save(); g.translate(x, y); g.scale(flip ? -s : s, s);
+      g.fillStyle = '#e8dcc0'; g.strokeStyle = '#2b1c12'; g.lineWidth = 3;
+      g.beginPath(); g.ellipse(0, -34, 70, 24, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = color; g.beginPath(); g.roundRect(-50, 0, 100, 22, 6); g.fill(); g.stroke();
+      g.restore();
+    };
+    const inCombat = game.phase === 'combat';
+    hull(v.w * (inCombat ? 0.3 : 0.42), v.h * 0.6 + bob, Math.min(1, v.h / 300), '#c8913f', false);
+    if (inCombat) hull(v.w * 0.74, v.h * 0.5 - bob, Math.min(1, v.h / 300) * 0.9, '#7a3a2c', true);
+  };
 
   let game = null;
   let meta = Meta.load();
@@ -47,11 +64,38 @@
   }
 
   // ---------- render root ----------
+  // Which parallax biome and scroll speed each moment of the run calls for.
+  function syncScene() {
+    const wrap = $('scene-wrap');
+    const overlay = $('scene-overlay');
+    wrap.classList.toggle('tall', !game);
+    if (!game) {
+      scene.setBiome('sunset'); scene.setMode('title');
+      overlay.replaceChildren(h('div', { class: 'title-hero' },
+        h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike'),
+        h('h1', {}, 'Cardships'),
+        h('p', {}, 'Bolt modules onto a Core, read the enemy\'s next move, and fly the cloud routes to the boss.')));
+      return;
+    }
+    overlay.replaceChildren();
+    const node = game.map && game.currentNode();
+    const here = node && node.enc !== 'start' ? node.biome : 'clear';
+    const phase = game.phase;
+    if (phase === 'hangar') { scene.setBiome('dock'); scene.setMode('docked'); }
+    else if (phase === 'shop') { scene.setBiome('interior'); scene.setMode('docked'); }
+    else if (phase === 'combat') { scene.setBiome(node && node.enc === 'boss' ? 'lair' : here); scene.setMode('combat'); }
+    else { scene.setBiome(here); scene.setMode(ui.flying ? 'travel' : 'flight'); }
+  }
   function render() {
+    syncScene();
     renderHud();
     $('stage').replaceChildren(...stageContent().filter(Boolean));
     renderLog();
-    if (game) { game.flashes.clear(); game.events = []; }
+    if (game) {
+      for (const ev of game.events) if (ev.type === 'ram') scene.jolt(ev.player ? 0.8 : 1.2);
+      game.flashes.clear();
+      game.events = [];
+    }
   }
   function stageContent() {
     if (!game) return titleScreen();
@@ -124,11 +168,6 @@
       return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('b', {}, u.name), h('span', {}, got ? `Unlocked ${u.kind}` : u.how));
     }));
     return [
-      h('div', { class: 'title-hero' },
-        h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike'),
-        h('h1', {}, 'Cardships'),
-        h('p', {}, 'Bolt modules onto a Core, read the enemy\'s next move, and fly the cloud routes to the boss. If your Core ruptures, the run is over.'),
-      ),
       h('div', { class: 'cores' }, cores),
       h('div', { class: 'panel stack' },
         h('h3', {}, 'How it flies'),
@@ -428,6 +467,8 @@
   }
   function travel(id, mapEl) {
     ui.flying = true;
+    scene.setMode('travel');
+    scene.setBiome(game.node(id).biome);
     mapEl.flyTo(id, () => {
       ui.flying = false;
       ui.mapSel = null;
@@ -611,5 +652,5 @@
   $('brand').addEventListener('click', () => { if (!game || ['gameover', 'victory'].includes(game.phase)) { game = null; render(); } });
   render();
 
-  window.cardships = { get game() { return game; } };
+  window.cardships = { get game() { return game; }, scene };
 })();

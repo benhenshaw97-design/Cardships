@@ -79,3 +79,20 @@ Every change to the rules, content and presentation, with a one-line reason. New
 
 ### Meta-progression
 - **Lifetime records in this browser unlock content:** Tesla Coil (reach a boss), Autoloader (defeat a Pirate Lair), Gyro Stabilizer (3 contracts), Clockwork Core (win a run), Overpressure Valve (defeat two different bosses). Locked items never appear in loot or shops. The title screen shows progress. *Reason: a reason to keep flying after a loss.*
+
+## Phase 3: parallax world
+
+- **A flight scene canvas sits above every screen and never stops scrolling.** *Reason: it should always feel like you're flying.*
+- **Five layers in every flying biome:** sky gradient → far scenery → mid-distance airships, spires or chimneys → two depths of drifting cloud banks (the front bank passes between the ships and the camera) → fast foreground wisps over everything, plus weather particles. *Reason: depth from layered motion, as asked.*
+- **Five flight biomes, each with its own palette, scenery and weather:**
+  - Clear skies (columns 1–3): floating islands with spires, distant airships, passing flocks of birds.
+  - Smog zone (columns 4–6 and every Smog Bank): the canyon-foundry painting as the far layer under a brown haze, factory chimneys with smoke plumes, falling soot.
+  - Sunset route (columns 7–9): the sunset sky-city painting as the far layer, airship silhouettes, golden motes.
+  - Storm front (columns 10–11 and every Storm Front): dark peaks, slate cloud towers, rain streaks, and lightning that flashes the whole far layer.
+  - Boss's lair (every boss fight): black spires over a red glow, hanging wrecks on chains, rising embers.
+  *Reason: each encounter type and region should look and feel different.*
+- **Two docked scenes built from your paintings:** the Sky Dock uses the sky-deck painting and the Trading Zeppelin uses the engine-room painting, each with a slow drift, rising steam, and (in the engine room) a flickering lantern glow. *Reason: use the provided art where it fits; a hangar and a merchant's hold are places you dock, not fly through.*
+- **The title screen flies over the sunset sky city.** *Reason: the strongest piece of art makes the first impression.*
+- **Scroll speed follows the action:** fast while travelling between map nodes, cruising in events, slow during combat, stopped when docked, and a backward lurch plus camera shake on every Ram. *Reason: speed communicates what's happening.*
+- **Biomes crossfade** when the scene changes. *Reason: no hard cuts.*
+- **Painted far layers are mirror-tiled** so they scroll forever without a seam. *Reason: the paintings aren't tileable on their own.*

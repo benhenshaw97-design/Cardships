@@ -17,7 +17,13 @@
     <div class="hud" id="hud"></div>
   </header>
   <main class="layout">
-    <section class="stage" id="stage" aria-live="polite"></section>
+    <div class="main-col">
+      <section class="scene-wrap" id="scene-wrap" aria-label="Flight view">
+        <canvas id="scene"></canvas>
+        <div class="scene-overlay" id="scene-overlay"></div>
+      </section>
+      <section class="stage" id="stage" aria-live="polite"></section>
+    </div>
     <aside class="logpanel">
       <div class="logpanel-head">Ship's log</div>
       <ol class="log" id="log"></ol>
@@ -28,6 +34,7 @@
 <script src="js/engine.js"></script>
 <script src="js/meta.js"></script>
 <script src="js/skymap.js"></script>
+<script src="js/scene.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

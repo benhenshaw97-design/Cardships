@@ -298,3 +298,14 @@ p { margin: 0; max-width: 65ch; }
 .unlock.got b { color: var(--brass); }
 .option:disabled { opacity: 0.45; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) { .map-cloud, .edge.open, .map-node.reachable, .map-ship-svg, .map-prop { animation: none; } }
+
+/* ---------- flight scene ---------- */
+.main-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.scene-wrap { position: relative; height: clamp(210px, 40vh, 400px); border: 1px solid var(--brass-2); border-radius: 6px; overflow: hidden; background: #1a1410; box-shadow: var(--shadow), inset 0 0 0 3px rgba(0, 0, 0, 0.25); }
+.scene-wrap.tall { height: clamp(300px, 58vh, 560px); }
+.scene-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scene-wrap::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 6px; box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45); }
+.scene-overlay { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: flex-end; padding: 18px 20px; }
+.scene-overlay .title-hero { padding: 0; }
+.scene-overlay .title-hero h1 { color: #ffd98a; text-shadow: 0 3px 0 #5e3f17, 0 0 30px rgba(0, 0, 0, 0.8); }
+.scene-overlay .title-hero p, .scene-overlay .title-hero .eyebrow { color: #fff3dc; text-shadow: 0 1px 3px #000, 0 0 12px rgba(0, 0, 0, 0.8); }
