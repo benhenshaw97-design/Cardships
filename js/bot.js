@@ -293,6 +293,22 @@
     g.resolveChoice(best);
   }
 
+  function shop(g, rnd) {
+    const rep = needRepair(g);
+    if (g.maxHp(g.core) - g.core.hp >= 3 && g.buyService('core')) return;
+    if (rep >= 8 && g.buyService('full')) return;
+    let best = null;
+    g.shop.stock.forEach((item, i) => {
+      if (item.sold || item.price > g.cogs) return;
+      const p = bestPlacement(g, item.id);
+      const gain = p ? p.score : (BASE[item.id] || 1) - ((weakestModule(g) || { v: 9 }).v + 0.5);
+      const s = rnd ? rnd() * 3 - 1 : gain - item.price / 40;
+      if (gain > 0.4 && (!best || s > best.s)) best = { i, s };
+    });
+    if (best && g.buy(best.i)) return;
+    g.leaveShop();
+  }
+
   function playRun(g, coreId, opts = {}) {
     const rnd = opts.random ? () => g.rand() : null;
     g.chooseCore(coreId);
@@ -303,13 +319,18 @@
       switch (g.phase) {
         case 'loot': handleLoot(g, rnd); break;
         case 'map': {
-          if (g.mapChoices) { const opts2 = g.mapChoices(); let bi = 0, bs = -Infinity; opts2.forEach((o, i) => { const s = (rnd ? rnd() * 3 : 0) + encounterScore(g, o.enc); if (s > bs) { bs = s; bi = i; } }); g.travel(opts2[bi].id); }
-          else { let bi = 0, bs = -Infinity; g.choices.forEach((id, i) => { const s = (rnd ? rnd() * 3 : g.rand() * 0.5) + encounterScore(g, id); if (s > bs) { bs = s; bi = i; } }); g.chooseEncounter(bi); }
+          const choices = g.mapChoices();
+          let best = choices[0], bs = -Infinity;
+          for (const n of choices) {
+            const s = (rnd ? rnd() * 3 : g.rand() * 0.5) + (g.nodeKnown(n) ? encounterScore(g, n.enc) : 1);
+            if (s > bs) { bs = s; best = n; }
+          }
+          g.travel(best.id);
           break;
         }
         case 'event': handleEvent(g, rnd); break;
         case 'hangar': if (!g.hangar.roll) g.salvage(); else g.leaveHangar(); break;
-        case 'shop': if (g.shopBot) g.shopBot(); else g.leaveShop(); break;
+        case 'shop': shop(g, rnd); break;
         case 'combat': combatTurn(g, rnd); break;
         default: throw new Error('unexpected phase ' + g.phase);
       }

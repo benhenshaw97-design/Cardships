@@ -3,9 +3,18 @@
 (function () {
   const D = window.CardshipsData;
   const { Game, fmt, SIDES, VENT_COST } = window.CardshipsEngine;
+  const Meta = window.CardshipsMeta;
+  const SkyMap = window.CardshipsSkyMap;
 
   let game = null;
-  const ui = { selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0 };
+  let meta = Meta.load();
+  const ui = { selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
+  function newRun(coreId) {
+    game = new Game({ unlocked: meta.unlocked });
+    game.chooseCore(coreId);
+    ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
+    render();
+  }
 
   // ---------- tiny DOM helper ----------
   function h(tag, attrs, ...kids) {
@@ -55,6 +64,7 @@
       case 'map': return mapScreen();
       case 'event': return eventScreen();
       case 'hangar': return hangarScreen();
+      case 'shop': return shopScreen();
       case 'combat': return combatScreen();
       case 'gameover':
       case 'victory': return endScreen();
@@ -66,7 +76,7 @@
   function renderHud() {
     const hud = $('hud');
     if (!game || !game.core) { hud.replaceChildren(); return; }
-    const route = h('div', { class: 'route', title: `Encounter ${game.depth} of ${game.maxDepth}` });
+    const route = h('div', { class: 'route', title: `Column ${game.depth} of ${game.maxDepth}` });
     for (let i = 1; i <= game.maxDepth; i++) {
       const cls = [i < game.depth || (i === game.depth && game.phase === 'map') ? 'done' : '', i === game.depth && game.phase !== 'map' ? 'here' : '', i === game.maxDepth ? 'boss' : ''].join(' ');
       route.append(h('i', { class: cls }));
@@ -78,6 +88,7 @@
       item('Core', `${Math.max(0, game.core.hp)}/${game.maxHp(game.core)}`),
       item('Weight', fmt(game.weight()), 'Lighter ships outpace enemies and dodge cheaply; heavier ships shrug off rams and wind'),
       item('Steam', String(game.steamCap()), 'Steam per turn'),
+      item('Cogs', String(game.cogs), 'Spend cogs at Trading Zeppelins'),
       quest ? item('Contract', quest.name, quest.goal) : null,
     ].filter(Boolean));
   }
@@ -95,15 +106,23 @@
 
   // ---------- title ----------
   function titleScreen() {
-    const cores = Object.values(D.CORES).filter((c) => !c.locked).map((c) =>
-      h('button', { class: 'core-pick', onclick: () => { game = new Game(); game.chooseCore(c.id); ui.selected = null; render(); } },
+    const cores = Object.values(D.CORES).map((c) => {
+      const open = Meta.coreUnlocked(meta, c.id);
+      const how = D.UNLOCKS.find((u) => u.id === c.id);
+      return h('button', { class: 'core-pick', disabled: open ? null : true, onclick: () => newRun(c.id) },
+        !open ? h('span', { class: 'lock' }, `Locked · ${how.how}`) : null,
         h('span', { class: 'eyebrow' }, c.style),
         h('span', { class: 'name' }, c.name.replace(' Core', '')),
         statline(`Weight ${fmt(c.weight)}`, `Durability ${c.hp}`, `Steam ${c.steam}`),
         h('span', {}, h('b', {}, c.passive.name + '. '), c.passive.text),
         h('span', {}, h('b', {}, `${c.ability.name} (${c.ability.cost} Steam). `), c.ability.text),
         h('span', { class: 'muted' }, c.blurb),
-      ));
+      );
+    });
+    const unlocks = h('div', { class: 'unlocks' }, D.UNLOCKS.map((u) => {
+      const got = meta.unlocked.includes(u.id);
+      return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('b', {}, u.name), h('span', {}, got ? `Unlocked ${u.kind}` : u.how));
+    }));
     return [
       h('div', { class: 'title-hero' },
         h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike'),
@@ -122,6 +141,11 @@
           h('div', {}, h('b', {}, 'Dice'), h('span', {}, 'Everything rolls a d6. Results with a downside give you a choice.')),
         ),
       ),
+      h('div', { class: 'panel stack' },
+        h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Hangar records'),
+          h('span', { class: 'statline' }, `Runs ${meta.runs}`, `Wins ${meta.wins}`, `Bosses sunk ${meta.bossesBeaten.length}/3`)),
+        h('p', { class: 'muted' }, 'Reach milestones to unlock new Cores and rare parts for future runs.'),
+        unlocks),
     ];
   }
 
@@ -256,6 +280,7 @@
       if (game.ventTargets().includes(uid)) buttons.append(h('button', { class: 'btn small', disabled: !game.spendable(VENT_COST) || null, onclick: act(() => game.vent(uid)) }, 'Vent tokens', h('span', { class: 'sub' }, `${VENT_COST} Steam`)));
     }
     if (!loc.stored && card !== game.core) {
+      if (game.phase === 'shop') buttons.append(h('button', { class: 'btn small', disabled: game.shop.sold >= 2 || null, onclick: act(() => { game.sell(uid); ui.selected = null; }) }, `Sell for ${game.sellValue(card)} cogs`));
       if (game.phase === 'hangar') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.detach(uid); ui.selected = null; }) }, 'Detach'));
       if (game.phase === 'loot' || game.phase === 'hangar') {
         if (ui.confirmScrap === uid) buttons.append(h('button', { class: 'btn small primary', onclick: act(() => { game.scrap(uid); ui.selected = null; }) }, 'Confirm: scrap it'));
@@ -356,15 +381,59 @@
       h('div', { class: 'enc-foot' }, h('span', { class: 'muted' }, e.paths ? `Then ${e.paths} route${e.paths > 1 ? 's' : ''}` : 'Final battle'), button),
     );
   }
+  function nodeInfo(n) {
+    const known = game.nodeKnown(n);
+    if (n.enc === 'boss') {
+      const e = D.ENEMIES[n.enemy];
+      return { kind: 'Boss', name: e.name, text: e.gimmick, enemy: e };
+    }
+    if (!known) return { kind: '?', name: n.cloud ? 'Cloud cover' : 'Uncharted', text: n.cloud ? 'Thick cloud hides this route. An outside Telescope sees through it.' : 'Too far to make out. Fly closer, mount a Telescope or buy sky charts.' };
+    const enc = D.ENCOUNTERS[n.enc];
+    const enemy = n.enemy && D.ENEMIES[n.enemy];
+    return { kind: enc.kind, name: enemy && n.enc !== 'beacon' ? `${enc.name}: ${enemy.name}` : enc.name, text: enc.text, enemy, table: enc.table };
+  }
   function mapScreen() {
-    const n = game.choices.length;
-    const panel = h('section', { class: 'panel stack' },
-      h('span', { class: 'eyebrow' }, `Encounter ${game.depth + 1} of ${game.maxDepth}`),
-      h('h2', {}, game.choices[0] === 'boss' ? 'The last leg' : 'Chart a course'),
-      h('p', { class: 'muted' }, game.choices[0] === 'boss' ? 'Only one way forward now.' : `${n} route${n > 1 ? 's' : ''} ahead. You only take one.`),
-      h('div', { class: 'choices' }, game.choices.map((id, i) => encCard(id, h('button', { class: 'btn primary', onclick: act(() => game.chooseEncounter(i)) }, 'Set course')))),
-    );
+    const cur = game.currentNode();
+    const choices = game.mapChoices();
+    if (!ui.mapSel || !choices.some((n) => n.id === ui.mapSel)) ui.mapSel = choices.length === 1 ? choices[0].id : ui.mapSel && game.node(ui.mapSel) ? ui.mapSel : null;
+    const mapEl = SkyMap.render(game, {
+      selected: ui.mapSel,
+      onSelect: (id) => { if (ui.flying) return; ui.mapSel = id; render(); },
+    });
+    const sel = ui.mapSel && game.node(ui.mapSel);
+    const reachable = sel && cur.edges.includes(sel.id);
+    let detail;
+    if (sel) {
+      const info = nodeInfo(sel);
+      detail = h('div', { class: 'enc map-detail' },
+        h('div', { class: 'row' }, h('span', { class: `kind k-${info.kind.replace(' ', '')}` }, info.kind), h('span', { class: 'muted' }, `Column ${sel.col} of ${game.maxDepth}`)),
+        h('h3', {}, info.name),
+        h('p', {}, info.text),
+        info.enemy ? statline(`Weight ${info.enemy.weight}`, `Durability ~${Math.round(info.enemy.hp * (info.enemy.boss ? 1 : 1 + 0.06 * (sel.col - 1)))}`) : null,
+        info.table ? d6List(info.table) : null,
+        h('div', { class: 'enc-foot' },
+          h('span', { class: 'muted' }, reachable ? 'Reachable from here.' : sel.id === cur.id ? 'You are here.' : 'Not reachable from here yet.'),
+          reachable ? h('button', { class: 'btn primary', disabled: ui.flying ? true : null, onclick: () => travel(sel.id, mapEl) }, 'Set course') : null));
+    } else {
+      detail = h('p', { class: 'muted' }, 'Tap a glowing node to plot your next leg.');
+    }
+    const legend = h('div', { class: 'legend' }, ['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar'].map((id) =>
+      h('span', { class: `k-${D.ENCOUNTERS[id].kind.replace(' ', '')}` }, SkyMap.icon(id, 16), D.ENCOUNTERS[id].name)));
+    const panel = h('section', { class: 'panel stack map-panel' },
+      h('div', { class: 'row', style: 'justify-content:space-between' },
+        h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, `Column ${game.depth} of ${game.maxDepth} · sight ${game.sight()}`), h('h2', {}, 'Sky route')),
+        h('span', { class: 'muted' }, `Ahead: ${D.ENEMIES[game.bossId].name}`)),
+      mapEl, detail, legend);
     return [targetBanner(), panel, shipView()];
+  }
+  function travel(id, mapEl) {
+    ui.flying = true;
+    mapEl.flyTo(id, () => {
+      ui.flying = false;
+      ui.mapSel = null;
+      game.travel(id);
+      render();
+    });
   }
 
   // ---------- event ----------
@@ -410,6 +479,28 @@
     return [targetBanner(), panel, shipView({ insert })];
   }
 
+  // ---------- Trading Zeppelin ----------
+  function shopScreen() {
+    const sh = game.shop;
+    const P = D.PRICES;
+    const service = (kind, label, desc, price) => h('button', { class: 'option', disabled: sh[kind] || game.cogs < price ? true : null, onclick: act(() => game.buyService(kind)) },
+      h('b', {}, `${label} · ${price} cogs`), h('span', {}, sh[kind] ? 'Bought.' : desc));
+    const panel = h('section', { class: 'panel stack' },
+      h('span', { class: 'kind k-Trade', style: 'align-self:flex-start' }, 'Trade'),
+      h('div', { class: 'row', style: 'justify-content:space-between' }, h('h2', {}, 'Trading Zeppelin'), h('span', { class: 'cogs' }, `${game.cogs} cogs`)),
+      h('p', { class: 'muted' }, 'Bought parts are installed when you cast off. Tap one of your modules to sell it (up to 2).'),
+      h('div', { class: 'choices' }, sh.stock.map((item, i) => partSheet(item.id, item.sold ? h('span', { class: 'muted' }, 'Sold') :
+        h('button', { class: 'btn primary', disabled: game.cogs < item.price ? true : null, onclick: act(() => game.buy(i)) }, `Buy · ${item.price} cogs`)))),
+      h('h3', {}, 'Services'),
+      h('div', { class: 'options' },
+        service('core', 'Hull patch', 'Repair 4 Core.', P.coreRepair),
+        service('full', 'Full refit', 'Fully repair every module.', P.fullRepair),
+        service('charts', 'Sky charts', '+1 sight on the map for three legs.', P.charts)),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: act(() => game.leaveShop()) }, game.pendingLoot.length ? `Cast off and install ${game.pendingLoot.length} part${game.pendingLoot.length > 1 ? 's' : ''}` : 'Cast off')),
+    );
+    return [panel, shipView()];
+  }
+
   // ---------- combat ----------
   function intentText(it) {
     if (!it) return '';
@@ -439,17 +530,23 @@
       en.weak ? h('span', { class: 'chip glue' }, `Gummed ${en.weak}`) : null,
       en.vuln ? h('span', { class: 'chip gas' }, `Choking ${en.vuln}`) : null,
       en.charge ? h('span', { class: 'chip fire' }, `Charged +${en.charge}`) : null,
-      game.enrage() ? h('span', { class: 'chip fire' }, `Enraged +${game.enrage()}`) : null);
+      game.enrage() ? h('span', { class: 'chip fire' }, `Enraged +${game.enrage()}`) : null,
+      en.dmgBonus ? h('span', { class: 'chip fire' }, `Veteran +${en.dmgBonus}`) : null,
+      c.enemyId === 'leviathan' ? h('span', { class: 'chip shield' }, 'Ironclad Hull −1') : null,
+      c.enemyId === 'stormqueen' ? h('span', { class: 'chip gas' }, `Gale next: ${c.galeSide === 'left' ? 'stern' : 'bow'}`) : null,
+      c.enemyId === 'colossus' ? h('span', { class: 'chip glue' }, `Mainspring +${en.wound} · snap ${c.turnDamage}/6`) : null,
+      en.stunned ? h('span', { class: 'chip shield' }, 'Stunned') : null);
     const preview = game.previewIntent();
     const it = en.intent;
     const intentBox = h('div', { class: `intent ${game.isAttack(it) ? 'attack' : ''} ${c.evading ? 'evaded' : ''}` },
-      h('span', { class: 'eyebrow' }, `Next move · rolled ${it.roll}`),
+      h('span', { class: 'eyebrow' }, en.stunned ? 'Next move · cancelled by the snap' : `Next move · rolled ${it.roll}`),
       h('b', {}, it.name),
       h('span', {}, intentText(it)),
       preview && preview.plan.length ? h('span', { class: 'muted' }, c.evading ? 'You will evade it.' : 'Hits: ' + preview.plan.map((p) => `${p.uid === 'core' ? 'Core' : partName(game.locate(p.uid).card.id)} ${p.braced ? 'braced' : p.dmg > 0 ? '−' + p.dmg : p.token ? '+' + p.token : '0'}`).join(', ')) : null);
     const enemy = h('section', { class: 'panel enemy' },
       h('div', { class: 'enemy-head' },
-        h('div', { class: 'stack', style: 'gap:4px' }, h('span', { class: `kind k-${def.boss ? 'Boss' : 'Combat'}`, style: 'align-self:flex-start' }, def.boss ? 'Boss' : 'Enemy'), h('h2', {}, en.name)),
+        h('div', { class: 'stack', style: 'gap:4px' }, h('span', { class: `kind k-${def.boss ? 'Boss' : def.elite ? 'Elite' : 'Combat'}`, style: 'align-self:flex-start' }, def.boss ? 'Boss' : def.elite ? 'Elite' : 'Enemy'), h('h2', {}, en.name),
+          def.gimmick ? h('p', { class: 'muted' }, def.gimmick) : null),
         statline(`Weight ${fmt(en.weight)}`, h('span', {}, 'Dur ', h('b', {}, `${Math.max(0, en.hp)}/${en.max}`)))),
       bar, chips, intentBox,
       h('details', { class: 'phases-wrap' }, h('summary', {}, 'Tactics table'),
@@ -495,14 +592,17 @@
   function endScreen() {
     const won = game.phase === 'victory';
     const s = game.stats;
+    if (ui.recorded !== game) { ui.recorded = game; ui.newUnlocks = Meta.recordRun(meta, game); }
+    const boss = D.ENEMIES[game.bossId];
     const stat = (label, v) => h('div', { class: 'stat' }, h('b', {}, v), h('span', { class: 'hud-label' }, label));
     return [
       h('section', { class: 'panel stack' },
         h('span', { class: 'eyebrow' }, won ? 'Victory' : 'Run over'),
-        h('h2', { style: 'font-size: clamp(40px, 9vw, 72px)' }, won ? 'Leviathan sunk' : 'Core ruptured'),
-        h('p', {}, won ? `Your ${D.CORES[game.core.id].name} brought down the Iron Leviathan.` : `Your ${D.CORES[game.core.id].name} went down on encounter ${game.depth} of ${game.maxDepth}.`),
-        h('div', { class: 'stats' }, stat('Encounters', s.encounters), stat('Enemies downed', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Parts installed', s.parts), stat('Contracts', s.quests)),
-        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; render(); } }, 'New run')),
+        h('h2', { style: 'font-size: clamp(40px, 9vw, 72px)' }, won ? `${boss.name.replace('The ', '')} sunk` : 'Core ruptured'),
+        h('p', {}, won ? `Your ${D.CORES[game.core.id].name} brought down ${boss.name}.` : `Your ${D.CORES[game.core.id].name} went down at column ${game.depth} of ${game.maxDepth}.`),
+        h('div', { class: 'stats' }, stat('Encounters', s.encounters), stat('Enemies downed', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Cogs earned', s.cogs), stat('Contracts', s.quests)),
+        ui.newUnlocks.length ? h('div', { class: 'banner unlock-banner' }, h('span', {}, 'Unlocked: ' + ui.newUnlocks.map((u) => `${u.name} (${u.kind})`).join(', '))) : null,
+        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; meta = Meta.load(); render(); } }, 'New run')),
       ),
       shipView({ title: 'Final ship' }),
     ];

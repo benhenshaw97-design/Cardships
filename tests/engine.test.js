@@ -11,7 +11,7 @@ function fight(coreId, left, right, enemy = 'gunship', intent = null, seed = 1) 
   g.left = left.map((id) => g.makeCard(id));
   g.right = right.map((id) => g.makeCard(id));
   g.enterMap();
-  g.startCombat(enemy, { id: 'test' });
+  g.startCombat(enemy, { col: 1, enc: 'patrol' });
   if (intent) g.combat.enemy.intent = intent;
   g.combat.steam = g.steamCap(); // ignore first-turn bonuses
   return g;
@@ -182,12 +182,74 @@ test('storm results with a downside offer a choice instead of nothing happening'
   g.lootOffers = []; g.pendingLoot = [];
   g.enterMap();
   g.d6 = () => 3;
-  g.startEncounter('storm');
+  g.startEncounter({ id: 'x', enc: 'storm', col: 2 });
   assert.equal(g.event.stage, 'downdraft');
   assert.ok(g.event.options.some((o) => o.id === 'brace'));
   g.chooseOption('brace');
   assert.equal(g.core.hp, 6);
   assert.ok(g.continueEvent());
+});
+
+test('the sky map runs 11 columns to a boss that is known from the start', () => {
+  for (let seed = 1; seed < 60; seed++) {
+    const g = new Game({ seed });
+    g.chooseCore('airship');
+    const nodes = g.map.nodes;
+    const boss = nodes.filter((n) => n.enc === 'boss');
+    assert.equal(boss.length, 1);
+    assert.equal(boss[0].col, 12);
+    assert.ok(g.nodeKnown(boss[0]));
+    assert.ok(['leviathan', 'stormqueen', 'colossus'].includes(boss[0].enemy));
+    for (const n of nodes) {
+      if (n.col < 12) assert.ok(n.edges.length >= 1, 'dead end');
+      if (n.col > 0) assert.ok(nodes.some((m) => m.edges.includes(n.id)), 'unreachable node');
+      for (const e of n.edges) assert.equal(g.node(e).col, n.col + 1);
+    }
+    assert.ok(nodes.filter((n) => n.col === 11).some((n) => n.enc === 'hangar'));
+    const far = nodes.find((n) => n.col === 6);
+    assert.equal(g.nodeKnown(far), false);
+  }
+});
+
+test('the Trading Zeppelin sells parts and services for cogs', () => {
+  const g = new Game({ seed: 3 });
+  g.chooseCore('battleship');
+  g.lootOffers = []; g.pendingLoot = [];
+  g.cogs = 100;
+  g.enterShop({ id: 'x' });
+  const item = g.shop.stock[0];
+  assert.ok(g.buy(0));
+  assert.equal(g.cogs, 100 - item.price);
+  assert.deepEqual(g.pendingLoot, [item.id]);
+  assert.equal(g.buy(0), false);
+  g.core.hp = 5;
+  assert.ok(g.buyService('core'));
+  assert.equal(g.core.hp, 9);
+  assert.ok(g.leaveShop());
+  assert.equal(g.phase, 'loot');
+});
+
+test('boss gimmicks: Leviathan hull, Storm Queen gale and lightning, Colossus mainspring', () => {
+  let g = fight('battleship', [], ['harpoon'], 'leviathan', shot(0, 'left', 0));
+  const hp = g.combat.enemy.hp;
+  g.fire(g.right[0].uid);
+  assert.equal(g.combat.enemy.hp, hp - 1);
+
+  g = fight('battleship', ['harpoon', 'plating'], ['cannon'], 'stormqueen', { kind: 'shot', dmg: 2, side: 'left', layer: 0, lightning: true, name: 'Lightning' });
+  g.combat.galeSide = 'left';
+  g.endTurn();
+  assert.equal(g.left[1].id, 'harpoon', 'gale swapped the outer two');
+  assert.equal(g.left[1].hp, 1, 'lightning skipped the plating');
+
+  g = fight('battleship', [], ['cannon'], 'colossus', shot(1, 'right', 0));
+  g.endTurn();
+  assert.equal(g.combat.enemy.wound, 1);
+  g.combat.enemy.intent = shot(1, 'right', 0);
+  assert.equal(g.intentDamage(g.combat.enemy.intent), 2);
+  g.damageEnemy(6);
+  g.endTurn();
+  assert.equal(g.combat.enemy.wound, 1, 'snapped to 0, then wound again');
+  assert.equal(g.right[0].hp, 3, 'stunned: no attack');
 });
 
 test('a saved run resumes with identical dice', () => {

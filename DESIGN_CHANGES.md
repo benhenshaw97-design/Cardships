@@ -51,3 +51,31 @@ Every change to the rules, content and presentation, with a one-line reason. New
 - **Each Core starts with its own two modules** instead of a shared kit. *Reason: different openings per Core.*
 - **Saved runs:** the whole game state, including the dice generator, serialises to JSON and resumes with identical rolls. *Reason: groundwork for seeds and autosave.*
 - **Look:** brass-on-iron panels and a Victorian display face instead of the blueprint style. *Reason: fit the steampunk setting.*
+
+## Phase 2: run structure and replayability
+
+### Sky map
+- **A branching route of 12 columns: 11 columns of 2–4 nodes, then the boss.** Edges only run forward and never cross. *Reason: plan a route instead of picking blind from a list.*
+- **Node types: Pirate Patrol (combat), Pirate Lair (elite, from column 4), Storm Front and Smog Bank (hazards), Trading Zeppelin (trade), Distress Beacon (ambush), Mercenary Island (quest), Sky Dock.** Each has its own icon and colour. *Reason: readable at a glance.*
+- **Sight: you can identify nodes 2 columns ahead.** An outside Telescope adds 1 and sees through cloud cover (about 1 in 5 nodes hides its type until you're adjacent); Tailwinds, chimney updrafts and sky charts add 1 for a few legs. *Reason: Paths and Telescope now buy information about the route.*
+- **A Sky Dock is guaranteed right before the boss, and a Trading Zeppelin or Sky Dock in column 6.** *Reason: a chance to prepare and to spend cogs.*
+- **The map scrolls sideways with parallax layers (far islands, mid clouds, near wisps that pass over the route), the sky tints through the biome bands, and your airship flies along the route to each node.** *Reason: the route should feel like flying through the clouds.*
+- **Pirates scale with distance: +6% Durability per column, +1 damage per hit from column 8.** Patrols draw from tiered pools (Cutter/Skiff/Bomber early, Gunship/Sentinel late). *Reason: steady difficulty curve across a longer run.*
+
+### Bosses
+- **Three bosses; one is picked at random per run and shown on the map from the start.** *Reason: replayability, and a target to build toward.*
+  - **The Iron Leviathan**, Ironclad Hull: every hit deals 1 less unless it pierces. *Reason: rewards Tesla, Steady Aim, Bombard and Burn.*
+  - **The Storm Queen**, Gale Force: after every move her winds swap your two outside modules on one side (alternating, telegraphed), and her lightning ignores outside plating. A Lightning Rod drinks the bolts for Steam. *Reason: a positional boss that fights your layout.*
+  - **The Clockwork Colossus**, Wind-Up: its Mainspring adds +1 damage per hit every turn, until you deal 6+ damage in one turn to snap it, resetting the spring and cancelling its next move. *Reason: rewards saving up for burst turns.*
+- **Two elites at Pirate Lairs: the Dread Corsair Flagship and the Armored Monitor.** *Reason: optional risk for better loot.*
+
+### Economy and rarity
+- **Cogs:** start with 20, earn 9–24 per fight (+20 from elites) plus events and contracts. *Reason: a currency gives trades real choices.*
+- **Trading Zeppelin is a shop:** 2 common, 2 uncommon and 1 rare part priced 32 / 52 / 85, plus Hull Patch, Full Refit and Sky Charts, and you can sell up to 2 modules for half price. *Reason: vendors offer a choice, not a random result.*
+- **Rarity tiers drive loot odds** (normal 62/30/8 common/uncommon/rare, elite 25/50/25). **Rares are build-defining:** Tesla Coil (scales with weapon count), Autoloader (double fire), Gyro Stabilizer (free Evades, ram resistance), Overpressure Valve (+2 Steam with a risk), Clockwork Heart (Core regeneration), Ironclad Bulwark. *Reason: rare finds should change how you build.*
+- **New uncommon: Lightning Rod.** *Reason: a counter to storms and the Storm Queen.*
+- **Smog Bank hazard** with six choice-driven outcomes (soot, fumes, smuggler's cache, scrap, foundry, updraft). *Reason: a second hazard for the industrial biome.*
+- **Contracts updated:** The Bounty now means defeating a Pirate Lair, and The Survivor counts Smog Banks. *Reason: fit the map.*
+
+### Meta-progression
+- **Lifetime records in this browser unlock content:** Tesla Coil (reach a boss), Autoloader (defeat a Pirate Lair), Gyro Stabilizer (3 contracts), Clockwork Core (win a run), Overpressure Valve (defeat two different bosses). Locked items never appear in loot or shops. The title screen shows progress. *Reason: a reason to keep flying after a loss.*

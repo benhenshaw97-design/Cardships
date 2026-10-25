@@ -108,7 +108,7 @@
     },
     telescope: {
       name: 'Telescope', abbr: 'TEL', type: 'utility', rarity: 'common', weight: 1, hp: 2,
-      rules: [['Outside', 'See further ahead: +1 route choice.'], ['Spotter', 'A Mortar touching it never reloads; a Sniper touching it deals +1.']],
+      rules: [['Outside', '+1 sight on the sky map, and reveals routes hidden by cloud.'], ['Spotter', 'A Mortar touching it never reloads; a Sniper touching it deals +1.']],
     },
     gasbag: {
       name: 'Gasbag', abbr: 'BAG', type: 'utility', rarity: 'common', weight: -2, hp: 2,
@@ -117,6 +117,10 @@
     propeller: {
       name: 'Propeller', abbr: 'PRP', type: 'utility', rarity: 'common', weight: 0, hp: 2,
       rules: [['Outside', 'Evade costs 1 less Steam (minimum 1).']],
+    },
+    lightningrod: {
+      name: 'Lightning Rod', abbr: 'ROD', type: 'utility', rarity: 'uncommon', weight: 1, hp: 3,
+      rules: [['Outside', 'Lightning on its side strikes it for no damage and charges your boilers: +1 Steam next turn.']],
     },
     cargo: {
       name: 'Cargo Hold', abbr: 'CRG', type: 'utility', rarity: 'uncommon', weight: 1, hp: 3,
@@ -160,6 +164,7 @@
   //   block  {amount}        Block absorbs your damage until the start of its next turn
   //   repair {amount}
   //   charge {amount}        its next attack deals +amount
+  //   (a shot with lightning: true ignores outside plating and strikes the rolled layer directly)
   const I = {
     shot: (dmg, name = 'Broadside Gun') => ({ kind: 'shot', dmg, name }),
     rake: (dmg, name = 'Raking Fire') => ({ kind: 'rake', dmg, name }),
@@ -169,6 +174,7 @@
     block: (amount, name = 'Raise Plating') => ({ kind: 'block', amount, name }),
     repair: (amount, name = 'Patch Hull') => ({ kind: 'repair', amount, name }),
     charge: (amount, name = 'Stoke Boilers') => ({ kind: 'charge', amount, name }),
+    lightning: (dmg, name = 'Lightning Lance') => ({ kind: 'shot', dmg, name, lightning: true }),
   };
 
   // Phase tables map d6 → intent, listed from full health down. `min` is the lowest Durability of the phase.
@@ -208,9 +214,41 @@
         { name: 'Unwinding', min: 1, table: [I.shot(4, 'Piston Gun'), I.ram(5, 2, 'Piston Ram'), I.ram(5, 2, 'Piston Ram'), I.broadside(3, 'Gear Spray'), I.block(3, 'Gear Shield'), I.shot(3, 'Piston Gun')] },
       ],
     },
+    flagship: {
+      name: 'Dread Corsair Flagship', weight: 6, hp: 22, look: 'flagship', elite: true,
+      phases: [
+        { name: 'Full Sail', min: 12, table: [I.shot(3, 'Long Gun'), I.broadside(2), I.token('fire', 1, 'Boarding Torches'), I.block(5), I.charge(3, 'Run Out the Guns'), I.shot(3, 'Long Gun')] },
+        { name: 'Boarding Action', min: 1, table: [I.ram(5, 3), I.broadside(3), I.shot(4, 'Chaser Gun'), I.shot(3, 'Long Gun'), I.rake(2, 'Grapeshot'), I.repair(3)] },
+      ],
+    },
+    monitor: {
+      name: 'Armored Monitor', weight: 9, hp: 20, look: 'monitor', elite: true,
+      phases: [
+        { name: 'Buttoned Up', min: 11, table: [I.block(6, 'Close Hatches'), I.shot(3, 'Turret Gun'), I.shot(3, 'Turret Gun'), I.ram(5, 2, 'Iron Ram'), I.broadside(2), I.charge(3, 'Train Turret')] },
+        { name: 'Turret Jammed', min: 1, table: [I.shot(4, 'Turret Gun'), I.ram(5, 2, 'Iron Ram'), I.ram(5, 2, 'Iron Ram'), I.block(4, 'Close Hatches'), I.broadside(3), I.shot(4, 'Turret Gun')] },
+      ],
+    },
+    stormqueen: {
+      name: 'The Storm Queen', weight: 3, hp: 28, look: 'stormqueen', boss: true,
+      gimmick: 'Gale Force: after every move, her winds shove your two outside modules on one side past each other. Lightning ignores outside plating.',
+      phases: [
+        { name: 'Gathering Clouds', min: 19, table: [I.lightning(2), I.lightning(2), I.rake(1, 'Tornado'), I.token('gas', 0, 'Static Charge'), I.block(5, 'Eye Wall'), I.charge(3, 'Build Charge')] },
+        { name: 'Tempest', min: 10, table: [I.lightning(3), I.lightning(3), I.rake(2, 'Tornado'), I.broadside(2, 'Thunderclap'), I.token('fire', 1, 'Ball Lightning'), I.repair(3, 'Draw the Storm')] },
+        { name: 'Eye of the Hurricane', min: 1, table: [I.lightning(4), I.rake(2, 'Tornado'), I.rake(2, 'Tornado'), I.broadside(3, 'Thunderclap'), I.lightning(3), I.charge(4, 'Build Charge')] },
+      ],
+    },
+    colossus: {
+      name: 'The Clockwork Colossus', weight: 12, hp: 32, look: 'colossus', boss: true,
+      gimmick: 'Wind-Up: its Mainspring tightens every turn, adding +1 damage per hit. Deal 6+ damage in one turn to snap it: the spring resets and it loses its next move.',
+      phases: [
+        { name: 'Ticking', min: 22, table: [I.shot(2, 'Gear Fist'), I.shot(2, 'Gear Fist'), I.block(5, 'Brass Carapace'), I.broadside(2, 'Cog Spray'), I.ram(4, 2, 'Stomp'), I.charge(2, 'Turn the Key')] },
+        { name: 'Grinding', min: 11, table: [I.shot(3, 'Gear Fist'), I.ram(4, 2, 'Piston Charge'), I.broadside(2, 'Cog Spray'), I.block(4, 'Brass Carapace'), I.token('glue', 1, 'Oil Slick'), I.shot(3, 'Gear Fist')] },
+        { name: 'Overwound', min: 1, table: [I.ram(5, 2, 'Piston Charge'), I.shot(4, 'Gear Fist'), I.shot(4, 'Gear Fist'), I.rake(2, 'Shrapnel Burst'), I.broadside(3, 'Cog Spray'), I.ram(5, 2, 'Piston Charge')] },
+      ],
+    },
     leviathan: {
       name: 'The Iron Leviathan', weight: 10, hp: 30, look: 'leviathan', boss: true,
-      gimmick: 'Armored dreadnought. Changes armament at 20 and 10 Durability.',
+      gimmick: 'Ironclad Hull: every hit deals 1 less unless it pierces (Tesla, Steady Aim, Bombard, Burn). Rearms at each phase.',
       phases: [
         { name: 'Artillery & Disruption', min: 21, table: [I.shot(3, 'Heavy Cannon'), I.shot(3, 'Heavy Cannon'), I.token('gas', 1, 'Toxic Shell'), I.block(6, 'Armor Plating'), I.broadside(2), I.charge(3, 'Load Main Battery')] },
         { name: 'Hazard Protocol', min: 11, table: [I.token('glue', 1, 'Suppressing Fire'), I.token('fire', 2, 'Incendiary Round'), I.shot(3, 'Heavy Cannon'), I.repair(3, 'Repair Crews'), I.rake(1, 'Flak Barrage'), I.broadside(2)] },
@@ -220,51 +258,66 @@
   };
   for (const [id, e] of Object.entries(ENEMIES)) e.id = id;
 
-  // ---------- Encounters ----------
-  // paths: how many routes you choose from after it.
+  // ---------- Encounters (sky map node types) ----------
   const ENCOUNTERS = {
-    cutter: { name: 'Sky Pirate Cutter', kind: 'Combat', paths: 2, enemy: 'cutter', text: 'A lightly armed raider. Its crew grows reckless when hurt.' },
-    gunship: { name: 'Corsair Gunship', kind: 'Combat', paths: 2, enemy: 'gunship', text: 'A heavy patrol ship. Three phases, each nastier than the last.' },
-    bomber: { name: 'Bomber Dirigible', kind: 'Combat', paths: 2, enemy: 'bomber', text: 'Drops fire on your modules. Light, so it rams poorly.' },
-    sentinel: { name: 'Clockwork Sentinel', kind: 'Combat', paths: 2, enemy: 'sentinel', text: 'A wound-up war machine behind thick gear shields. Hits harder as it unwinds.' },
+    patrol: { name: 'Pirate Patrol', kind: 'Combat', text: 'Sky pirates on the hunt. Win for cogs and a pick of parts.' },
+    lair: { name: 'Pirate Lair', kind: 'Elite', text: 'A fortified hideout guarded by a heavy warship. Better loot: uncommon and rare parts.' },
     storm: {
-      name: 'Storm Front', kind: 'Hazard', paths: 3,
+      name: 'Storm Front', kind: 'Hazard', biome: 'storm',
       text: 'Fly through the squall. Roll a d6.',
-      table: ['Lightning: 2 damage to an outside module', 'Crosswind: 1 damage to both outside modules (Weight 6+ ignores it)', 'Downdraft: jettison an outside module or the Core takes 2', 'Eye of the storm: repair or scavenge', 'Drifting salvage: pick 1 of 2 parts', 'Tailwind: +1 route and +2 Steam next fight'],
+      table: ['Lightning: 2 damage to an outside module', 'Crosswind: 1 damage to both outside modules (Weight 6+ ignores it)', 'Downdraft: jettison an outside module or the Core takes 2', 'Eye of the storm: repair or scavenge', 'Drifting salvage: pick 1 of 2 parts', 'Tailwind: +1 sight and +2 Steam next fight'],
     },
-    trader: {
-      name: 'Trading Zeppelin', kind: 'Trade', paths: 2,
-      text: 'A merchant zeppelin hails you. Choose one deal.',
-      table: null,
+    smog: {
+      name: 'Smog Bank', kind: 'Hazard', biome: 'smog',
+      text: 'Choking factory smoke over the foundries. Roll a d6.',
+      table: ['Soot in the works: Gas on a weapon', 'Choking fumes: pay 10 cogs or the Core takes 2', "Smuggler's cache: cogs or a part", 'Scrap heaps: repair or cogs', 'Abandoned foundry: pick 1 of 2 parts', 'Chimney updraft: +1 sight and +2 Steam next fight'],
     },
+    trader: { name: 'Trading Zeppelin', kind: 'Trade', text: 'A merchant zeppelin. Spend cogs on parts, repairs and sky charts, or sell modules.' },
     beacon: {
-      name: 'Distress Beacon', kind: 'Ambush', paths: 3, enemy: 'skiff',
-      text: 'A wreck calls for help. Roll a d6, then a Scavenger Skiff springs the trap.',
-      table: ['Debris: 2 damage to an outside module', 'Fire spreads to an outside module', 'Gas leaks into a weapon', 'Trap sprung: the Skiff starts with 4 Block', 'You spot the trap: +2 Steam on your first turn', 'Salvage the wreck first: pick 1 of 2 parts'],
+      name: 'Distress Beacon', kind: 'Ambush',
+      text: 'A wreck calls for help. Roll a d6, then pirates spring the trap.',
+      table: ['Debris: 2 damage to an outside module', 'Fire spreads to an outside module', 'Gas leaks into a weapon', 'Trap sprung: the pirates start with 4 Block', 'You spot the trap: +2 Steam on your first turn', 'Strip the wreck first: pick 1 of 2 parts'],
     },
-    guild: {
-      name: 'Mercenary Guild', kind: 'Quest', paths: 2,
-      text: 'A guild outpost on a floating rock. Roll two contracts and sign one.',
-      table: null,
-    },
+    guild: { name: 'Mercenary Island', kind: 'Quest', text: 'A guild outpost on a floating island. Roll two contracts and sign one.' },
     hangar: {
-      name: 'Sky Dock', kind: 'Sky Dock', paths: 1,
-      text: 'A hangar in the clouds. Rearrange your modules freely, then roll for the mechanics\' help.',
+      name: 'Sky Dock', kind: 'Sky Dock',
+      text: "A hangar in the clouds. Rearrange your modules freely, then roll for the mechanics' help.",
       table: ['Core Patch: repair 3 Core', 'Part Maintenance: fully repair a module', 'Reinforcement: +1 max Durability to a module', 'Overhaul: repair 2 on every module', 'Spare Part: pick 1 of 2 parts', 'Master Mechanic: reinforce a module and fully repair it'],
     },
-    boss: { name: 'The Iron Leviathan', kind: 'Boss', paths: 0, enemy: 'leviathan', text: 'The final gate.' },
+    boss: { name: 'Boss', kind: 'Boss', text: 'The final gate.' },
   };
   for (const [id, e] of Object.entries(ENCOUNTERS)) e.id = id;
 
-  const ENCOUNTER_WEIGHTS = { cutter: 14, gunship: 10, bomber: 9, sentinel: 6, storm: 14, trader: 12, beacon: 12, guild: 9, hangar: 10 };
+  // Odds for regular map nodes (Pirate Lairs only from column 4).
+  const NODE_WEIGHTS = { patrol: 34, lair: 11, storm: 9, smog: 8, trader: 11, beacon: 11, guild: 7, hangar: 9 };
+  // Which pirates fly in each band of the map.
+  const ENEMY_TIERS = [
+    { upTo: 3, pool: ['cutter', 'skiff', 'bomber'] },
+    { upTo: 7, pool: ['gunship', 'bomber', 'cutter', 'sentinel'] },
+    { upTo: 11, pool: ['gunship', 'sentinel', 'bomber'] },
+  ];
+  const ELITES = ['flagship', 'monitor'];
+  const BOSSES = ['leviathan', 'stormqueen', 'colossus'];
+  // Biome bands across the route; Storm Fronts and Smog Banks override with their own.
+  const BIOME_BANDS = [{ upTo: 3, biome: 'clear' }, { upTo: 6, biome: 'smog' }, { upTo: 9, biome: 'sunset' }, { upTo: 11, biome: 'storm' }, { upTo: 99, biome: 'lair' }];
+  const PRICES = { common: 32, uncommon: 52, rare: 85, coreRepair: 12, fullRepair: 20, charts: 16 };
+
+  // Unlocks earned across runs (meta-progression). Rares not listed here start unlocked.
+  const UNLOCKS = [
+    { id: 'tesla', kind: 'part', name: 'Tesla Coil', how: 'Reach the boss.' },
+    { id: 'autoloader', kind: 'part', name: 'Autoloader', how: 'Defeat a Pirate Lair.' },
+    { id: 'gyro', kind: 'part', name: 'Gyro Stabilizer', how: 'Complete 3 contracts (across runs).' },
+    { id: 'clockwork', kind: 'core', name: 'Clockwork Core', how: 'Win a run.' },
+    { id: 'overpressure', kind: 'part', name: 'Overpressure Valve', how: 'Defeat two different bosses.' },
+  ];
 
   // ---------- Contracts (rolled on a d6; you sign one of two) ----------
   const QUESTS = [
-    { id: 'bounty', name: 'The Bounty', goal: 'Defeat an enemy with 14+ max Durability.', reward: 'Pick a rare part.' },
-    { id: 'survivor', name: 'The Survivor', goal: 'Clear a Storm Front without taking damage.', reward: 'A free Brass Plating and a full repair.' },
+    { id: 'bounty', name: 'The Bounty', goal: 'Defeat a Pirate Lair.', reward: 'Pick a rare part and 25 cogs.' },
+    { id: 'survivor', name: 'The Survivor', goal: 'Clear a Storm Front or Smog Bank without taking damage.', reward: 'A free Brass Plating and a full repair.' },
     { id: 'hoarder', name: 'The Hoarder', goal: 'Install a Cargo Hold.', reward: 'A free Supply Hatch.' },
     { id: 'ironclad', name: 'The Ironclad', goal: 'Win a fight while one of your modules is on fire.', reward: '+2 max Durability to a module of your choice.' },
-    { id: 'marksman', name: 'The Marksman', goal: 'Win a fight within 3 rounds.', reward: 'Pick an uncommon weapon.' },
+    { id: 'marksman', name: 'The Marksman', goal: 'Win a fight within 3 rounds.', reward: 'Pick an uncommon weapon and 15 cogs.' },
     { id: 'rammer', name: 'The Rammer', goal: 'Finish an enemy with a Ram or Bombard.', reward: '+2 max Durability to your Core.' },
   ];
 
@@ -277,7 +330,7 @@
   // Targeting: side d6 (1-3 left, 4-6 right); layer d6 (1-2 → 1, 3-4 → 2, 5-6 → 3).
   const LAYER_TABLE = [1, 1, 2, 2, 3, 3];
 
-  const data = { CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, ENCOUNTER_WEIGHTS, QUESTS, TOKENS, LAYER_TABLE };
+  const data = { CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);
