@@ -219,3 +219,22 @@ The first layout mirrored two identical sides around the Core. In the side-on vi
 - **Module sprites:** Deck Cannon, Mortar, Harpoon Gun, Auxiliary Boiler, Overpressure Valve, Autoloader, Crew Quarters, Cargo Hold, Gasbag and Propeller now use the sheet's cannons, turrets, harpoon, engines, cabins, balloon and propeller (which spins). The other modules keep their drawn art. *Reason: use the parts that match a module; draw the rest.*
 - **The sky map marker is the little striped airship.** Your painted clouds drift in the far cloud bank of clear and sunset skies, and the smoke-trail sprite streams behind the ship while travelling. *Reason: carry the sheet's style through the whole game.*
 - **On phones, combat keeps your ship to the lower 60% of the view and the enemy flies above it,** so the bigger balloons don't overlap. *Reason: readability at phone width.*
+
+## Second asset drop: effects, steampunk parts and two paintings
+
+- **The effects sheet is cut into 38 sprites** (`assets/art/fx.png`) and drives the combat effects:
+  - Hits on the enemy play a painted explosion sequence; big hits (5+) use one of the four large blasts and leave black smoke.
+  - Hits on your modules explode too, and a destroyed module goes up in a blast and a smoke column.
+  - Every gun shot has a muzzle flash and a puff of white smoke; the Tesla Coil charges a blue orb and its hits crackle with lightning.
+  - The Sniper Nest fires a painted bullet, the Gas Grenadiers loose a gas rocket that trails smoke, and fire (yours and the enemy's firepots) flies as a fireball.
+  - Gas tokens raise a green cloud and glue a green blob. Cleansing with the Sprinkler or Air Scrubber splashes water. Rams flash a star burst. Boss phase changes, victory and defeat all get the large blasts.
+  *Reason: the hand-painted effects read far better than plain particles; the particles stay underneath as texture.*
+- **The steampunk parts sheet is cut into 62 sprites** (`assets/art/parts.png`), and modules use them:
+  - Deck Cannon: wheeled carriage cannon. Mortar: angled brass gun. Sniper Nest: long steel gun. Glue Gatling: gatling. Gas Grenadiers: rocket rack.
+  - Brass Plating: riveted iron panel. Ironclad Bulwark: tall armour plate. Repair Bay: gear train. Auxiliary Boiler: copper tank. Overpressure Valve: boiler with gauges. Autoloader: ammo box. Clockwork Heart: ornate engine. Gyro Stabilizer: compass wheel. Telescope: spyglass (longer when outermost). Cargo Hold: chest and crate. Supply Hatch: ornate chest. Propeller: motor with a spinning brass prop.
+  - Flamethrower, Tesla Coil, Deflector, Sprinkler, Scrubber and Lightning Rod keep their drawn (and animated) art, since nothing on the sheet matches them.
+  *Reason: use the parts that fit a module, and keep the animations that show a module's rules.*
+- **Every part offer (loot, contracts, shop) shows a portrait of the part** as it looks on your ship. *Reason: you see what you are bolting on before you take it.*
+- **Two new biomes on the route.** The red cloud-sea painting becomes a "dusk" biome (columns 8–9) and the title backdrop; the night-fleet painting becomes a "night" biome (columns 10–11), the last leg before the boss. The bands now run clear → smog → sunset → dusk → night → lair; the storm biome still appears wherever there is a Storm Front. The sprite clouds are tinted to each sky. *Reason: the paintings give the late route its own look, and the light darkens as you near the boss.*
+- **Housekeeping:** the re-uploaded ship-parts sheet was identical to the one already in `assets/art/source/`, so the duplicate was removed. The new sheets were moved to `assets/art/source/` and the paintings were renamed. `tools/build_sprites.py` now builds all three atlases, and `js/sprites.js` loads them on demand, giving each frame its atlas. *Reason: one tidy pipeline for all the art.*
+

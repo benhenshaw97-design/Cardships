@@ -33,6 +33,23 @@
   function smokePuff(x, y, n = 6, color = 'rgba(70,62,56,') {
     for (let i = 0; i < n; i++) parts.push({ kind: 'smoke', x: x + rand(-8, 8), y: y + rand(-6, 6), vx: rand(-30, 30), vy: rand(-40, -10), g: -10, life: rand(0.6, 1.2), max: 1.2, r: rand(5, 11), color });
   }
+  // Painted effects from the effects sheet: a sprite (or a sequence of frames played across its
+  // life) that drifts, grows and fades. Falls back to nothing if the atlas has not loaded.
+  const SP = () => window.CardshipsSprites;
+  const BOOM = ['boom_3', 'boom_4', 'boom_7', 'boom_8', 'boom_6', 'boom_5'];
+  const BLASTS = ['blast_1', 'blast_3', 'blast_4', 'blast_2'];
+  const SMOKES = { white: 'smoke_white', grey: 'smoke_grey', black: 'smoke_black', green: 'smoke_green', light: 'smoke_light' };
+  function sprite(x, y, names, w, life, opts = {}) {
+    parts.push({ kind: 'sprite', names: [].concat(names), x, y, vx: opts.vx || 0, vy: opts.vy || 0, g: opts.g || 0, life, max: life, w, grow: opts.grow ?? 0.25, rot: opts.rot || 0, vr: opts.vr || 0, flip: !!opts.flip, alpha: opts.alpha ?? 1, add: !!opts.add });
+  }
+  // An explosion sized by damage: the small sequence for chip hits, a painted blast for big ones.
+  function explosion(x, y, size, big = false) {
+    if (big) sprite(x, y, BLASTS[Math.floor(Math.random() * BLASTS.length)], size, 0.5, { grow: 0.35, rot: rand(-0.3, 0.3) });
+    else sprite(x, y, BOOM, size, 0.42, { grow: 0.2 });
+  }
+  function smokeCloud(x, y, w, tone = 'grey', opts = {}) {
+    sprite(x + rand(-6, 6), y, SMOKES[tone], w, opts.life || 1.3, { vx: rand(-14, 14), vy: opts.vy ?? -22, grow: 0.5, alpha: opts.alpha ?? 0.75, flip: Math.random() < 0.5 });
+  }
   function numberAt(x, y, text, color = '#ffe2c4', size = 20) { texts.push({ x, y, text, color, size, life: 1.1, max: 1.1, vy: -46 }); }
   function ring(x, y, color, r0 = 6, r1 = 46, life = 0.4, width = 4) { rings.push({ x, y, color, r0, r1, life, max: life, width }); }
   function shake(amount) { if (Scene()) Scene().kick(amount * shakeScale()); }
@@ -63,13 +80,32 @@
         g.beginPath(); g.moveTo(10, 0); g.lineTo(-4, -5); g.lineTo(-1, 0); g.lineTo(-4, 5); g.closePath(); g.fill(); g.stroke(); g.restore();
         break;
       }
-      case 'flame':
+      case 'flame': case 'firepot':
+        if (SP().draw(g, 'fireball', x, y, 46, null, s.to.x < s.from.x)) { if (Math.random() < 0.5) parts.push({ kind: 'flame', x: x - 10 * Math.sign(s.to.x - s.from.x), y, vx: 0, vy: rand(-20, 0), g: -40, life: 0.3, max: 0.3, r: rand(4, 7) }); break; }
+        if (s.style === 'firepot') { g.fillStyle = '#ff8a3a'; g.beginPath(); g.arc(x, y, 5, 0, TAU); g.fill(); break; }
         for (let i = 0; i < 3; i++) parts.push({ kind: 'flame', x: x + rand(-5, 5), y: y + rand(-5, 5), vx: rand(-20, 20), vy: rand(-30, 0), g: -40, life: rand(0.25, 0.45), max: 0.45, r: rand(5, 10) });
         break;
       case 'goo':
         g.fillStyle = '#9fd05a'; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(x - i * 9, y + Math.sin((s.t + i) * 30) * 4, 3, 0, TAU); g.fill(); }
         break;
+      case 'rocket': {
+        // Point along the flight path, using the last trail point for the heading.
+        const prev = s.trail.length > 1 ? s.trail[s.trail.length - 2] : [s.from.x, s.from.y];
+        const ang = Math.atan2(y - prev[1], x - prev[0]);
+        g.save(); g.translate(x, y); g.rotate(ang);
+        const ok = SP().draw(g, 'rocket_flat', -18, 0, 56);
+        g.restore();
+        if (Math.random() < 0.8) parts.push({ kind: 'smoke', x, y, vx: rand(-10, 10), vy: rand(-12, 0), g: 0, life: 0.6, max: 0.6, r: rand(3, 5), color: 'rgba(225,225,225,' });
+        if (ok) break;
+        g.fillStyle = '#c9ced3'; g.beginPath(); g.arc(x, y, 4, 0, TAU); g.fill();
+        break;
+      }
       case 'tracer': case 'enemyTracer': {
+        const ang = Math.atan2(s.to.y - s.from.y, s.to.x - s.from.x);
+        g.save(); g.translate(x, y); g.rotate(ang);
+        const ok = SP().draw(g, s.style === 'tracer' ? 'bullet_long' : 'bullet', -30, 0, 64);
+        g.restore();
+        if (ok) break;
         const c = s.style === 'tracer' ? '#fff0b0' : '#ffb27a';
         g.strokeStyle = c; g.lineWidth = 3; g.lineCap = 'round';
         g.beginPath(); s.trail.forEach(([tx, ty], i) => (i ? g.lineTo(tx, ty) : g.moveTo(tx, ty))); g.stroke();
@@ -84,10 +120,10 @@
         g.stroke(); g.restore();
         break;
       }
-      case 'gas': case 'firepot': case 'tar': {
-        const col = { gas: '#a98ad6', firepot: '#ff8a3a', tar: '#8bc34a' }[s.style];
+      case 'gas': case 'tar': {
+        const col = { gas: '#a98ad6', tar: '#8bc34a' }[s.style];
         g.fillStyle = col; g.strokeStyle = '#24170f'; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 5, 0, TAU); g.fill(); g.stroke();
-        if (Math.random() < 0.6) parts.push({ kind: s.style === 'firepot' ? 'flame' : 'smoke', x, y, vx: rand(-10, 10), vy: rand(-10, 10), g: 0, life: 0.4, max: 0.4, r: 4, color: s.style === 'gas' ? 'rgba(170,140,220,' : undefined });
+        if (Math.random() < 0.6) parts.push({ kind: 'smoke', x, y, vx: rand(-10, 10), vy: rand(-10, 10), g: 0, life: 0.4, max: 0.4, r: 4, color: s.style === 'gas' ? 'rgba(170,140,220,' : undefined });
         break;
       }
       case 'bomb':
@@ -100,7 +136,7 @@
       }
     }
   }
-  const WEAPON_SHOT = { harpoon: ['harpoon', 0.3, 0], cannon: ['ball', 0.32, 18], mortar: ['shell', 0.55, 90], flamethrower: ['flame', 0.35, 0], gatling: ['goo', 0.3, 0], grenadiers: ['gas', 0.45, 60], sniper: ['tracer', 0.14, 0], tesla: ['lightning', 0.18, 0] };
+  const WEAPON_SHOT = { harpoon: ['harpoon', 0.3, 0], cannon: ['ball', 0.32, 18], mortar: ['shell', 0.55, 90], flamethrower: ['flame', 0.35, 0], gatling: ['goo', 0.3, 0], grenadiers: ['rocket', 0.45, 40], sniper: ['tracer', 0.14, 0], tesla: ['lightning', 0.18, 0] };
 
   // ---------- ambient effects ----------
   function ambient(dt, t) {
@@ -155,6 +191,16 @@
         }
         case 'wrench': g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a; g.strokeStyle = '#d6dde2'; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, 0); g.lineTo(6, 0); g.stroke(); g.beginPath(); g.arc(8, 0, 4, 0.6, TAU - 0.6); g.stroke(); g.restore(); break;
         case 'water': g.fillStyle = `rgba(150,200,255,${a})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, TAU); g.fill(); break;
+        case 'sprite': {
+          const k = 1 - a;
+          const name = p.names[Math.min(p.names.length - 1, Math.floor(k * p.names.length))];
+          g.save(); g.translate(p.x, p.y); g.rotate(p.rot);
+          // Hold full strength, then fade over the last 40% of life.
+          g.globalAlpha = p.alpha * Math.min(1, a / 0.4);
+          if (p.add) g.globalCompositeOperation = 'lighter';
+          SP().draw(g, name, 0, 0, p.w * (1 + p.grow * k), null, p.flip);
+          g.restore(); break;
+        }
         default: break;
       }
     }
@@ -237,6 +283,7 @@
   // Each handler starts the effect for one event and returns how long to wait before the next.
   const sfx = (name, opts) => { if (window.CardshipsAudio) window.CardshipsAudio.sfx(name, opts); };
   let lookahead = [];
+  let lastFire = null;
   function nextTarget() {
     const ev = lookahead.find((e) => ['hit', 'block', 'destroyed'].includes(e.type));
     return ev ? ev.uid : null;
@@ -252,6 +299,7 @@
       return dur + 120;
     },
     fire(ev) {
+      lastFire = ev.id;
       const from = playerPt(ev.uid);
       const to = enemyPt();
       const [style, dur, arc] = WEAPON_SHOT[ev.id] || ['ball', 0.3, 10];
@@ -259,6 +307,8 @@
       burst(from.x + 16, from.y - 4, 8, 'spark', { dir: 0, spread: 0.5, min: 80, max: 220, life: 0.3 });
       smokePuff(from.x + 18, from.y - 4, 4, 'rgba(220,215,205,');
       ring(from.x + 18, from.y - 4, 'rgba(255,230,160,0.9)', 2, 18, 0.18, 3);
+      if (ev.id === 'tesla') sprite(from.x + 6, from.y - 20, 'orb_blue', 34, 0.3, { add: true });
+      else if (ev.id !== 'harpoon') { sprite(from.x + 24, from.y - 5, 'spark_orange', 30, 0.16, { grow: 0.6, add: true }); smokeCloud(from.x + 26, from.y - 8, 26, 'white', { life: 0.8, alpha: 0.6 }); }
       shoot({ x: from.x + 16, y: from.y - 6 }, { x: to.x + rand(-to.r * 0.3, to.r * 0.2), y: to.y + rand(-14, 14) }, style, dur, arc);
       sfx(ev.id === 'flamethrower' ? 'flame' : ev.id === 'tesla' ? 'zap' : ev.id === 'gatling' ? 'gatling' : ev.id === 'harpoon' ? 'harpoon' : 'cannon');
       return dur * 1000;
@@ -287,6 +337,11 @@
       burst(p.x - p.r * 0.2, p.y, 10 + ev.dmg * 3, 'spark', { min: 80, max: 300, life: 0.6 });
       for (let i = 0; i < Math.min(8, 2 + ev.dmg); i++) parts.push({ kind: Math.random() < 0.5 ? 'bolt' : 'gear', x: p.x, y: p.y, vx: rand(-160, 160), vy: rand(-200, -60), g: 500, life: 1, max: 1, r: rand(2.5, 4.5), rot: 0, vr: rand(-12, 12), color: '#8d9399' });
       smokePuff(p.x, p.y, 4);
+      const ex = p.x - p.r * 0.2 + rand(-14, 14), ey = p.y + rand(-12, 12);
+      if (lastFire === 'tesla') sprite(ex, ey, ['zap_blue', 'zap_white'], 60, 0.35, { add: true });
+      explosion(ex, ey, 46 + ev.dmg * 8, big);
+      if (big) smokeCloud(ex, ey - 10, 70, 'black');
+      lastFire = null;
       numberAt(p.x + rand(-20, 20), p.y - p.r * 0.6, `-${ev.dmg}`, ev.pierce ? '#bfe6ff' : '#ffd6a0', 18 + Math.min(16, ev.dmg * 3));
       shake(3 + ev.dmg * 1.6);
       if (big) { hitStop(110); flash(0.25); }
@@ -326,6 +381,7 @@
       if (ev.uid === 'core') A().player.coreHp = ev.hp;
       burst(p.x, p.y, 8 + ev.dmg * 3, 'spark', { min: 60, max: 240, life: 0.5 });
       for (let i = 0; i < Math.min(6, ev.dmg + 1); i++) parts.push({ kind: 'bolt', x: p.x, y: p.y, vx: rand(-140, 140), vy: rand(-180, -40), g: 520, life: 0.9, max: 0.9, rot: 0, vr: rand(-14, 14) });
+      if (ev.src !== 'fire') explosion(p.x + rand(-8, 8), p.y + rand(-8, 4), 34 + ev.dmg * 7, ev.dmg >= 4);
       numberAt(p.x, p.y - 30, `-${ev.dmg}`, ev.uid === 'core' ? '#ff8f7a' : '#ffd6a0', 17 + Math.min(14, ev.dmg * 3));
       shake(3 + ev.dmg * 2);
       if (ev.src === 'fire') { burst(p.x, p.y - 6, 10, 'flame', { up: 60, min: 10, max: 60, g: -60, life: 0.5, rmin: 4, rmax: 8 }); sfx('crackle'); }
@@ -350,6 +406,8 @@
       burst(p.x, p.y, 16, 'flame', { min: 20, max: 140, g: -40, life: 0.6, rmin: 6, rmax: 12 });
       for (let i = 0; i < 8; i++) parts.push({ kind: 'gear', x: p.x, y: p.y, vx: rand(-220, 220), vy: rand(-260, -60), g: 480, life: 1.6, max: 1.6, r: rand(3, 7), rot: 0, vr: rand(-12, 12), color: Math.random() < 0.5 ? '#d4a24c' : '#8d9399' });
       smokePuff(p.x, p.y, 10);
+      explosion(p.x, p.y, 110, true);
+      smokeCloud(p.x, p.y - 20, 90, 'black', { life: 1.8 });
       shake(14); hitStop(130); flash(0.3);
       sfx('explode');
       return 420;
@@ -358,6 +416,8 @@
       const p = playerPt(ev.uid);
       if (ev.token === 'fire') burst(p.x, p.y - 4, 16, 'flame', { min: 20, max: 120, g: -60, life: 0.6, rmin: 4, rmax: 9 });
       if (ev.token === 'glue') burst(p.x, p.y, 14, 'drip', { min: 40, max: 160, g: 300, life: 0.7, rmin: 2, rmax: 4 });
+      if (ev.token === 'gas') smokeCloud(p.x, p.y - 6, 60, 'green', { life: 1.4, vy: -8 });
+      if (ev.token === 'glue') sprite(p.x, p.y - 4, 'orb_green', 34, 0.5);
       if (ev.token === 'gas') for (let i = 0; i < 8; i++) parts.push({ kind: 'gas', x: p.x + rand(-20, 20), y: p.y + rand(-12, 12), vx: rand(-30, 30), vy: rand(-20, 10), g: 0, life: 1.4, max: 1.4, r: rand(10, 16) });
       sfx(ev.token === 'fire' ? 'crackle' : 'splat');
       return 220;
@@ -375,7 +435,7 @@
       sfx('ratchet');
       return 220;
     },
-    cleanse(ev) { const p = playerPt(ev.uid); burst(p.x, p.y - 10, 18, 'water', { up: 60, min: 40, max: 160, g: 400, life: 0.6, rmin: 1.5, rmax: 3 }); sfx('hiss'); return 200; },
+    cleanse(ev) { const p = playerPt(ev.uid); sprite(p.x, p.y - 14, 'splash', 60, 0.6, { grow: 0.15 }); burst(p.x, p.y - 10, 18, 'water', { up: 60, min: 40, max: 160, g: 400, life: 0.6, rmin: 1.5, rmax: 3 }); sfx('hiss'); return 200; },
     brace(ev) { const p = playerPt(ev.uid); ring(p.x, p.y, 'rgba(240,207,132,0.9)', 10, 46, 0.5, 4); sfx('clank'); return 200; },
     evadeReady() { A().player.dodge = 1; sfx('whoosh'); return 200; },
     evade() {
@@ -392,6 +452,7 @@
       const mid = { x: (playerPt('core').x + enemyPt().x) / 2, y: (playerPt('core').y + enemyPt().y) / 2 };
       setTimeout(() => {
         burst(mid.x, mid.y, 40, 'spark', { min: 120, max: 420, life: 0.8 });
+        sprite(mid.x, mid.y, 'spark_star', 110, 0.4, { grow: 0.6, add: true });
         for (let i = 0; i < 12; i++) parts.push({ kind: Math.random() < 0.5 ? 'gear' : 'bolt', x: mid.x, y: mid.y, vx: rand(-260, 260), vy: rand(-280, -40), g: 520, life: 1.4, max: 1.4, r: rand(3, 6), rot: 0, vr: rand(-14, 14), color: '#8d9399' });
         shake(22); hitStop(150); flash(0.35);
         sfx('ram');
@@ -405,6 +466,7 @@
       flash(0.55); shake(16); hitStop(160);
       ring(p.x, p.y, 'rgba(255,90,50,0.95)', p.r * 0.5, p.r * 2.2, 0.8, 10);
       burst(p.x, p.y, 40, 'spark', { min: 100, max: 360, life: 1 });
+      explosion(p.x, p.y, p.r * 2.2, true);
       phaseBanner = { text: ev.name, life: 1.8, max: 1.8 };
       sfx('alarm');
       if (window.CardshipsAudio) window.CardshipsAudio.bossPhase(ev.index);
@@ -423,7 +485,7 @@
     victory() {
       const p = enemyPt();
       if (A().enemy) A().enemy.sinking = 0.001;
-      for (let i = 0; i < 3; i++) setTimeout(() => { ring(p.x + rand(-30, 30), p.y + rand(-20, 20), 'rgba(255,200,90,0.95)', 6, 80, 0.5, 8); burst(p.x + rand(-40, 40), p.y, 30, 'flame', { min: 40, max: 200, g: -30, life: 0.8, rmin: 6, rmax: 14 }); burst(p.x, p.y, 20, 'spark', { min: 100, max: 400 }); shake(12); sfx('explode'); }, i * 220);
+      for (let i = 0; i < 3; i++) setTimeout(() => { explosion(p.x + rand(-50, 50), p.y + rand(-30, 30), 120 + i * 30, true); smokeCloud(p.x + rand(-40, 40), p.y - 20, 110, 'black', { life: 2 }); ring(p.x + rand(-30, 30), p.y + rand(-20, 20), 'rgba(255,200,90,0.95)', 6, 80, 0.5, 8); burst(p.x + rand(-40, 40), p.y, 30, 'flame', { min: 40, max: 200, g: -30, life: 0.8, rmin: 6, rmax: 14 }); burst(p.x, p.y, 20, 'spark', { min: 100, max: 400 }); shake(12); sfx('explode'); }, i * 220);
       for (let i = 0; i < 30; i++) parts.push({ kind: 'cog', x: p.x, y: p.y, vx: rand(-220, 220), vy: rand(-380, -140), g: 420, life: 1.8, max: 1.8, r: rand(4, 7), rot: 0, vr: rand(-10, 10) });
       phaseBanner = { text: 'Victory!', life: 1.6, max: 1.6 };
       if (window.CardshipsAudio) window.CardshipsAudio.sting('victory');
@@ -436,6 +498,8 @@
       P.dying = 0.001;
       ring(c.x, c.y, 'rgba(255,160,60,0.95)', 10, 120, 0.7, 10);
       burst(c.x, c.y, 60, 'spark', { min: 120, max: 460, life: 1.2 });
+      explosion(c.x, c.y, 180, true);
+      smokeCloud(c.x, c.y - 30, 150, 'black', { life: 2.2 });
       burst(c.x, c.y, 30, 'flame', { min: 40, max: 200, g: -30, life: 1, rmin: 8, rmax: 16 });
       shake(26); flash(0.5); hitStop(200);
       if (Scene()) Scene().jolt(1.5);

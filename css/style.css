@@ -186,6 +186,8 @@ p { margin: 0; max-width: 65ch; }
 .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .enc { display: flex; flex-direction: column; gap: 10px; border: 1.5px solid var(--rule); background: rgba(0, 0, 0, 0.18); padding: 14px; border-radius: 4px; }
 .enc.part.uncommon { border-color: var(--uncommon); } .enc.part.rare { border-color: var(--rare); box-shadow: 0 0 18px -6px rgba(240, 194, 78, 0.6); }
+.part-head { display: flex; align-items: center; gap: 12px; }
+.part-portrait { width: 96px; height: 76px; flex: none; border-radius: 4px; background: radial-gradient(ellipse at 50% 60%, rgba(240, 207, 132, 0.16), rgba(0, 0, 0, 0.25) 75%); border: 1px solid var(--rule); }
 .enc .kind { align-self: flex-start; }
 .kind { font: 600 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 7px; border: 1.5px solid currentColor; border-radius: 2px; }
 .k-Combat, .k-Ambush, .k-Boss, .k-Elite { color: var(--ember); }

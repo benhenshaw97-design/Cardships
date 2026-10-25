@@ -259,18 +259,41 @@
     },
   };
 
-  // Modules drawn with the provided sprites, over a small deck mount. Sprites face left in the sheet,
-  // so they are flipped to face outward (+x).
+  // Modules drawn with the provided sprites, over a small deck mount. The steampunk parts face
+  // outward (+x) already; the older ship-parts pieces face left, so they are flipped.
   const mount = (g, fill = C.wood, dark = C.woodD) => panel(g, -M / 2, -2, M, H / 2 + 2, fill, dark, 3);
+  // Draws a sprite of width w standing on the mount (its base at y = 1, raised by lift).
+  const seat = (g, name, x, w, lift = 0, flip = false) => SPR().draw(g, name, x, 1 - lift - (w * SPR().aspect(name)) / 2, w, null, flip);
   const MODULE_SPRITES = {
-    cannon(g, m) { mount(g); return SPR().draw(g, 'cannon_a', 6 - m.recoil * 8, -8, 42, null, true); },
-    mortar(g, m) { mount(g, C.iron, C.ironD); return SPR().draw(g, 'turret_c', 0, -10 + m.recoil * 3, 36, null, true); },
+    cannon(g, m) { mount(g); return seat(g, 'cannon_carriage', 4 - m.recoil * 8, 50); },
+    mortar(g, m) { mount(g, C.iron, C.ironD); return seat(g, 'gun_brass', 0, 40, -m.recoil * 3); },
+    sniper(g, m) { mount(g); return seat(g, 'gun_steel', 4 - m.recoil * 6, 46); },
+    gatling(g, m, t) { mount(g, C.iron, C.ironD); return seat(g, 'gatling_a', 6 - m.recoil * 4 + (m.recoil > 0.05 ? Math.sin(t * 90) : 0), 46); },
+    grenadiers(g, m) { mount(g); return seat(g, 'rocket_rack', 2 - m.recoil * 4, 38); },
     harpoon(g, m) { mount(g); SPR().draw(g, 'turret_e', -10, -8, 26, null, true); return SPR().draw(g, 'harpoon', 12 - m.recoil * 8, -12, 44, null, true); },
-    boiler(g) { mount(g, C.iron, C.ironD); return SPR().draw(g, 'engine_small', 0, -14, 36); },
-    overpressure(g) { mount(g, C.copper, C.copperD); return SPR().draw(g, 'engine_box', 0, -16, 36); },
-    autoloader(g) { mount(g, C.iron, C.ironD); return SPR().draw(g, 'engine_turbine', 0, -10, 46, null, true); },
+    plating(g) { return SPR().draw(g, 'panel_iron', 0, 0, M, H + 4); },
+    bulwark(g) { return SPR().draw(g, 'plate_b', 0, -2, M - 4, H + 10); },
+    repair(g, m, t) { mount(g, C.teal, '#3a7469'); return seat(g, 'gears_a', 0, 44); },
+    boiler(g) { mount(g, C.iron, C.ironD); return seat(g, 'boiler_tank', 0, 32); },
+    overpressure(g) { mount(g, C.copper, C.copperD); return seat(g, 'boiler_gauges', 0, 42); },
+    autoloader(g) { mount(g, C.iron, C.ironD); return seat(g, 'ammo_box', 0, 28); },
+    heart(g, m, t) {
+      mount(g, C.copperD, '#5f2f1b');
+      const ok = seat(g, 'engine_ornate', 0, 40);
+      g.fillStyle = `rgba(255,120,90,${0.12 + Math.max(0, Math.sin(t * 5)) * 0.22})`; g.beginPath(); g.arc(0, -14, 18, 0, TAU); g.fill();
+      return ok;
+    },
+    gyro(g, m, t) { mount(g, C.iron, C.ironD); return seat(g, 'compass_wheel', 0, 28); },
+    telescope(g, m) {
+      mount(g);
+      g.save(); g.translate(0, -10); g.rotate(-0.3);
+      const ok = SPR().draw(g, 'spyglass', 4, 0, m.outer ? 44 : 34);
+      g.restore();
+      return ok;
+    },
     quarters(g) { mount(g); return SPR().draw(g, 'cabin_small', 0, -14, 30); },
-    cargo(g) { mount(g); return SPR().draw(g, 'cabin_big', 0, -14, 38); },
+    cargo(g) { mount(g); seat(g, 'crate_wood', 12, 16, 0); return seat(g, 'chest_wood', -5, 30); },
+    hatch(g) { mount(g); return seat(g, 'chest_ornate', 0, 32); },
     gasbag(g, m, t) {
       mount(g);
       g.strokeStyle = C.out; g.lineWidth = 1; g.beginPath(); g.moveTo(-12, 0); g.lineTo(-14, -20); g.moveTo(12, 0); g.lineTo(14, -20); g.stroke();
@@ -278,8 +301,9 @@
     },
     propeller(g, m, t) {
       mount(g, C.iron, C.ironD);
-      g.save(); g.translate(M / 2 + 2, 2); g.scale(0.35, 1); g.rotate(t * 18);
-      const ok = SPR().draw(g, 'prop_a', 0, 0, 34);
+      seat(g, 'motor_b', -4, 30);
+      g.save(); g.translate(M / 2 + 2, -6); g.scale(0.35, 1); g.rotate(t * 18);
+      const ok = SPR().draw(g, 'prop_4', 0, 0, 38);
       g.restore();
       return ok;
     },
@@ -867,5 +891,28 @@
     hitTest(px, py) { return Math.abs(px - this.x) < this.halfW * this.scale && Math.abs(py - this.y + 20 * this.scale) < this.halfW * this.scale * 0.8; }
   }
 
-  window.CardshipsShipArt = { PlayerShip, EnemyShip, MODULE_W: M, CORE_W, HULL_H: H, palette: C, hasArt: (id) => !!MODULES[id] };
+  // A small still of a part as it looks on the ship, for offers and the inspector.
+  function portrait(id, w = 96, h = 76) {
+    const c = document.createElement('canvas');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = w * dpr; c.height = h * dpr;
+    c.className = 'part-portrait';
+    c.setAttribute('aria-hidden', 'true');
+    const paint = (tries) => {
+      const g = c.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+      const k = ['gasbag', 'lightningrod', 'tesla'].includes(id) ? 0.9 : 1.3; // tall parts shrink to fit
+      g.translate(w / 2, h * 0.7); g.scale(k, k);
+      const m = { uid: 'portrait-' + id, id, side: 'bow', idx: 0, hp: 1, max: 1, tokens: {}, recoil: 0, outer: true };
+      const sprite = MODULE_SPRITES[id];
+      if (!(sprite && SPR().ready() && sprite(g, m, 0.6))) (MODULES[id] || MODULES.plating)(g, m, 0.6);
+      // The atlases may still be loading: repaint once they are.
+      if (tries > 0 && sprite && !SPR().allReady()) setTimeout(() => paint(tries - 1), 300);
+    };
+    paint(10);
+    return c;
+  }
+
+  window.CardshipsShipArt = { PlayerShip, EnemyShip, portrait, MODULE_W: M, CORE_W, HULL_H: H, palette: C, hasArt: (id) => !!MODULES[id] };
 })();

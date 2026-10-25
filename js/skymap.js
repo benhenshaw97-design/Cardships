@@ -16,7 +16,7 @@
     unknown: 'M9 9 a3 3 0 1 1 4 2.8 C12.4 12.1 12 12.6 12 13.5 V15 M12 18.5 a0.6 0.6 0 1 0 0.1 0',
     cloud: 'M5 16 a4 4 0 0 1 2-7.5 a5.5 5.5 0 0 1 10 1.5 a3.5 3.5 0 0 1 1 6 Z',
   };
-  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', storm: '#3e4a5e', lair: '#5a2a26' };
+  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', dusk: '#b04a3a', night: '#26305a', storm: '#3e4a5e', lair: '#5a2a26' };
 
   function svgEl(tag, attrs) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);

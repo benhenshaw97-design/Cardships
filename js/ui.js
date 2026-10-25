@@ -150,7 +150,7 @@
     wrap.classList.toggle('tall', !game);
     syncMusic();
     if (!game) {
-      scene.setBiome('sunset'); scene.setMode('title');
+      scene.setBiome('dusk'); scene.setMode('title');
       overlay.replaceChildren(h('div', { class: 'title-hero' },
         h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike'),
         h('h1', {}, 'Cardships'),
@@ -501,7 +501,7 @@
     const d = D.PARTS[id];
     return h('div', { class: `enc part ${d.rarity}` },
       h('div', { class: 'row' }, h('span', { class: `type-chip ${d.type}` }, d.type), h('span', { class: `rarity-chip ${d.rarity}` }, d.rarity)),
-      h('h3', {}, d.name),
+      h('div', { class: 'part-head' }, window.CardshipsShipArt.portrait(id), h('h3', {}, d.name)),
       statline(`Weight ${fmt(d.weight)}`, `Durability ${d.hp}`, d.cost != null ? `${d.cost} Steam` : 'Passive'),
       h('div', { class: 'rules stack' }, d.rules.map(([k, v]) => h('div', {}, h('b', {}, k + ': '), v))),
       extra ? h('div', { class: 'enc-foot' }, extra) : null,

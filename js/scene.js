@@ -7,6 +7,8 @@
     canyon: 'assets/art/canyon-foundry.jpg',
     deck: 'assets/art/sky-deck.jpg',
     engine: 'assets/art/engine-room.jpg',
+    cloudsea: 'assets/art/cloud-sea-sunset.jpg',
+    night: 'assets/art/night-fleet.jpg',
   };
   const images = {};
   for (const [k, src] of Object.entries(ART)) {
@@ -22,6 +24,8 @@
     storm: { sky: ['#1d2533', '#3a4659', '#5c6878'], far: '#2b3443', farRock: '#222a36', mid: '#384353', cloud: ['#77808e', '#5d6573', '#3f4653'], wisp: 'rgba(120,128,140,0.55)', weather: 'rain', farKind: 'peaks', lightning: true },
     smog: { sky: ['#5e4a38', '#8c7356', '#b59a76'], far: '#6d5944', farRock: '#5a4838', mid: '#4a3c30', cloud: ['#b7a58a', '#988670', '#6f604f'], wisp: 'rgba(120,105,85,0.5)', weather: 'soot', farKind: 'art', art: 'canyon', haze: 'rgba(120,96,70,0.35)', midKind: 'chimneys' },
     sunset: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: 'sunset', haze: 'rgba(80,40,70,0.18)', midKind: 'airships' },
+    dusk: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: 'cloudsea', haze: 'rgba(70,20,30,0.16)', midKind: 'airships' },
+    night: { sky: ['#070b1c', '#141d3a', '#26305a'], far: '#1a2240', farRock: '#121933', mid: '#0f1428', cloud: ['#59658a', '#3c4668', '#252c48'], wisp: 'rgba(110,125,170,0.4)', weather: 'motes', farKind: 'art', art: 'night', haze: 'rgba(8,12,30,0.22)', midKind: 'airships' },
     lair: { sky: ['#160c0e', '#3a1414', '#7a2a1c'], far: '#2a1214', farRock: '#1d0d0f', mid: '#2c1416', cloud: ['#6e4a48', '#4e3232', '#2e1c1e'], wisp: 'rgba(90,50,50,0.5)', weather: 'embers', farKind: 'spires', midKind: 'wrecks' },
     dock: { still: 'deck', wisp: 'rgba(255,255,255,0.4)', weather: 'steam' },
     interior: { still: 'engine', wisp: 'rgba(255,240,220,0.35)', weather: 'steam', glow: [0.405, 0.5] },
@@ -181,16 +185,17 @@
     makeCloud(layer, x) {
       const def = this.def;
       const front = layer === 'cloudFront';
-      // In clear and sunset skies, the far bank mixes in the painted clouds from the sprite sheet.
+      // In open skies, the far bank mixes in the painted clouds from the sprite sheet, tinted to the light.
       const SP = window.CardshipsSprites;
-      if (!front && (this.name === 'clear' || this.name === 'sunset') && SP && SP.ready() && Math.random() < 0.6) {
+      const TINT = { clear: null, sunset: 'rgba(255,170,120,0.35)', dusk: 'rgba(220,90,80,0.45)', night: 'rgba(20,28,70,0.62)' };
+      if (!front && this.name in TINT && SP && SP.ready() && Math.random() < 0.6) {
         const name = ['cloud_big', 'cloud_puff', 'cloud_small'][Math.floor(Math.random() * 3)];
         const f = SP.FRAMES[name];
         const k = rand(1.6, 2.6) * Math.min(1.2, this.h / 320);
         const c = canvas(f[2] * k, f[3] * k);
         const cg = c.getContext('2d');
         cg.drawImage(SP.image, f[0], f[1], f[2], f[3], 0, 0, c.width, c.height);
-        if (this.name === 'sunset') { cg.globalCompositeOperation = 'source-atop'; cg.fillStyle = 'rgba(255,170,120,0.35)'; cg.fillRect(0, 0, c.width, c.height); }
+        if (TINT[this.name]) { cg.globalCompositeOperation = 'source-atop'; cg.fillStyle = TINT[this.name]; cg.fillRect(0, 0, c.width, c.height); }
         return { layer, sprite: c, x, y: rand(this.h * 0.05, this.h * 0.5), alpha: 0.85 };
       }
       const cw = (front ? rand(130, 240) : rand(90, 200)) * Math.min(1.2, this.h / 320);

@@ -54,11 +54,15 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 
 | File | Used for |
 | --- | --- |
-| `assets/art/sunset-sky-city.jpg` | Title screen and the far layer of the sunset biome |
+| `assets/art/cloud-sea-sunset.jpg` | Title screen and the far layer of the red dusk biome |
+| `assets/art/sunset-sky-city.jpg` | Far layer of the golden sunset biome |
+| `assets/art/night-fleet.jpg` | Far layer of the night biome, the last leg before the boss |
 | `assets/art/canyon-foundry.jpg` | Far layer of the industrial smog biome |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |
 | `assets/art/ship-parts.png` | Sprite atlas cut from `assets/art/source/ship-parts-sheet.png` (rebuild with `python3 tools/build_sprites.py`): enemy ships, your ship's balloons, hull, flag and module parts, map marker, clouds, smoke trail |
+| `assets/art/fx.png` | Effects atlas cut from `assets/art/source/fx-sheet.png`: explosions, blasts, smoke clouds, muzzle flashes, rockets, bullets, fireballs, lightning, splashes |
+| `assets/art/parts.png` | Steampunk parts atlas cut from `assets/art/source/parts-sheet.png`: guns, gatlings, rocket racks, boilers, engines, gears, armour plates, chests, spyglass, compass, propellers (used for modules and the part portraits on offers) |
 | `assets/music/pirate-battle-1` | Title, sky map, docks, victory, defeat |
 | `assets/music/pirate-battle-2` | Standard combat |
 | `assets/music/pirate-battle-3` | Boss (stepping up per phase) and hazards |

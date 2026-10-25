@@ -305,7 +305,7 @@
   const ELITES = ['flagship', 'monitor'];
   const BOSSES = ['leviathan', 'stormqueen', 'colossus'];
   // Biome bands across the route; Storm Fronts and Smog Banks override with their own.
-  const BIOME_BANDS = [{ upTo: 3, biome: 'clear' }, { upTo: 6, biome: 'smog' }, { upTo: 9, biome: 'sunset' }, { upTo: 11, biome: 'storm' }, { upTo: 99, biome: 'lair' }];
+  const BIOME_BANDS = [{ upTo: 3, biome: 'clear' }, { upTo: 5, biome: 'smog' }, { upTo: 7, biome: 'sunset' }, { upTo: 9, biome: 'dusk' }, { upTo: 11, biome: 'night' }, { upTo: 99, biome: 'lair' }];
   const PRICES = { common: 32, uncommon: 52, rare: 85, coreRepair: 12, fullRepair: 20, charts: 16 };
 
   // Unlocks earned across runs (meta-progression). Rares not listed here start unlocked.
