@@ -7,25 +7,31 @@
   const SkyMap = window.CardshipsSkyMap;
   const Scene = window.CardshipsScene;
   const scene = new Scene(document.getElementById('scene'));
-  // Placeholder hulls until the module-built ship art lands.
-  Scene.actors = (g, v) => {
-    if (!game || !game.core || ['shop'].includes(game.phase)) return;
-    const bob = Math.sin(v.t * 1.6) * 4;
-    const hull = (x, y, s, color, flip) => {
-      g.save(); g.translate(x, y); g.scale(flip ? -s : s, s);
-      g.fillStyle = '#e8dcc0'; g.strokeStyle = '#2b1c12'; g.lineWidth = 3;
-      g.beginPath(); g.ellipse(0, -34, 70, 24, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-      g.fillStyle = color; g.beginPath(); g.roundRect(-50, 0, 100, 22, 6); g.fill(); g.stroke();
-      g.restore();
-    };
-    const inCombat = game.phase === 'combat';
-    hull(v.w * (inCombat ? 0.3 : 0.42), v.h * 0.6 + bob, Math.min(1, v.h / 300), '#c8913f', false);
-    if (inCombat) hull(v.w * 0.74, v.h * 0.5 - bob, Math.min(1, v.h / 300) * 0.9, '#7a3a2c', true);
+  const Actors = window.CardshipsActors;
+  Scene.actors = (g, v) => Actors.draw(g, v);
+  // Taps on the flight view select modules or hit install bolts.
+  document.getElementById('scene').addEventListener('click', (ev) => {
+    const r = ev.currentTarget.getBoundingClientRect();
+    Actors.tap(ev.clientX - r.left, ev.clientY - r.top);
+  });
+  Actors.onSelect = (uid) => {
+    if (!game) return;
+    if (ui.targeting) {
+      if (uid && ui.targeting.eligible.includes(uid)) { ui.targeting.onPick(uid); ui.targeting = null; }
+      render();
+      return;
+    }
+    if (uid === 'enemy') uid = null;
+    ui.selected = uid && uid !== ui.selected ? uid : null;
+    ui.confirmScrap = null;
+    render();
   };
+  Actors.onInsert = (side, pos) => { if (ui.insertFn) { ui.insertFn(side, pos); ui.insertFn = null; render(); } };
 
   let game = null;
   let meta = Meta.load();
-  const ui = { selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
+  const ui = { cardView: false, insertFn: null, selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
+  try { ui.cardView = localStorage.getItem('cardships.cardView') === '1'; } catch (e) { /* storage unavailable */ }
   function newRun(coreId) {
     game = new Game({ unlocked: meta.unlocked });
     game.chooseCore(coreId);
@@ -89,13 +95,33 @@
   function render() {
     syncScene();
     renderHud();
+    ui.insertFn = null;
     $('stage').replaceChildren(...stageContent().filter(Boolean));
     renderLog();
     if (game) {
-      for (const ev of game.events) if (ev.type === 'ram') scene.jolt(ev.player ? 0.8 : 1.2);
+      for (const ev of game.events) {
+        if (ev.type === 'ram') scene.jolt(ev.player ? 0.8 : 1.2);
+        Actors.react(ev);
+      }
       game.flashes.clear();
       game.events = [];
     }
+    Actors.sync(game, ui);
+    renderPopover();
+  }
+  // A small card over the flight view for the module you tapped, with its actions.
+  function renderPopover() {
+    const overlay = $('scene-overlay');
+    const dock = $('scene-dock');
+    const old = overlay.querySelector('.popover');
+    if (old) old.remove();
+    dock.replaceChildren();
+    if (!game || !ui.selected || ui.cardView || ui.targeting || !['combat', 'loot', 'map', 'event', 'hangar', 'shop'].includes(game.phase)) return;
+    const box = inspector();
+    if (!box.querySelector('h3')) return;
+    const pop = h('div', { class: 'popover' }, h('button', { class: 'popover-close', 'aria-label': 'Close', onclick: () => { ui.selected = null; render(); } }, '×'), box);
+    // On narrow screens the card docks under the flight view so it doesn't cover the ship.
+    if (window.innerWidth < 640) dock.append(pop); else overlay.append(pop);
   }
   function stageContent() {
     if (!game) return titleScreen();
@@ -233,6 +259,15 @@
   }
 
   function shipView({ insert = null, title = 'Your ship' } = {}) {
+    if (insert) ui.insertFn = insert;
+    const toggle = h('button', { class: 'btn small', onclick: () => { ui.cardView = !ui.cardView; try { localStorage.setItem('cardships.cardView', ui.cardView ? '1' : '0'); } catch (e) { /* storage unavailable */ } render(); } }, ui.cardView ? 'Hide cards' : 'Card view');
+    if (!ui.cardView) {
+      const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 modules`), toggle),
+        h('p', { class: 'muted' }, insert ? 'Tap a brass bolt on your ship in the flight view to install the part there, or open the card view.' : 'Tap a module on your ship in the flight view to see its card and actions.')];
+      if (game.has('cargo')) parts.push(h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Cargo ${game.storage.length}/2`), game.storage.map((c) => h('div', { class: 'slot' }, cardEl(c)))));
+      if (ui.targeting) parts.push(h('p', { class: 'muted' }, 'Choose a highlighted module on your ship.'));
+      return h('section', { class: 'panel ship-wrap compact' }, parts);
+    }
     const hits = predictedHits();
     const grid = h('div', { class: 'ship' });
     grid.append(
@@ -261,7 +296,7 @@
     grid.append(h('div', { class: 'slot', style: 'grid-column: 4; grid-row: 2' }, cardEl(game.core, hits)));
     grid.append(h('div', { class: 'layer-tag', style: 'grid-column: 4; grid-row: 3' }, D.CORES[game.core.id].name.split(' ')[0]));
 
-    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 modules`)), grid];
+    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 modules`), toggle), grid];
     if (game.has('cargo')) {
       const store = h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Cargo ${game.storage.length}/2`));
       for (const c of game.storage) store.append(h('div', { class: 'slot' }, cardEl(c)));
@@ -652,5 +687,5 @@
   $('brand').addEventListener('click', () => { if (!game || ['gameover', 'victory'].includes(game.phase)) { game = null; render(); } });
   render();
 
-  window.cardships = { get game() { return game; }, scene };
+  window.cardships = { get game() { return game; }, scene, render, actors: Actors };
 })();

@@ -183,7 +183,7 @@
       const front = layer === 'cloudFront';
       const cw = (front ? rand(130, 240) : rand(90, 200)) * Math.min(1.2, this.h / 320);
       const ch = cw * rand(0.32, 0.45);
-      return { layer, sprite: cloudSprite(cw, ch, def.cloud), x, y: front ? rand(this.h * 0.78, this.h * 0.98) - ch * 0.4 : rand(this.h * 0.05, this.h * 0.5), alpha: front ? 0.92 : 0.6 };
+      return { layer, sprite: cloudSprite(cw, ch, def.cloud), x, y: front ? rand(this.h * 0.88, this.h * 1.02) - ch * 0.3 : rand(this.h * 0.05, this.h * 0.5), alpha: front ? 0.82 : 0.6 };
     }
     makeWisps(n) {
       const out = [];

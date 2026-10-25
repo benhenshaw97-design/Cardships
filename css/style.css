@@ -309,3 +309,11 @@ p { margin: 0; max-width: 65ch; }
 .scene-overlay .title-hero { padding: 0; }
 .scene-overlay .title-hero h1 { color: #ffd98a; text-shadow: 0 3px 0 #5e3f17, 0 0 30px rgba(0, 0, 0, 0.8); }
 .scene-overlay .title-hero p, .scene-overlay .title-hero .eyebrow { color: #fff3dc; text-shadow: 0 1px 3px #000, 0 0 12px rgba(0, 0, 0, 0.8); }
+.ship-wrap.compact { gap: 6px; }
+.scene-wrap canvas { cursor: pointer; touch-action: manipulation; }
+.popover { pointer-events: auto; position: absolute; top: 10px; left: 10px; max-width: min(340px, calc(100% - 20px)); max-height: calc(100% - 20px); overflow: auto;
+  background: rgba(30, 23, 18, 0.94); border: 1.5px solid var(--brass-2); border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow); backdrop-filter: blur(3px); }
+.popover .inspector { border-top: 0; padding-top: 0; gap: 6px; font-size: 13.5px; }
+.popover-close { position: absolute; top: 4px; right: 6px; background: none; border: 0; color: var(--ink-2); font-size: 20px; cursor: pointer; line-height: 1; padding: 4px; }
+.scene-dock:empty { display: none; }
+.scene-dock .popover { position: relative; top: auto; left: auto; max-width: none; max-height: none; }
