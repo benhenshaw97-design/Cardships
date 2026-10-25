@@ -22,7 +22,7 @@ Opening `index.html` straight from disk also works, but browsers block WebAudio 
 - **Steam pays for actions; Durability is only health.** Steam refills every turn.
 - **Position matters.** Only outside weapons fire (Mortars and Tesla Coils arc over), outside armor takes every hit on its side, buried armor soaks hits for neighbours, and many parts power up the modules they touch.
 - **Weight matters.** Light ships outpace enemies and dodge cheaply; heavy ships shrug off rams and crosswinds.
-- **Four Cores** (Airship, Battleship, Zeppelin, and the unlockable Clockwork), **27 parts** in three rarities, **7 pirate ships**, and **3 bosses** with their own gimmicks (Iron Leviathan, Storm Queen, Clockwork Colossus).
+- **Four Cores** (Airship, Battleship, Zeppelin, and the unlockable Clockwork), **26 parts** in three rarities, **7 pirate ships**, and **3 bosses** with their own gimmicks (Iron Leviathan, Storm Queen, Clockwork Colossus).
 - **Runs** cross a 12-column sky map with sight, cloud cover, cogs, a Trading Zeppelin shop, contracts and Sky Docks. Lifetime milestones unlock new Cores and rare parts. Every run has a shareable seed and autosaves.
 
 See `DESIGN_CHANGES.md` for every rule change and why, and `BALANCE_REPORT.md` for the tuning data.
