@@ -9,6 +9,11 @@
   const scene = new Scene(document.getElementById('scene'));
   const Actors = window.CardshipsActors;
   const FX = window.CardshipsFX;
+  const Audio = window.CardshipsAudio;
+  Audio.applyPrefs(FX.prefs);
+  window.CardshipsShipArt.PlayerShip.onClank = () => Audio.sfx('clank');
+  // A soft click for every button press.
+  document.addEventListener('click', (ev) => { if (ev.target.closest('button')) Audio.sfx('ui'); }, true);
   Scene.actors = (g, v) => Actors.draw(g, v);
   Scene.fx = FX.drawFx;
   Scene.overlay = FX.drawOverlay;
@@ -76,11 +81,25 @@
   }
 
   // ---------- render root ----------
+  // Which music cue each moment of the run calls for.
+  function syncMusic() {
+    if (!game) { Audio.setScene('title'); return; }
+    const node = game.map && game.currentNode();
+    const enc = game.phase === 'event' && game.event ? game.event.enc : null;
+    const cue = {
+      combat: node && node.enc === 'boss' ? 'boss' : 'combat',
+      event: ['storm', 'smog', 'beacon'].includes(enc) ? 'hazard' : 'map',
+      hangar: 'dock', shop: 'dock', gameover: 'defeat', victory: 'victory',
+    }[game.phase] || 'map';
+    Audio.setScene(cue);
+    Audio.setTension(game.phase === 'combat' && game.core.hp / game.maxHp(game.core) <= 0.34);
+  }
   // Which parallax biome and scroll speed each moment of the run calls for.
   function syncScene() {
     const wrap = $('scene-wrap');
     const overlay = $('scene-overlay');
     wrap.classList.toggle('tall', !game);
+    syncMusic();
     if (!game) {
       scene.setBiome('sunset'); scene.setMode('title');
       overlay.replaceChildren(h('div', { class: 'title-hero' },

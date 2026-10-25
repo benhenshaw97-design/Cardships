@@ -128,3 +128,21 @@ Every change to the rules, content and presentation, with a one-line reason. New
 - **Victory and defeat:** victory sinks the enemy in a chain of explosions with cogs bursting out; defeat blows every module off your ship and sends the hull tumbling through the clouds. *Reason: endings deserve a moment.*
 - **Settings panel:** screen shake (Full / Reduced / Off), flashing effects (On / Off), dice animation (Normal / Fast / Off), plus the audio controls. Reduced-motion systems start with shake off and fast dice. Choices are remembered. *Reason: accessibility and comfort.*
 - **Performance:** all effects are canvas particles with a hard cap, drawn in the same frame as the scene; the enemy renders through a cached offscreen buffer. *Reason: smooth on phones.*
+
+## Phase 6: music and audio
+
+- **Your three tracks were profiled for tempo, loudness and dynamics, then assigned by feel:**
+  - *Pirate Battle 1* (about 83 BPM, the widest dynamics) is the roaming track: title screen (low-pass filtered, as if heard from the sky city), sky map, and Sky Dock and Trading Zeppelin (heavily muffled, as if through the hull).
+  - *Pirate Battle 2* (about 99 BPM, the loudest and most even) is standard combat.
+  - *Pirate Battle 3* (about 123 BPM, with a quiet breakdown at 80–100s and a climax from 170s) is the boss track; its breakdown also scores hazards and ambushes.
+  - Victory plays Pirate Battle 1's loudest section (from 139s). Defeat plays its quiet passage (from 119s) slowed to 82% and muffled.
+  *Reason: three battle tracks can still cover eight moods with sections, filters and speed.*
+- **The boss fight steps up at each phase:** phase 1 plays the opening under a filter, phase 2 jumps to the second build with the filter opening, and phase 3 jumps to the climax at full brightness, each with a short crossfade. *Reason: music intensity should follow the fight.*
+- **Scene changes crossfade over about 1.2 seconds.** Scenes that share a track (map, events, loot, docks) keep playing and only change level and filter. *Reason: no jarring restarts between screens.*
+- **Seamless loops:** just before a track ends (trailing silence trimmed), a second player starts from the top and the two crossfade. *Reason: looping without a gap.*
+- **Low hull:** below a third of Core Durability in combat, music ducks about 30% and is low-passed to 1.8 kHz. *Reason: tension without drowning the game.*
+- **Sound effects:** no effect files were provided, so all effects are synthesised in WebAudio: cannon fire, big and small hits, armor clangs, bolt-on clanks, explosions, flamethrower roar, fire crackle, tesla zaps, gatling bursts, harpoon chains, whooshes, bomb whistles, dice rattles, repair ratchets, steam hiss, goo splats, coins, boss alarms, ram impacts and UI clicks. *Reason: full feedback now, real sounds later.*
+- **Drop-in hook for real sound files:** list files in `SFX_FILES` in `js/audio.js` (or call `CardshipsAudio.registerSfx(name, url)`); each replaces the synthesised version of that name. *Reason: leave clean hooks, as asked.*
+- **Settings:** separate Music and Sound effects volume sliders plus Mute, remembered in localStorage. *Reason: player control.*
+- **Audio starts on the first tap or key press,** as browsers require. *Reason: autoplay rules.*
+- **Safari support:** AAC copies of the tracks sit next to your Opus originals and are used when the browser supports them. Opening `index.html` straight from disk falls back to plain volume control, because browsers block WebAudio filters on local files. *Reason: works everywhere it can.*
