@@ -11,14 +11,13 @@
   const FX = window.CardshipsFX;
   const Audio = window.CardshipsAudio;
   Audio.applyPrefs(FX.prefs);
-  window.CardshipsShipArt.PlayerShip.onClank = () => Audio.sfx('clank');
   // A soft click for every button press.
   document.addEventListener('click', (ev) => { if (ev.target.closest('button')) Audio.sfx('ui'); }, true);
   Scene.actors = (g, v) => Actors.draw(g, v);
   Scene.fx = FX.drawFx;
   Scene.pixelScale = () => Actors.P || 2;
   Scene.overlay = FX.drawOverlay;
-  // Taps on the flight view select modules or hit install bolts.
+  // Taps on the flight view: your ship selects the Core; animations skip.
   const touchFirst = window.matchMedia('(hover: none)').matches;
   document.getElementById('scene').addEventListener('click', (ev) => {
     if (FX.isPlaying()) { FX.skip(); return; }
@@ -26,18 +25,6 @@
     ui.lastTouch = ev.pointerType ? ev.pointerType !== 'mouse' : touchFirst;
     Actors.tap(ev.clientX - r.left, ev.clientY - r.top);
   });
-  document.getElementById('scene').addEventListener('pointermove', (ev) => {
-    if (ev.pointerType !== 'mouse' || FX.isPlaying()) return;
-    const r = ev.currentTarget.getBoundingClientRect();
-    Actors.hover(ev.clientX - r.left, ev.clientY - r.top);
-  });
-  document.getElementById('scene').addEventListener('pointerleave', () => Actors.hover(null, null));
-  // Hovering an install bolt previews the part there.
-  Actors.onHoverInsert = (ins) => {
-    if (!ui.insertFn || !ui.previewId) return;
-    if (posKey(ins) === ui.previewKey) return;
-    setPreview(ins);
-  };
   Actors.onSelect = (uid) => {
     if (!game) return;
     if (ui.targeting) {
@@ -50,24 +37,17 @@
     ui.confirmScrap = null;
     render();
   };
-  // Mouse: click a bolt to install (hovering already previewed it). Touch: first tap previews, second installs.
-  Actors.onInsert = (pos) => {
-    if (!ui.insertFn) return;
-    if (ui.lastTouch && ui.previewKey !== posKey(pos)) { setPreview(pos); return; }
-    commitInsert(pos);
-  };
   // Slots are { row, col }: row 0 the hull, row 1 the upper deck; col <0 stern, 0 Core, >0 bow.
   const posKey = (pos) => (pos ? `${pos.row}:${pos.col}` : null);
   function setPreview(pos) {
     ui.previewKey = posKey(pos);
     ui.preview = pos && ui.previewId ? { id: ui.previewId, pos: { row: pos.row, col: pos.col } } : null;
-    Actors.previewKey = ui.previewKey;
     render();
   }
   function commitInsert(pos) {
     const fn = ui.insertFn;
-    ui.preview = null; ui.previewKey = null; Actors.previewKey = null;
-    if (fn) { fn({ row: pos.row, col: pos.col }); ui.insertFn = null; render(); }
+    ui.preview = null; ui.previewKey = null;
+    if (fn) { fn({ row: pos.row, col: pos.col }); ui.insertFn = null; Audio.sfx('clank'); render(); }
   }
   // A slot in words: "Hull, bow 2" / "Upper deck over stern 1" / "Bridge".
   function slotName(pos) {
@@ -78,8 +58,7 @@
 
   let game = null;
   let meta = Meta.load();
-  const ui = { cardView: false, insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
-  try { ui.cardView = localStorage.getItem('cardships.cardView') === '1'; } catch (e) { /* storage unavailable */ }
+  const ui = { insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
   const SAVE_KEY = 'cardships.run.v4'; // v4: two-deck grid
   function loadSave() { try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
   function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage unavailable */ } }
@@ -204,24 +183,9 @@
     }
     ui.intentSummary = game && game.phase === 'combat' && game.combat.enemy.intent ? intentText(game.combat.enemy.intent) : '';
     Actors.sync(game, ui);
-    renderPopover();
     autosave();
     const lh = $('log-head');
     if (lh) lh.textContent = game && game.phase === 'combat' ? `Combat log · round ${game.combat.round}` : "Ship's log";
-  }
-  // A small card over the flight view for the module you tapped, with its actions.
-  function renderPopover() {
-    const overlay = $('scene-overlay');
-    const dock = $('scene-dock');
-    const old = overlay.querySelector('.popover');
-    if (old) old.remove();
-    dock.replaceChildren();
-    if (!game || !ui.selected || ui.cardView || ui.targeting || !['combat', 'loot', 'map', 'event', 'hangar', 'shop'].includes(game.phase)) return;
-    const box = inspector();
-    if (!box.querySelector('h3')) return;
-    const pop = h('div', { class: 'popover' }, h('button', { class: 'popover-close', 'aria-label': 'Close', onclick: () => { ui.selected = null; render(); } }, '×'), box);
-    // On narrow screens the card docks under the flight view so it doesn't cover the ship.
-    if (window.innerWidth < 640) dock.append(pop); else overlay.append(pop);
   }
   function stageContent() {
     if (!game) return titleScreen();
@@ -343,7 +307,8 @@
     const t = ui.targeting;
     const eligible = t && t.eligible.includes(card.uid);
     const incoming = hits && hits.has(card.uid) ? hits.get(card.uid) : null;
-    const cls = ['card', info.type, info.rarity, ui.selected === card.uid && !t ? 'selected' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', game.flashes.has(card.uid) ? 'hit' : '', incoming != null ? 'targeted' : ''].join(' ');
+    const linked = ui.selected && !t && ui.selected !== card.uid && game.locate(ui.selected) && game.synergies(ui.selected).some((l) => l.uid === card.uid);
+    const cls = ['card', info.type, info.rarity, linked ? 'linked' : '', ui.selected === card.uid && !t ? 'selected' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', game.flashes.has(card.uid) ? 'hit' : '', incoming != null ? 'targeted' : ''].join(' ');
     const pips = h('div', { class: 'pips' });
     for (let i = 0; i < info.max; i++) pips.append(h('i', { class: i < card.hp ? 'on' : '' }));
     const toks = h('div', { class: 'tokens' });
@@ -369,23 +334,19 @@
     incoming != null ? h('span', { class: 'incoming' }, incoming > 0 ? `−${incoming}` : '0') : null);
   }
 
-  function shipView({ insert = null, title = 'Your ship', previewId = null } = {}) {
+  // The Shipyard: your ship as a grid of cards, where every module is built, inspected and used.
+  function shipView({ insert = null, title = 'Shipyard', previewId = null } = {}) {
     if (insert) { ui.insertFn = insert; ui.previewId = previewId; }
-    if (!insert || (ui.preview && ui.preview.id !== previewId)) { ui.preview = null; ui.previewKey = null; Actors.previewKey = null; }
-    const toggle = h('button', { class: 'btn small', onclick: () => { ui.cardView = !ui.cardView; try { localStorage.setItem('cardships.cardView', ui.cardView ? '1' : '0'); } catch (e) { /* storage unavailable */ } render(); } }, ui.cardView ? 'Hide cards' : 'Card view');
-    if (!ui.cardView) {
-      const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/${MAX_MODULES} modules`), toggle),
-        h('p', { class: 'muted' }, insert ? 'Tap a brass bolt on your ship in the flight view to install the part there, or open the card view.' : 'Tap a module on your ship in the flight view to see its card and actions.')];
-      if (game.has('cargo')) parts.push(h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Cargo ${game.storage.length}/2`), game.storage.map((c) => h('div', { class: 'slot' }, cardEl(c)))));
-      if (ui.targeting) parts.push(h('p', { class: 'muted' }, 'Choose a highlighted module on your ship.'));
-      return h('section', { class: 'panel ship-wrap compact' }, parts);
-    }
+    if (!insert || (ui.preview && ui.preview.id !== previewId)) { ui.preview = null; ui.previewKey = null; }
     const hits = predictedHits();
     // The card grid mirrors the ship side-on: upper deck above the hull, stern left, bow right.
     const grid = h('div', { class: 'ship' });
     const slots = insert ? game.installSlots() : [];
     const slotAt = (row, col) => slots.find((p) => p.row === row && p.col === col);
-    const installBtn = (pos, label) => h('button', { class: 'slot-attach', onmouseenter: () => { if (ui.previewKey !== posKey(pos)) setPreview(pos); }, onclick: () => commitInsert(pos) }, label);
+    // Mouse: hover previews, click installs. Touch: the first tap previews, the second installs.
+    const pick = (pos) => { if (touchFirst && ui.previewKey !== posKey(pos)) setPreview(pos); else commitInsert(pos); };
+    const peek = (pos) => { if (!touchFirst && ui.previewKey !== posKey(pos)) setPreview(pos); };
+    const installBtn = (pos, label) => h('button', { class: `slot-attach${ui.previewKey === posKey(pos) ? ' previewing' : ''}`, onmouseenter: () => peek(pos), onclick: () => pick(pos) }, label);
     COLS.forEach((col, i) => {
       const gc = i + 1;
       // Upper deck.
@@ -403,7 +364,7 @@
         const ins = slotAt(0, col);
         if (card) {
           slot.append(cardEl(card, hits));
-          if (ins) slot.append(h('button', { class: `insert-tab ${col < 0 ? 'at-right' : 'at-left'}`, title: `Insert at ${slotName(ins)}`, 'aria-label': `Insert at ${slotName(ins)}`, onmouseenter: () => { if (ui.previewKey !== posKey(ins)) setPreview(ins); }, onclick: () => commitInsert(ins) }, '+'));
+          if (ins) slot.append(h('button', { class: `insert-tab ${col < 0 ? 'at-right' : 'at-left'}`, title: `Insert at ${slotName(ins)}`, 'aria-label': `Insert at ${slotName(ins)}`, onmouseenter: () => peek(ins), onclick: () => pick(ins) }, '+'));
         } else if (ins) slot.append(installBtn(ins, `Hull, ${col < 0 ? 'stern' : 'bow'}`));
         else slot.append(h('div', { class: 'slot-empty' }, Math.abs(col) === 1 ? `Bare ${col < 0 ? 'stern' : 'bow'}` : ''));
       }
@@ -416,7 +377,8 @@
       h('div', { class: 'side-label', style: 'grid-column: 5 / 8; grid-row: 4' }, 'Bow · faces the enemy ▸'),
     );
 
-    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/${MAX_MODULES} modules`), toggle), grid];
+    const hint = insert ? 'Hover or tap a slot to preview the part there, then install it. A + tab between hull cards inserts it and pushes the outer column out.' : ui.targeting ? 'Choose a highlighted module.' : game.phase === 'combat' ? 'Tap a card to fire, use, swap or vent it.' : 'Tap a card to read its rules and synergies.';
+    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/${MAX_MODULES} modules`)), h('p', { class: 'muted ship-hint' }, hint), grid];
     if (game.has('cargo')) {
       const store = h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Cargo ${game.storage.length}/2`));
       for (const c of game.storage) store.append(h('div', { class: 'slot' }, cardEl(c)));
@@ -512,7 +474,7 @@
     const d = D.PARTS[id];
     return h('div', { class: `enc part ${d.rarity}` },
       h('div', { class: 'row' }, h('span', { class: `type-chip ${d.type}` }, d.type), h('span', { class: `rarity-chip ${d.rarity}` }, d.rarity)),
-      h('div', { class: 'part-head' }, window.CardshipsShipArt.portrait(id), h('h3', {}, d.name)),
+      h('h3', {}, d.name),
       statline(`Weight ${fmt(d.weight)}`, `Durability ${d.hp}`, d.cost != null ? `${d.cost} Steam` : 'Passive'),
       h('div', { class: 'rules stack' }, d.rules.map(([k, v]) => h('div', {}, h('b', {}, k + ': '), v))),
       extra ? h('div', { class: 'enc-foot' }, extra) : null,
@@ -537,7 +499,7 @@
       insert = (pos) => game.installPending(pos);
       appendAll(panel, 
         h('h2', {}, `Install: ${partName(id)}`),
-        h('p', {}, full ? `Your ship holds ${MAX_MODULES} modules. Scrap one to make room (tap it, then Scrap), stow it or jettison it.` : 'Choose a brass bolt on your ship to bolt it on there. A bolt between hull modules inserts it and pushes the outer column out; bolts on the deck add an upper module.'),
+        h('p', {}, full ? `Your ship holds ${MAX_MODULES} modules. Scrap one to make room (tap it, then Scrap), stow it or jettison it.` : 'Pick a slot in the Shipyard below. A + tab between hull cards inserts it and pushes the outer column out; upper-deck slots add a module on top.'),
         game.pendingLoot.length > 1 ? h('p', { class: 'muted' }, `${game.pendingLoot.length - 1} more part${game.pendingLoot.length > 2 ? 's' : ''} waiting.`) : null,
         h('div', { class: 'choices' }, partSheet(id, h('div', { class: 'row' },
           game.has('cargo') ? h('button', { class: 'btn', disabled: !canStore || null, onclick: act(() => game.storePending()) }, 'Stow', h('span', { class: 'sub' }, `${game.storage.length}/2`)) : null,
@@ -560,7 +522,7 @@
   // What happens to the ship if the part goes in the previewed slot.
   function previewPanel(id) {
     const pv = ui.preview && ui.preview.id === id ? ui.preview : null;
-    if (!pv) return h('div', { class: 'enc preview' }, h('span', { class: 'eyebrow' }, 'Preview'), h('p', { class: 'muted' }, touchFirst ? 'Tap a brass bolt on your ship to preview the part there; tap it again to install.' : 'Hover a brass bolt on your ship to preview the part there; click to install.'));
+    if (!pv) return h('div', { class: 'enc preview' }, h('span', { class: 'eyebrow' }, 'Preview'), h('p', { class: 'muted' }, touchFirst ? 'Tap a slot in the Shipyard to preview the part there; tap it again to install.' : 'Hover a slot in the Shipyard to preview the part there; click to install.'));
     const res = game.previewInstall(id, pv.pos);
     if (!res) return null;
     return h('div', { class: 'enc preview' },
@@ -683,7 +645,7 @@
     const panel = h('section', { class: 'panel stack' },
       h('span', { class: 'kind k-SkyDock', style: 'align-self:flex-start' }, e.kind),
       h('h2', {}, e.name),
-      h('p', {}, 'Full reassembly: detach any modules and reattach them anywhere. Choose a docked part, then a brass bolt on your ship.'),
+      h('p', {}, 'Full reassembly: detach any modules and reattach them anywhere. Choose a docked part, then a slot in the Shipyard.'),
       dock,
       h('h3', {}, 'Mechanics'),
       d6List(e.table, y.roll ? [y.roll] : []),

@@ -186,8 +186,6 @@ p { margin: 0; max-width: 65ch; }
 .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .enc { display: flex; flex-direction: column; gap: 10px; border: 1.5px solid var(--rule); background: rgba(0, 0, 0, 0.18); padding: 14px; border-radius: 4px; }
 .enc.part.uncommon { border-color: var(--uncommon); } .enc.part.rare { border-color: var(--rare); box-shadow: 0 0 18px -6px rgba(240, 194, 78, 0.6); }
-.part-head { display: flex; align-items: center; gap: 12px; }
-.part-portrait { width: 96px; height: 76px; flex: none; border-radius: 4px; background: radial-gradient(ellipse at 50% 60%, rgba(240, 207, 132, 0.16), rgba(0, 0, 0, 0.25) 75%); border: 1px solid var(--rule); }
 .enc .kind { align-self: flex-start; }
 .kind { font: 600 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 7px; border: 1.5px solid currentColor; border-radius: 2px; }
 .k-Combat, .k-Ambush, .k-Boss, .k-Elite { color: var(--ember); }
@@ -312,14 +310,8 @@ p { margin: 0; max-width: 65ch; }
 .scene-overlay .title-hero { padding: 0; }
 .scene-overlay .title-hero h1 { color: #ffd98a; text-shadow: 0 3px 0 #5e3f17, 0 0 30px rgba(0, 0, 0, 0.8); }
 .scene-overlay .title-hero p, .scene-overlay .title-hero .eyebrow { color: #fff3dc; text-shadow: 0 1px 3px #000, 0 0 12px rgba(0, 0, 0, 0.8); }
-.ship-wrap.compact { gap: 6px; }
 .scene-wrap canvas { cursor: pointer; touch-action: manipulation; }
-.popover { pointer-events: auto; position: absolute; top: 10px; left: 10px; max-width: min(340px, calc(100% - 20px)); max-height: calc(100% - 20px); overflow: auto;
-  background: rgba(30, 23, 18, 0.94); border: 1.5px solid var(--brass-2); border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow); backdrop-filter: blur(3px); }
-.popover .inspector { border-top: 0; padding-top: 0; gap: 6px; font-size: 13.5px; }
-.popover-close { position: absolute; top: 4px; right: 6px; background: none; border: 0; color: var(--ink-2); font-size: 20px; cursor: pointer; line-height: 1; padding: 4px; }
 .scene-dock:empty { display: none; }
-.scene-dock .popover { position: relative; top: auto; left: auto; max-width: none; max-height: none; }
 
 /* ---------- effects, dice, settings ---------- */
 body.fx-busy .stage, body.fx-busy .scene-dock { pointer-events: none; filter: saturate(0.85); }
@@ -367,3 +359,8 @@ body.fx-busy .scene-wrap canvas { cursor: progress; }
 .slot.upper { border-bottom: 2px solid var(--rule); padding-bottom: 4px; }
 .slot-empty.sky { border-style: dotted; opacity: 0.45; }
 .map-ship-sprite { animation: bob 2.4s ease-in-out infinite; filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.4)); image-rendering: auto; }
+
+/* Shipyard: cards linked by a synergy to the selected one, and the slot being previewed. */
+.card.linked { outline: 2px dashed #7ff0c0; outline-offset: 2px; }
+.slot-attach.previewing { background: rgba(220, 169, 74, 0.28); border-style: solid; }
+.ship-hint { margin: 0; }

@@ -303,3 +303,26 @@ The stern / deck tower / bow lanes are gone. The ship is now the grid the origin
 - **Pirate gunships, skiffs, bombers and the Storm Queen are assembled** from the same hulls, envelopes and parts, mirrored to face you. The four finished ships from the sheet (Cutter, Monitor, Flagship, Leviathan) are pixelated at the same scale. *Reason: the enemies match your ship.*
 - **Markers stay sharp.** Selection, target brackets with the incoming damage, synergy outlines and the square brass install bolts are drawn at full screen resolution over the pixels. *Reason: the readable UI stays crisp.*
 - **The card view is a 7 × 2 grid** that mirrors the ship. The upper deck is above the hull, stern columns S3–S1, the Core, then bow columns B1–B3. Insert tabs sit between hull cards and install buttons in free upper slots. *Reason: the cards and the flight view show the same layout.*
+
+## Whole-ship sprites, and a Shipyard for building
+
+The cutaway with parts-sheet modules on the hull didn't work, so the two jobs are now split. *Reason: you asked for the ship sprites and effects in the flight view, with building in its own section.*
+
+- **The flight view shows whole ships from the ship sheet, plus the effects.** Your Core picks your ship, facing the enemy:
+
+  | Core | Ship | Ensign |
+  | --- | --- | --- |
+  | Airship | Sailing airship | Red cross |
+  | Battleship | Dreadnought | Blue |
+  | Zeppelin | Galleon under its gasbag | Green |
+  | Clockwork | Ironclad, copper-washed | Star |
+
+  The ship grows a little with each module you install. It still flashes when hit, smokes and burns where damaged modules sit, and lunges, dodges and falls. *Reason: the sheet's finished ships look right; bolted-on part sprites didn't.*
+- **Modules are mapped to points on the sprite.** Shots, hits, explosions and the intent's target brackets land at a module's place along the ship: its column, and its hull or upper deck. *Reason: positional play stays visible in the flight view without drawing the parts.*
+- **Pirates fly the same four ships in their own liveries.** Each enemy has a colour wash, a size and a flag (Jolly Roger for the pirates). The Storm Queen crackles with lightning, and the Leviathan and Colossus burn harder each phase. *Reason: one consistent sprite set; the assembled ships used the parts sprites.*
+- **The Shipyard panel is where you build.** It is always shown under the flight view: the 7 × 2 card grid, upper deck over the hull, stern to bow.
+  - Install slots and + insert tabs show the preview on hover (or on the first tap on a phone) and install on click.
+  - Tapping a card shows its rules and actions (fire, use, swap, vent, scrap, sell, detach). Cards with a synergy to the selected card get a green outline.
+  - The old install bolts and module popovers in the flight view are gone; tapping your ship in the flight view selects the Core.
+  *Reason: building needs room and clear slots, not a crowded hull.*
+- **Part offers no longer show a part portrait**, and the steampunk-parts atlas only loads if something asks for it. *Reason: those were the parts sprites that weren't working.*

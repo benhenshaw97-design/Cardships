@@ -1,6 +1,6 @@
 // Sprite atlases cut from the provided sheets by tools/build_sprites.py: ship parts, effects and
-// steampunk parts. Frames are [x, y, w, h, atlas] (atlas 0 when omitted). Full ships face left,
-// toward the player; the effects and steampunk parts face right.
+// steampunk parts (cut but not used by the game at the moment). Frames are [x, y, w, h, atlas]
+// (atlas 0 when omitted). Full ships face left, toward the player; the effects face right.
 (function () {
   const FRAMES = {
     ammo_box: [351,361,89,92,2],
@@ -166,16 +166,18 @@
     zap_white: [366,231,77,75,1],
     zap_yellow: [520,231,67,73,1],
   };
-  const SHEETS = ['assets/art/ship-parts.png', 'assets/art/fx.png', 'assets/art/parts.png'].map((src) => {
-    const im = new Image();
-    im.decoding = 'async';
-    im.src = src;
-    return im;
-  });
+  // Atlases load the first time one of their frames is asked for; ships and effects load at once.
+  const SOURCES = ['assets/art/ship-parts.png', 'assets/art/fx.png', 'assets/art/parts.png'];
+  const SHEETS = SOURCES.map(() => null);
+  function sheet(i) {
+    if (!SHEETS[i]) { const im = new Image(); im.decoding = 'async'; im.src = SOURCES[i]; SHEETS[i] = im; }
+    return SHEETS[i];
+  }
+  sheet(0); sheet(1);
   const img = SHEETS[0];
-  const loaded = (im) => im.complete && im.naturalWidth > 0;
+  const loaded = (im) => !!im && im.complete && im.naturalWidth > 0;
   // With a name: whether that frame's atlas has loaded; without: the ship-parts atlas.
-  const ready = (name) => loaded(name && FRAMES[name] ? SHEETS[FRAMES[name][4] || 0] : img);
+  const ready = (name) => loaded(name && FRAMES[name] ? sheet(FRAMES[name][4] || 0) : img);
 
   // Draws a frame centred on (x, y) at width w (height follows the aspect ratio unless h is given).
   // flip mirrors it horizontally.
@@ -186,7 +188,7 @@
     g.save();
     g.translate(x, y);
     if (flip) g.scale(-1, 1);
-    g.drawImage(SHEETS[f[4] || 0], f[0], f[1], f[2], f[3], -w / 2, -hh / 2, w, hh);
+    g.drawImage(sheet(f[4] || 0), f[0], f[1], f[2], f[3], -w / 2, -hh / 2, w, hh);
     g.restore();
     return true;
   }
@@ -196,7 +198,7 @@
     const f = FRAMES[name];
     if (!f || !ready(name)) return false;
     const [sx, sy, sw, sh] = f;
-    const img = SHEETS[f[4] || 0];
+    const img = sheet(f[4] || 0);
     const cs = Math.floor(sw * cap);
     const cd = Math.min(w / 2, (cs * h) / sh);
     g.save();
@@ -211,7 +213,5 @@
   }
   const aspect = (name) => (FRAMES[name] ? FRAMES[name][3] / FRAMES[name][2] : 1);
 
-  const allReady = () => SHEETS.every(loaded);
-
-  window.CardshipsSprites = { FRAMES, draw, drawStretched, aspect, ready, allReady, image: img, sheets: SHEETS };
+  window.CardshipsSprites = { FRAMES, draw, drawStretched, aspect, ready, image: img, sheet };
 })();

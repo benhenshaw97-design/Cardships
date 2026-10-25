@@ -10,14 +10,10 @@
     enemyKey: null,
     game: null,
     phase: null,
-    insertFn: null,
     hoverUid: null,
     selectedUid: null,
     intent: null,
-    onHoverInsert: null,
     onSelect: null,
-    onInsert: null,
-    synergy: null,
 
     reset() { this.player = new PlayerShip(); this.enemy = null; this.enemyKey = null; },
     // Before an event sequence plays: switch layout and make sure the enemy is on screen,
@@ -56,10 +52,7 @@
         for (const hit of p.plan) this.player.targets.set(hit.uid, (this.player.targets.get(hit.uid) || 0) + hit.dmg);
         this.intent = { it: c.enemy.intent, plan: p.plan, text: ui.intentSummary || '', evading: c.evading, stunned: c.enemy.stunned };
       }
-      this.insertFn = ui.insertFn || null;
-      this.player.inserts = this.insertFn ? game.installSlots() : [];
-      const gp = ui.preview && this.player.inserts.find((p) => p.row === ui.preview.pos.row && p.col === ui.preview.pos.col);
-      this.player.ghost = gp ? { id: ui.preview.id, pos: gp } : null;
+
     },
 
     // Plays game events on the ship visuals. Returns nothing; effects layers may add more.
@@ -78,29 +71,26 @@
     },
 
     // Where each ship sits for the current phase, and the shared pixel scale P (screen pixels per
-    // art pixel, in half steps so pixels stay even). Ships are anchored at the deck line.
+    // art pixel, in half steps so pixels stay even). Ships are anchored at the bottom of the hull.
     layout(v) {
       const phone = v.w < 560;
       const snap = (k) => Math.max(1, Math.floor(k * 2) / 2);
       const pw = this.player.width();
       const bd = this.player.bounds();
-      const ext = this.player.extent(false);
       if (this.phase === 'combat' || (this.enemy && this.enemy.sinking > 0 && this.enemy.sinking < 3)) {
-        const room = phone ? v.w * 0.9 : v.w * 0.54;
-        // On phones the enemy flies in the upper band, so the ship keeps to the lower part.
-        const P = snap(Math.min(4, room / pw, (v.h * (phone ? 0.62 : 0.9)) / (bd.top + bd.bottom)));
-        const px = Math.max(ext.left * P + 6, phone ? v.w * 0.46 : v.w * 0.27);
-        const py = Math.min(v.h - bd.bottom * P, Math.max(bd.top * P + 4, v.h * (phone ? 0.72 : 0.6)));
-        const ew = this.enemy ? this.enemy.artW : 160;
-        const eP = Math.min(P, snap((phone ? v.w * 0.6 : v.w * 0.42) / ew));
-        const ex = Math.min(v.w - (ew / 2) * eP + 10, phone ? v.w * 0.68 : v.w * 0.77);
-        return { P, player: { x: px, y: py }, enemy: { x: ex, y: phone ? Math.max(v.h * 0.32, 110 * eP) : v.h * 0.58, P: eP } };
+        const ew = this.enemy ? this.enemy.artW : 140;
+        if (phone) {
+          // The enemy flies in the upper band, your ship in the lower one.
+          const P = snap(Math.min(3, (v.w * 0.62) / pw, (v.h * 0.42) / bd.top));
+          const eP = snap(Math.min(P, (v.w * 0.62) / ew));
+          return { P, player: { x: v.w * 0.36, y: v.h * 0.93 }, enemy: { x: v.w * 0.66, y: v.h * 0.5, P: eP } };
+        }
+        const P = snap(Math.min(4, (v.w * 0.42) / pw, (v.h * 0.72) / bd.top));
+        const eP = snap(Math.min(P, (v.w * 0.4) / ew));
+        return { P, player: { x: v.w * 0.27, y: v.h * 0.84 }, enemy: { x: v.w * 0.74, y: v.h * 0.8, P: eP } };
       }
-      const P = snap(Math.min(4, (v.w * 0.88) / pw, (v.h * 0.9) / (bd.top + bd.bottom)));
-      // Centre the whole ship, not just the Core.
-      const x = v.w / 2 + ((ext.left - ext.right) / 2) * P;
-      const y = Math.min(v.h - bd.bottom * P, Math.max(bd.top * P + 6, v.h * 0.62));
-      return { P, player: { x, y } };
+      const P = snap(Math.min(4, (v.w * 0.6) / pw, (v.h * 0.74) / bd.top));
+      return { P, player: { x: v.w / 2, y: v.h * 0.84 } };
     },
 
     draw(g, v) {
@@ -112,17 +102,15 @@
       const bob = Math.round(Math.sin(v.t * 1.6) * 2) * L.P;
       // A smoke trail streams behind the ship while it travels between nodes.
       if (v.mode === 'travel' && window.CardshipsSprites.ready()) {
-        const e = this.player.extent(false);
+        const e = this.player.extent();
         const tw = 90 * L.P;
         g.save(); g.globalAlpha = Math.min(0.85, v.speed / 600); g.imageSmoothingEnabled = false;
-        window.CardshipsSprites.draw(g, 'trail_smoke', L.player.x - e.left * L.P - tw / 2 + 6, L.player.y + 14 * L.P + bob, tw, null, true);
+        window.CardshipsSprites.draw(g, 'trail_smoke', L.player.x - e.left * L.P - tw / 2 + 6, L.player.y - this.player.size.h * 0.35 * L.P + bob, tw, null, true);
         g.restore();
       }
-      for (const ins of this.player.inserts) ins.hover = this.previewKey === `${ins.row}:${ins.col}`;
-      if (this.phase !== 'gameover' || this.player.dying > 0) this.player.draw(g, L.player.x, L.player.y + bob, L.P, v.t, { synergy: this.synergy });
+      if (this.phase !== 'gameover' || this.player.dying > 0) this.player.draw(g, L.player.x, L.player.y + bob, L.P, v.t);
       if (L.enemy && this.enemy) this.enemy.draw(g, L.enemy.x, L.enemy.y - bob, L.enemy.P, v.t);
       if (this.phase === 'combat' && this.enemy && this.intent && !window.CardshipsFX.isPlaying()) this.drawIntent(g, v);
-      if (this.game && this.game.core && this.phase !== 'gameover') this.drawLinks(g, v);
       if (this.enemy && this.enemy.sinking > 3) { this.enemy = null; this.enemyKey = null; }
     },
 
@@ -171,47 +159,10 @@
       g.fillStyle = color; g.font = '600 11px "IBM Plex Mono", monospace'; g.fillText(sub, px - w / 2 + 30, py + 32, w - 36);
       g.restore();
     },
-    // Synergy links for the hovered or selected module: dashed outlines and labelled arcs.
-    drawLinks(g, v) {
-      const focus = this.hoverUid || this.selectedUid;
-      this.synergy = null;
-      if (!focus || !this.game.locate(focus)) return;
-      const links = this.game.synergies(focus);
-      if (!links.length) return;
-      this.synergy = new Set(links.map((l) => l.uid));
-      const a = this.player.pointOf(focus);
-      if (!a) return;
-      g.save();
-      g.font = '600 10.5px "Barlow Semi Condensed", sans-serif'; g.textAlign = 'center';
-      links.slice(0, 4).forEach((l, i) => {
-        const b = this.player.pointOf(l.uid);
-        if (!b) return;
-        const cy = Math.min(a.y, b.y) - 34 - i * 10;
-        g.strokeStyle = '#7ff0c0'; g.lineWidth = 2; g.setLineDash([4, 4]); g.lineDashOffset = -(v.t * 20) % 8;
-        g.beginPath(); g.moveTo(a.x, a.y - 10); g.quadraticCurveTo((a.x + b.x) / 2, cy, b.x, b.y - 10); g.stroke();
-        g.setLineDash([]);
-        const label = l.text.length > 42 ? l.text.slice(0, 40) + '…' : l.text;
-        const tw = g.measureText(label).width + 10;
-        const lx = Math.max(tw / 2 + 4, Math.min(v.w - tw / 2 - 4, (a.x + b.x) / 2)), ly = cy - 4 - i * 2;
-        g.fillStyle = 'rgba(20,40,32,0.88)'; g.beginPath(); g.roundRect(lx - tw / 2, ly - 11, tw, 15, 3); g.fill();
-        g.fillStyle = '#bff7dd'; g.fillText(label, lx, ly);
-      });
-      g.restore();
-    },
-
-    // Desktop hover: synergy links for modules, install previews for bolts.
-    hover(x, y) {
-      const hit = x == null ? null : this.player.hitTest(x, y);
-      const uid = hit && hit.uid ? hit.uid : null;
-      this.hoverUid = uid;
-      if (this.onHoverInsert) this.onHoverInsert(hit && hit.insert ? hit.insert : null);
-    },
-
-    // Taps on the canvas: a module, an install bolt or the enemy.
+    // Taps on the flight view: your ship selects the Core, the enemy shows its card.
+    hover() {},
     tap(x, y) {
-      const hit = this.player.hitTest(x, y);
-      if (hit && hit.insert && this.insertFn) return this.onInsert && this.onInsert(hit.insert);
-      if (hit && hit.uid) return this.onSelect && this.onSelect(hit.uid);
+      if (this.player.hitTest(x, y)) return this.onSelect && this.onSelect('core');
       if (this.enemy && this.enemy.hitTest(x, y)) return this.onSelect && this.onSelect('enemy');
       return this.onSelect && this.onSelect(null);
     },

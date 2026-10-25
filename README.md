@@ -1,6 +1,6 @@
 # Cardships
 
-A steampunk skyship roguelike played with cards. Build a two-deck airship out from a Core, read each enemy's telegraphed move, and fly a branching cloud route to one of three bosses. Strictly 2D: a side-on pixel-art ship, shown as a cutaway that assembles as you build it, over parallax skies.
+A steampunk skyship roguelike played with cards. Build a two-deck airship out from a Core, read each enemy's telegraphed move, and fly a branching cloud route to one of three bosses. Strictly 2D: side-on pixel-art ships from the ship sheet over parallax skies, with a Shipyard card grid for building.
 
 ## Play
 
@@ -13,7 +13,7 @@ python3 -m http.server 8000
 
 Opening `index.html` straight from disk also works, but browsers block WebAudio filters on local files, so the music loses its muffling and boss-phase filtering.
 
-**Controls:** tap modules on the ship to see their card and act (fire, aimed shot, swap with a neighbour, vent tokens, use). Hover or tap a module to see its synergy links. When installing a part, hover a brass bolt (or tap once) to preview it, then click (or tap again) to bolt it on. Tap the flight view during an animation to skip. **Card view** shows the classic card grid. **Settings** has screen shake, flashing, dice speed, music and sound volume, and mute.
+**Controls:** build and act in the **Shipyard** panel, a card grid laid out like the ship. Tap a card to see its rules and actions (fire, aimed shot, swap, vent tokens, use); cards linked to it by a synergy get a green outline. When installing a part, hover a slot (or tap it once) to preview it, then click (or tap again) to install. The **flight view** shows the ships and effects; tap your ship to select the Core, or tap during an animation to skip. **Settings** has screen shake, flashing, dice speed, music and sound volume, and mute.
 
 ## How it plays
 
@@ -47,7 +47,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `js/skymap.js` | The scrolling, parallax sky map |
 | `js/scene.js` | Parallax flight scene and biomes |
 | `js/sprites.js` | Sprite atlas frames and drawing helpers |
-| `js/shipart.js` | Pixel-art ships: the cutaway hull, envelopes, module sprites and enemies |
+| `js/shipart.js` | Pixel-art ships: whole sheet ships for you and the enemies, with module points for effects |
 | `js/actors.js` | Places the ships, intent plate, arrows, synergy links, taps |
 | `js/fx.js` | Event playback, particles, dice, effect settings |
 | `js/audio.js` | Music cues, crossfades, boss intensity, synthesised sound effects |
@@ -63,13 +63,13 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/canyon-foundry.jpg` | Far layer of the industrial smog biome |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |
-| `assets/art/ship-parts.png` | Sprite atlas cut from `assets/art/source/ship-parts-sheet.png` (rebuild with `python3 tools/build_sprites.py`): the four full enemy ships, flags, map marker, clouds, smoke trail |
+| `assets/art/ship-parts.png` | Sprite atlas cut from `assets/art/source/ship-parts-sheet.png` (rebuild with `python3 tools/build_sprites.py`): the four full ships (yours and the pirates'), flags, map marker, clouds, smoke trail |
 | `assets/art/fx.png` | Effects atlas cut from `assets/art/source/fx-sheet.png`: explosions, blasts, smoke clouds, muzzle flashes, rockets, bullets, fireballs, lightning, splashes |
-| `assets/art/parts.png` | Steampunk parts atlas cut from `assets/art/source/parts-sheet.png`: guns, gatlings, rocket racks, boilers, engines, gears, armour plates, chests, spyglass, compass, propellers: every module on your ship and on assembled pirate ships, and the part portraits on offers |
+| `assets/art/parts.png` | Steampunk parts atlas cut from `assets/art/source/parts-sheet.png`: guns, gatlings, rocket racks, boilers, engines, gears, armour plates, chests, spyglass, compass, propellers (cut but not used at the moment) |
 | `assets/music/pirate-battle-1` | Title, sky map, docks, victory, defeat |
 | `assets/music/pirate-battle-2` | Standard combat |
 | `assets/music/pirate-battle-3` | Boss (stepping up per phase) and hazards |
 
-All ship art is drawn at a low "art pixel" resolution and scaled up unsmoothed. Every sprite is hardened and given a one-pixel ink outline, so the pieces from different sheets, the drawn hulls and envelopes, and the effects (painted on a matching low-resolution layer) share one pixel grid.
+Ships are drawn at a low "art pixel" resolution and scaled up unsmoothed, with every sprite hardened and given a one-pixel ink outline. The effects are painted on a matching low-resolution layer, so ships and effects share one pixel grid.
 
 Each track ships as the original Opus file (`.opus.m4a`) and an AAC copy (`.aac.mp4`) for Safari and wider support. To use real sound effects, add them to `SFX_FILES` in `js/audio.js`; each replaces the synthesised sound of the same name.
