@@ -450,10 +450,25 @@
       const view = { w: this.w, h: this.h, dt, t: now / 1000, mode: this.mode, speed: v };
       if (Scene.actors) Scene.actors(g, view);
       each((L, ctx) => L.drawMidFront(ctx));
-      if (Scene.fx) Scene.fx(g, view);
+      if (Scene.fx) this.pixelPass(Scene.fx, view);
       each((L, ctx) => L.drawFront(ctx));
       if (Scene.overlay) Scene.overlay(g, view);
       g.restore();
+    }
+    // Effects are painted on a low-resolution layer and scaled up unsmoothed, so they share the
+    // ships' pixel grid (Scene.pixelScale screen pixels per art pixel).
+    pixelPass(fn, view) {
+      const P = Scene.pixelScale ? Scene.pixelScale() : 1;
+      if (!(P > 1)) return fn(this.g, view);
+      const pw = Math.ceil(this.w / P) + 1, ph = Math.ceil(this.h / P) + 1;
+      const c = this.px || (this.px = canvas(1, 1));
+      if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
+      const pg = c.getContext('2d');
+      pg.setTransform(1, 0, 0, 1, 0, 0); pg.clearRect(0, 0, pw, ph);
+      pg.setTransform(1 / P, 0, 0, 1 / P, 0, 0);
+      fn(pg, view);
+      const g = this.g;
+      g.save(); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, pw * P, ph * P); g.restore();
     }
     // Paints with the main context, or through an offscreen canvas at a fade alpha.
     withAlpha(a, sx, sy, fn) {
@@ -471,6 +486,7 @@
   Scene.actors = null;
   Scene.fx = null;
   Scene.overlay = null;
+  Scene.pixelScale = null;
   Scene.BIOMES = BIOMES;
   Scene.images = images;
 

@@ -459,7 +459,7 @@
       }, 180);
       return 520;
     },
-    swap(ev) { sfx(ev.gale ? 'whoosh' : 'clank'); if (ev.gale) { const c = playerPt('core'); for (let i = 0; i < 20; i++) parts.push({ kind: 'smoke', x: c.x + rand(-200, 200), y: c.y + rand(-60, 30), vx: ev.side === 'stern' ? -300 : 300, vy: rand(-20, 20), g: 0, life: 0.6, max: 0.6, r: rand(4, 9), color: 'rgba(220,230,240,' }); } return ev.gale ? 300 : 120; },
+    swap(ev) { sfx(ev.gale ? 'whoosh' : 'clank'); if (ev.gale) { const c = playerPt('core'); for (let i = 0; i < 20; i++) parts.push({ kind: 'smoke', x: c.x + rand(-200, 200), y: c.y + rand(-60, 30), vx: ev.zone === 'stern' ? -300 : 300, vy: rand(-20, 20), g: 0, life: 0.6, max: 0.6, r: rand(4, 9), color: 'rgba(220,230,240,' }); } return ev.gale ? 300 : 120; },
     phase(ev) {
       if (A().enemy) { A().enemy.phaseFlash = 1; A().enemy.phase = ev.index; }
       const p = enemyPt();

@@ -238,3 +238,68 @@ The first layout mirrored two identical sides around the Core. In the side-on vi
 - **Two new biomes on the route.** The red cloud-sea painting becomes a "dusk" biome (columns 8–9) and the title backdrop; the night-fleet painting becomes a "night" biome (columns 10–11), the last leg before the boss. The bands now run clear → smog → sunset → dusk → night → lair; the storm biome still appears wherever there is a Storm Front. The sprite clouds are tinted to each sky. *Reason: the paintings give the late route its own look, and the light darkens as you near the boss.*
 - **Housekeeping:** the re-uploaded ship-parts sheet was identical to the one already in `assets/art/source/`, so the duplicate was removed. The new sheets were moved to `assets/art/source/` and the paintings were renamed. `tools/build_sprites.py` now builds all three atlases, and `js/sprites.js` loads them on demand, giving each frame its atlas. *Reason: one tidy pipeline for all the art.*
 
+
+## The two-deck grid (replacing the deck tower)
+
+The stern / deck tower / bow lanes are gone. The ship is now the grid the original rulebook describes: built horizontally out from the Core, with cards that can be "outside", "exposed from the top" or "directly on top" of each other. *Reason: the tower only added a tall stack on top of the Core, and the stern still didn't play like part of the ship.*
+
+- **Layout.** The **hull** row runs through the Core: up to 3 modules in the bow and 3 in the stern, always packed against the Core. The **upper deck** sits on top. Any hull module can carry one more module, and so can the Core itself (the **bridge**). The cap stays at 8 modules, so you choose between a wide ship and a tall one. *Reason: one rule covers every slot, and every slot can be hit or used.*
+- **Installing.** A hull bolt between two modules inserts the part and pushes that column (and whatever stands on it) one step out. Upper bolts sit on any free spot over a hull module or the Core. *Reason: keeps the "build outward" feel of the cards.*
+- **Losing a hull module.** The module on top of it drops into its slot. With nothing on top, the columns outside close up toward the Core. *Reason: the grid never has holes or floating modules.*
+- **Firing.**
+  - Straight-firing weapons fire from the **front of a deck**: the prow (the outermost bow hull module) or the foremost upper module.
+  - Arcing weapons (Mortar, Tesla Coil) fire from any slot with **open sky** above.
+  - Stern hull weapons sit behind the Core and only fire if they arc.
+  *Reason: position decides who fires, as before, but now in two dimensions.*
+- **Direct fire.**
+  - A d6 picks the deck: 1-4 the hull, 5-6 the upper deck.
+  - A second d6 picks the depth from the front: 1-2 the 1st module, 3-4 the 2nd, 5-6 the 3rd. A roll deeper than the deck goes hits the front module.
+  - Armor at the front of a deck catches every shot aimed deeper along it.
+  - An empty upper deck lets the shot fall to the hull. A hull with nothing in the bow lets it hit the Core.
+  *Reason: the rulebook's "outside-in" targeting, kept readable.*
+- **Plunging fire** (bombs, lobbed shells, lightning, storm debris).
+  - A d6 picks a column: 1-3 stern 1-3, 4-6 bow 1-3.
+  - The shot hits the top of that column, so an upper module shelters the hull module under it.
+  - Over an empty column it drifts in toward the Core, where the bridge or the Core takes it. A bare stern with no bridge lets bombs reach the Core.
+  *Reason: gives the stern and the upper deck their jobs. The stern catches bombs; upper modules are both exposed and protective.*
+- **Sweeps and the rest.**
+  - A raking sweep hits up to three modules along a deck. A bombing sweep hits the top of every column on one side.
+  - Broadsides hit the front of each deck. Rams hit the prow.
+  - Storm Queen's gale shoves the prow pair, then the stern-end pair, then the upper deck's front pair past each other.
+  - Downdrafts let you jettison a module at the prow, the stern end or the front of the upper deck.
+  *Reason: every attack names an exact, previewable target on the grid.*
+- **Positional parts.**
+  - **Harpoon Gun:** Chain Feed now powers the weapon bolted directly **on top** of it, as in the original card.
+  - **"Buried"** now means covered from above and not at the front. It drives the Bulkhead (armor) and the Powder Store (Deck Cannon).
+  - **Telescope and Lightning Rod:** need open sky above them.
+  - **Propeller:** works at the stern end of either deck.
+  - **Repair Bay and Clockwork Heart:** count as attached to the Core in the hull slots beside it or on the bridge.
+  - **Swaps:** work with any touching module, up and down included.
+  *Reason: "on top" and "touching" now mean something visible.*
+- **Deflector Vane.** Bracing now takes 3 off the next hit on the Vane or any module touching it, instead of negating a whole section. *Reason: the bot found a stalemate. Bracing every turn negated every hit forever, even from an Enraged boss.*
+- **Starting ships.**
+
+  | Core | Start |
+  | --- | --- |
+  | Airship | Propeller (stern 1), Harpoon Gun (bow 1) |
+  | Battleship | Brass Plating (bow 1), Deck Cannon (bridge) |
+  | Zeppelin | Mortar (stern 1), Gasbag (bow 1) |
+  | Clockwork | Crew Quarters (stern 1), Harpoon Gun (bow 1) |
+
+  *Reason: every Core starts with a bow, so direct fire doesn't go straight into the Core, and a weapon that can fire.*
+- **Re-tune.** Zeppelin Durability 6 → 8 and Bombard 1½ → 1¾ damage per Pressure. The Clockwork starts with Crew Quarters instead of a Repair Bay. *Reason: under the grid the Zeppelin dropped to ~30% and the Clockwork's Repair Bay start pushed that part to 60% of winning ships. All Cores are now 35-49% over 3 seed sets, and no part is on more than 49% of winning ships (BALANCE_REPORT.md).*
+
+## One pixel-art style for every sprite
+
+- **Everything on screen shares one pixel grid.** Ships are painted at a low "art pixel" resolution and scaled up unsmoothed, at a pixel scale chosen per screen (in half steps, so pixels stay even). Both ships use the same scale, and the effects are painted on a matching low-resolution layer. *Reason: the painted ship sheet, the pixel parts and the pixel effects clashed at different sizes and softness.*
+- **Every sprite is normalised.** It is shrunk in steps, its soft edges are hardened, and it gets the same one-pixel ink outline, whichever sheet it comes from. *Reason: pieces from three sheets read as one set.*
+- **Your ship is a side-on cutaway.**
+  - The hull is drawn as a true side-on profile: planked wood, riveted iron, trimmed or copper, depending on the Core. It has a raked transom, a prow with a ram spur, a rail, a rudder and a stern propeller.
+  - Hull modules sit in open bays. Upper modules stand on the deck.
+  - The Core is a riveted boiler with a glowing firebox and a live gauge in the middle bay. A funnel puffs steam when the bridge is empty.
+  *Reason: the sheet's hull pieces are drawn at a top-down 3/4 angle and looked wrong stretched under side-on modules.*
+- **Envelopes are drawn side-on**: one long cigar-shaped gasbag with tail fins and gore seams, in the Core's colours (green-banded Airship, red-striped Battleship, blue emblem Zeppelin, net-wrapped Clockwork). *Reason: the sheet's balloons are tilted ovals and looked crooked.*
+- **Every module uses a steampunk-parts sprite** (only the Tesla Coil and Lightning Rod are hand-drawn pixel art). There are no more coloured mount blocks. Damage shows as cracks, and the Durability pips sit under hull bays and over upper modules. *Reason: no mix of drawn shapes and sprites on one ship.*
+- **Pirate gunships, skiffs, bombers and the Storm Queen are assembled** from the same hulls, envelopes and parts, mirrored to face you. The four finished ships from the sheet (Cutter, Monitor, Flagship, Leviathan) are pixelated at the same scale. *Reason: the enemies match your ship.*
+- **Markers stay sharp.** Selection, target brackets with the incoming damage, synergy outlines and the square brass install bolts are drawn at full screen resolution over the pixels. *Reason: the readable UI stays crisp.*
+- **The card view is a 7 × 2 grid** that mirrors the ship. The upper deck is above the hull, stern columns S3–S1, the Core, then bow columns B1–B3. Insert tabs sit between hull cards and install buttons in free upper slots. *Reason: the cards and the flight view show the same layout.*

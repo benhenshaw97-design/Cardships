@@ -7,7 +7,7 @@
   if (isNode) module.exports = api;
   else root.CardshipsEngine = api;
 })(this, function (D) {
-  const { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE, LANE_TABLE } = D;
+  const { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
 
   const BOSS_COL = 12;
   const BASE_SIGHT = 2;
@@ -16,14 +16,17 @@
   const MAX_PRESSURE = BALANCE.maxPressure;
   const VENT_COST = 2;
   const ENRAGE_ROUND = BALANCE.enrageRound;
-  // The ship has three sections ("lanes"), each built outward from the Core:
-  // the stern behind it, a deck tower on top of it, and the bow in front, facing the enemy.
-  const SIDES = ['stern', 'deck', 'bow'];
-  const CAP = { stern: 3, deck: 2, bow: 3 };
-  const MAX_LAYERS = 3;
-  // Which sections each kind of fire can reach. A shot at an empty section falls on the other one.
-  const ARCS = { direct: ['bow', 'deck'], plunge: ['deck', 'stern'] };
-  const LANE_NAME = { stern: 'stern', deck: 'deck', bow: 'bow' };
+  // The ship is a side-on grid of two decks, built out from the Core. The hull row runs through the
+  // Core: up to 3 columns behind it (the stern, col -1..-3) and 3 in front (the bow, col 1..3), always
+  // packed against the Core. The upper deck sits on top: a module there needs a hull module (or, at
+  // col 0, the Core itself: the bridge) underneath. The enemy is off the bow.
+  const COLS = [-3, -2, -1, 0, 1, 2, 3];
+  const SIDE_COLS = 3;
+  const MAX_MODULES = 8;
+  const HULL = 0, UPPER = 1;
+  const ix = (col) => col + SIDE_COLS;
+  const ROW_NAME = ['hull', 'upper deck'];
+  const BRACE = 3; // damage a braced Deflector Vane turns aside
   const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 } };
 
   function noTokens() { return { fire: false, glue: false, gas: false }; }
@@ -46,9 +49,8 @@
 
       this.phase = 'coreSelect';
       this.core = null;
-      this.stern = [];
-      this.deck = [];
-      this.bow = [];
+      this.hull = COLS.map(() => null);
+      this.top = COLS.map(() => null);
       this.storage = [];
       this.depth = 0;
       this.map = null;
@@ -139,21 +141,66 @@
       return { uid: 'p' + this.nextUid++, id, hp: PARTS[id].hp, bonusMax: 0, tokens: noTokens(), fired: 0, reload: 0 };
     }
     def(card) { return PARTS[card.id]; }
-    cards() { return [...this.stern, ...this.deck, ...this.bow]; }
+
+    // ---------- the grid ----------
+    row(r) { return r === UPPER ? this.top : this.hull; }
+    at(col, r) { return Math.abs(col) > SIDE_COLS ? null : this.row(r)[ix(col)] || null; }
+    set(col, r, card) { this.row(r)[ix(col)] = card; }
+    cards() { return [...this.hull, ...this.top].filter(Boolean); }
     has(id) { return this.cards().some((c) => c.id === id); }
     count(id) { return this.cards().filter((c) => c.id === id).length; }
+    // { card, col, row, side } — side is 'stern', 'bow' or 'bridge' (over the Core).
     locate(uid) {
-      if (uid === 'core') return { side: null, idx: -1, card: this.core };
-      for (const side of SIDES) {
-        const idx = this[side].findIndex((c) => c.uid === uid);
-        if (idx >= 0) return { side, idx, card: this[side][idx] };
+      if (uid === 'core') return { side: null, col: 0, row: HULL, card: this.core };
+      for (const r of [HULL, UPPER]) {
+        const i = this.row(r).findIndex((c) => c && c.uid === uid);
+        if (i >= 0) { const col = i - SIDE_COLS; return { card: this.row(r)[i], col, row: r, side: col < 0 ? 'stern' : col > 0 ? 'bow' : 'bridge' }; }
       }
       return null;
     }
-    isOuter(side, idx) { return idx === this[side].length - 1; }
-    outer(side) { return this[side][this[side].length - 1] || null; }
-    neighbors(side, idx) { const s = this[side]; return [s[idx - 1], s[idx + 1]].filter(Boolean); }
-    touching(uid, id) { const l = this.locate(uid); return !!l && l.side && this.neighbors(l.side, l.idx).some((c) => c.id === id); }
+    // Hull modules on one side, packed against the Core (1..3).
+    hullCount(side) { const d = side === 'stern' ? -1 : 1; let n = 0; while (n < SIDE_COLS && this.at(d * (n + 1), HULL)) n++; return n; }
+    // The module that meets direct fire first on a deck: the prow of the hull, or the foremost upper module.
+    front(r) {
+      if (r === HULL) { const n = this.hullCount('bow'); return n ? this.at(n, HULL) : null; }
+      for (let col = SIDE_COLS; col >= -SIDE_COLS; col--) if (this.at(col, UPPER)) return this.at(col, UPPER);
+      return null;
+    }
+    // The hindmost module on a deck (stern side only).
+    tail(r) {
+      for (let col = -SIDE_COLS; col < 0; col++) if (this.at(col, r)) return this.at(col, r);
+      return null;
+    }
+    // Direct fire meets a deck's modules front to back. The hull row stops at the Core.
+    lineOfFire(r) {
+      const out = [];
+      if (r === HULL) for (let col = this.hullCount('bow'); col >= 1; col--) out.push(this.at(col, HULL));
+      else for (let col = SIDE_COLS; col >= -SIDE_COLS; col--) if (this.at(col, UPPER)) out.push(this.at(col, UPPER));
+      return out;
+    }
+    isFront(loc) { return !!loc && loc.card !== this.core && this.front(loc.row) === loc.card; }
+    isTail(loc) { return !!loc && loc.col < 0 && this.tail(loc.row) === loc.card; }
+    // Nothing bolted on top: upper-deck modules, and hull modules with an empty slot above.
+    openSky(loc) { return !!loc && loc.card !== this.core && (loc.row === UPPER || !this.at(loc.col, UPPER)); }
+    // Covered from above and not at the front of its deck.
+    isBuried(loc) { return !!loc && loc.card !== this.core && !this.isFront(loc) && !this.openSky(loc); }
+    touchesCore(loc) { return !!loc && ((loc.row === HULL && Math.abs(loc.col) === 1) || (loc.row === UPPER && loc.col === 0)); }
+    // Modules sharing an edge (left, right, above, below). The Core is not a module.
+    neighborsOf(loc) {
+      if (!loc || loc.card === this.core) return [];
+      const out = [this.at(loc.col - 1, loc.row), this.at(loc.col + 1, loc.row), this.at(loc.col, 1 - loc.row)];
+      return out.filter(Boolean);
+    }
+    neighbors(uid) { return this.neighborsOf(this.locate(uid)); }
+    touching(uid, id) { return this.neighbors(uid).some((c) => c.id === id); }
+    // Where a module sits, in words.
+    placeName(loc) {
+      if (!loc || loc.card === this.core) return 'Core';
+      if (loc.row === UPPER && loc.col === 0) return 'Bridge (on top of the Core)';
+      const n = Math.abs(loc.col);
+      const where = `${loc.col < 0 ? 'Stern' : 'Bow'} ${n}`;
+      return loc.row === UPPER ? `Upper deck, over ${where}` : `Hull, ${where}`;
+    }
     nameOf(card) { return card === this.core ? 'Core' : this.def(card).name; }
     maxHp(card) {
       if (card === this.core) return this.core.baseMax + this.core.bonusMax + (this.heartOnCore() ? 3 : 0);
@@ -161,7 +208,8 @@
       if (card.id === 'plating' && this.touching(card.uid, 'gatling')) m += 1;
       return m;
     }
-    heartOnCore() { return SIDES.some((s) => this[s][0] && this[s][0].id === 'heart'); }
+    coreMates() { return [this.at(-1, HULL), this.at(1, HULL), this.at(0, UPPER)].filter(Boolean); }
+    heartOnCore() { return this.coreMates().some((c) => c.id === 'heart'); }
     clampAll() {
       for (const c of this.cards()) c.hp = Math.min(c.hp, this.maxHp(c));
       if (this.core) this.core.hp = Math.min(this.core.hp, this.maxHp(this.core));
@@ -178,13 +226,25 @@
       for (const c of this.cards()) s += this.def(c).steam || 0;
       return s;
     }
-    // A Telescope works as a lookout from the top of the deck or the prow.
-    telescopeOut() { return ['deck', 'bow'].some((s) => { const o = this.outer(s); return o && o.id === 'telescope'; }); }
-    // Whether a weapon can fire from where it sits: the top of the deck or the prow, or anywhere if it arcs.
-    canFireFrom(card, side, idx) {
-      if (!this.isWeapon(card)) return false;
-      if (PARTS[card.id].arc) return true;
-      return side !== 'stern' && idx === this[side].length - 1;
+    // Modules that need open sky (Telescope, Lightning Rod) or the stern end (Propeller) to work.
+    working(id) {
+      return this.cards().some((c) => {
+        if (c.id !== id) return false;
+        const l = this.locate(c.uid);
+        return id === 'propeller' ? this.isTail(l) : this.openSky(l);
+      });
+    }
+    telescopeOut() { return this.working('telescope'); }
+    // Whether a weapon can fire from where it sits: straight-firing weapons need the front of a deck,
+    // arcing weapons need open sky above them.
+    canFireFrom(card, loc = this.locate(card.uid)) {
+      if (!this.isWeapon(card) || !loc) return false;
+      return PARTS[card.id].arc ? this.openSky(loc) : this.isFront(loc);
+    }
+    whyNotFire(card, loc = this.locate(card.uid)) {
+      if (PARTS[card.id].arc) return 'Covered: an arcing weapon needs open sky above it';
+      if (loc.row === HULL && loc.col < 0) return 'Behind the Core: only the front of a deck fires straight';
+      return 'Blocked: only the front of a deck fires straight';
     }
     // How many columns ahead on the sky map you can identify.
     sight() { return BASE_SIGHT + (this.telescopeOut() ? 1 : 0) + (this.sightMoves > 0 ? 1 : 0); }
@@ -192,16 +252,57 @@
     isWeapon(card) { return this.def(card).type === 'weapon'; }
     weaponsInstalled() { return this.cards().filter((c) => this.isWeapon(c)).length; }
 
+    // ---------- building ----------
+    // Every empty slot a part could go into: a hull slot at either end of (or between) a side's
+    // modules, which pushes the outer ones out, or an upper slot over a hull module or the Core.
+    installSlots() {
+      if (this.cards().length >= MAX_MODULES) return [];
+      const out = [];
+      for (const side of ['stern', 'bow']) {
+        const n = this.hullCount(side), d = side === 'stern' ? -1 : 1;
+        if (n < SIDE_COLS) for (let k = 1; k <= n + 1; k++) out.push({ row: HULL, col: d * k, insert: k <= n });
+      }
+      for (const col of COLS) if (!this.at(col, UPPER) && (col === 0 || this.at(col, HULL))) out.push({ row: UPPER, col });
+      return out;
+    }
+    canInstall(pos) { return !!pos && this.installSlots().some((p) => p.row === pos.row && p.col === pos.col); }
+    // Puts a card into a slot; a hull insert moves the columns outside it out by one.
+    place(card, pos) {
+      if (pos.row === HULL) {
+        const d = Math.sign(pos.col);
+        for (let k = this.hullCount(d < 0 ? 'stern' : 'bow'); k >= Math.abs(pos.col); k--) {
+          this.set(d * (k + 1), HULL, this.at(d * k, HULL)); this.set(d * (k + 1), UPPER, this.at(d * k, UPPER));
+          this.set(d * k, HULL, null); this.set(d * k, UPPER, null);
+        }
+      }
+      this.set(pos.col, pos.row, card);
+    }
+    // Takes a module off the grid. A hull module's upper neighbour drops into its slot; with nothing
+    // above, the columns outside it close up toward the Core.
+    unplace(loc) {
+      this.set(loc.col, loc.row, null);
+      if (loc.row !== HULL) return;
+      const above = this.at(loc.col, UPPER);
+      if (above) { this.set(loc.col, UPPER, null); this.set(loc.col, HULL, above); return; }
+      const d = Math.sign(loc.col);
+      for (let k = Math.abs(loc.col); k < SIDE_COLS; k++) {
+        this.set(d * k, HULL, this.at(d * (k + 1), HULL)); this.set(d * k, UPPER, this.at(d * (k + 1), UPPER));
+        this.set(d * (k + 1), HULL, null); this.set(d * (k + 1), UPPER, null);
+      }
+    }
+    snapshot() { return [this.hull.slice(), this.top.slice()]; }
+    restore([h, t]) { this.hull = h; this.top = t; }
+
     // ---------- synergies ----------
-    // Why two modules matter to each other, read from a's point of view (or null).
-    pairSynergy(a, b, side) {
-      const s = this[side];
-      const ia = s.indexOf(a), ib = s.indexOf(b);
-      const last = s.length - 1;
+    // Why two touching modules matter to each other, read from a's point of view (or null).
+    pairSynergy(a, b) {
+      const la = this.locate(a.uid), lb = this.locate(b.uid);
       const w = (c) => this.isWeapon(c);
       const name = (c) => this.def(c).name;
-      if (a.id === 'harpoon' && ib === ia + 1 && w(b)) return `Chain Feed: ${name(b)} +1 damage`;
-      if (b.id === 'harpoon' && ia === ib + 1 && w(a)) return `Chain Feed from the Harpoon: +1 damage`;
+      const above = lb.row === UPPER && la.row === HULL && la.col === lb.col;
+      const below = la.row === UPPER && lb.row === HULL && la.col === lb.col;
+      if (a.id === 'harpoon' && above && w(b)) return `Chain Feed: ${name(b)} on top deals +1 damage`;
+      if (b.id === 'harpoon' && below && w(a)) return 'Chain Feed from the Harpoon below: +1 damage';
       if (a.id === 'quarters' && w(b)) return `Crew: ${name(b)} costs 1 less Steam`;
       if (b.id === 'quarters' && w(a)) return 'Crewed: costs 1 less Steam';
       if (a.id === 'telescope' && (b.id === 'mortar' || b.id === 'sniper')) return b.id === 'mortar' ? 'Spotter: Mortar never reloads' : 'Spotter: Sniper +1 damage';
@@ -216,55 +317,77 @@
       if (b.id === 'scrubber') return 'Immune to Gas and Glue';
       if (a.id === 'repair') return `Repair Bay can mend the ${name(b)}`;
       if (b.id === 'repair') return 'Within reach of the Repair Bay';
-      if (ARMOR[a.id] && ia < last && !ARMOR[b.id]) return `Bulkhead: soaks ${ARMOR[a.id].soak} of hits on the ${name(b)}`;
-      if (ARMOR[b.id] && ib < last && !ARMOR[a.id]) return 'Bulkhead next door soaks part of each hit';
+      if (a.id === 'deflector') return `Deflector Vane can shield the ${name(b)}`;
+      if (b.id === 'deflector') return 'The Deflector Vane can brace to shield it';
+      if (ARMOR[a.id] && this.isBuried(la) && !ARMOR[b.id]) return `Bulkhead: soaks ${ARMOR[a.id].soak} of hits on the ${name(b)}`;
+      if (ARMOR[b.id] && this.isBuried(lb) && !ARMOR[a.id]) return 'Bulkhead next door soaks part of each hit';
       if (a.id === 'grenadiers') return `If the ${name(b)} is destroyed, the enemy starts Choking`;
       if (b.id === 'grenadiers') return 'If this is destroyed, the Grenadiers gas the enemy';
-      if (a.id === 'cannon' && ia < last) return `Powder Store: if the ${name(b)} is destroyed, 3 damage to the enemy`;
-      if (b.id === 'cannon' && ib < last) return 'If this is destroyed, the buried Cannon cooks off';
+      if (a.id === 'cannon' && this.isBuried(la)) return `Powder Store: if the ${name(b)} is destroyed, 3 damage to the enemy`;
+      if (b.id === 'cannon' && this.isBuried(lb)) return 'If this is destroyed, the buried Cannon cooks off';
       if (a.id === 'boiler') return `Danger: the ${name(b)} gets scalded if the boiler bursts`;
       if (b.id === 'boiler') return 'Danger: scalded if the boiler bursts';
       return null;
     }
-    // Every module linked to this one, with the reason. Outside armor also covers its whole side.
+    // Every module linked to this one, with the reason. Front armor also covers its whole deck,
+    // and anything on top shelters the module under it from plunging fire.
     synergies(uid) {
       const out = [];
+      const add = (u, text) => { if (!out.some((o) => o.uid === u)) out.push({ uid: u, text }); };
       if (uid === 'core') {
-        for (const side of SIDES) { const c = this[side][0]; if (c && (c.id === 'repair' || c.id === 'heart')) out.push({ uid: c.uid, text: c.id === 'repair' ? 'Repair Bay can mend the Core' : 'Clockwork Heart: +3 max Durability, repairs 1 a turn' }); }
+        for (const c of this.coreMates()) if (c.id === 'repair' || c.id === 'heart') add(c.uid, c.id === 'repair' ? 'Repair Bay can mend the Core' : 'Clockwork Heart: +3 max Durability, repairs 1 a turn');
         return out;
       }
       const loc = this.locate(uid);
       if (!loc || !loc.side) return out;
-      const s = this[loc.side];
-      for (const n of this.neighbors(loc.side, loc.idx)) { const t = this.pairSynergy(loc.card, n, loc.side); if (t) out.push({ uid: n.uid, text: t }); }
-      if (loc.idx === 0 && (loc.card.id === 'repair' || loc.card.id === 'heart')) out.push({ uid: 'core', text: loc.card.id === 'repair' ? 'Attached to the Core: can mend it' : 'Attached to the Core: +3 max Durability, repairs 1 a turn' });
-      const outer = s[s.length - 1];
-      if (ARMOR[loc.card.id] && loc.card === outer) for (const c of s) if (c !== outer && !out.some((o) => o.uid === c.uid)) out.push({ uid: c.uid, text: `Shields the ${this.def(c).name} from hits` });
-      if (ARMOR[outer.id] && outer !== loc.card && !out.some((o) => o.uid === outer.uid)) out.push({ uid: outer.uid, text: 'Outside armor takes the hits meant for this' });
+      for (const n of this.neighborsOf(loc)) { const t = this.pairSynergy(loc.card, n); if (t) add(n.uid, t); }
+      if (this.touchesCore(loc) && (loc.card.id === 'repair' || loc.card.id === 'heart')) add('core', loc.card.id === 'repair' ? 'Attached to the Core: can mend it' : 'Attached to the Core: +3 max Durability, repairs 1 a turn');
+      const line = this.lineOfFire(loc.row);
+      if (ARMOR[loc.card.id] && this.isFront(loc)) for (const c of line) if (c !== loc.card) add(c.uid, `Shields the ${this.def(c).name} from direct fire`);
+      const head = line[0];
+      if (head && ARMOR[head.id] && head !== loc.card && line.includes(loc.card)) add(head.uid, 'Front armor takes the direct hits meant for this');
       return out;
     }
-    // What installing a part at side/pos would change, without changing anything.
-    previewInstall(id, side, pos) {
-      if (!this.canInstall(side, pos)) return null;
-      const before = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), outer: { stern: this.outer('stern'), deck: this.outer('deck'), bow: this.outer('bow') }, sight: this.sight() };
+    // What installing a part at pos would change, without changing anything.
+    previewInstall(id, pos) {
+      if (!this.canInstall(pos)) return null;
+      const firing = () => new Set(this.cards().filter((c) => this.isWeapon(c) && this.canFireFrom(c)).map((c) => c.uid));
+      const before = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), sight: this.sight(), fires: firing(), sky: new Set(this.cards().filter((c) => this.openSky(this.locate(c.uid))).map((c) => c.uid)) };
+      const snap = this.snapshot();
       const card = this.makeCard(id);
       this.nextUid--;
-      this[side].splice(pos, 0, card);
-      const after = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), sight: this.sight() };
+      this.place(card, pos);
+      const loc = this.locate(card.uid);
+      const after = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), sight: this.sight(), fires: firing() };
       const links = this.synergies(card.uid).map((x) => x.text);
-      const fires = !this.isWeapon(card) || this.canFireFrom(card, side, pos);
-      const prev = before.outer[side];
-      const covered = prev && this.outer(side) !== prev ? prev : null;
-      this[side].splice(pos, 1);
+      const fires = !this.isWeapon(card) || this.canFireFrom(card, loc);
+      const why = fires ? null : this.whyNotFire(card, loc);
+      const front = this.isFront(loc), sky = this.openSky(loc);
+      const covered = this.cards().filter((c) => c !== card && before.sky.has(c.uid) && !this.openSky(this.locate(c.uid)));
+      const silenced = this.cards().filter((c) => before.fires.has(c.uid) && !after.fires.has(c.uid));
+      this.restore(snap);
       const notes = [];
       notes.push(`Weight ${fmt(before.weight)} → ${fmt(after.weight)}`);
       if (after.steam !== before.steam) notes.push(`Steam ${before.steam} → ${after.steam}`);
       if (after.evade !== before.evade && after.evade != null) notes.push(`Evade cost ${before.evade} → ${after.evade}`);
       if (after.sight !== before.sight) notes.push(`Sight ${before.sight} → ${after.sight}`);
-      if (pos === this[side].length) notes.push({ bow: 'Becomes the prow: first in line for direct fire', deck: 'Tops the deck tower: exposed to plunging fire', stern: 'Becomes the stern tail: sheltered from direct fire' }[side]);
-      if (covered) notes.push(`The ${this.def(covered).name} is buried behind it${side !== 'stern' && this.isWeapon(covered) && !PARTS[covered.id].arc ? ' and can no longer fire' : ''}`);
-      if (!fires) notes.push(side === 'stern' ? 'The stern faces away from the enemy: this weapon cannot fire here' : 'Buried: this weapon cannot fire here');
-      return { notes, links };
+      if (pos.row === HULL && front) notes.push('Becomes the prow: first in line for direct fire along the hull');
+      else if (pos.row === UPPER && front) notes.push('Heads the upper deck: first in line for direct fire along it');
+      else if (pos.row === HULL && pos.col < 0) notes.push('Stern hull: behind the Core, out of direct fire; only bombs reach it');
+      if (pos.row === UPPER) notes.push(pos.col === 0 ? 'The bridge: shelters the Core from bombs' : 'Open sky: bombs hit it before the module below');
+      for (const c of covered) notes.push(`The ${this.def(c).name} below is now sheltered from bombs`);
+      for (const c of silenced) notes.push(`The ${this.def(c).name} can no longer fire`);
+      if (why) notes.push(`${why}: this weapon cannot fire here`);
+      else if (this.isWeapon(card)) notes.push(PARTS[id].arc ? 'Open sky above: it can fire from here' : 'At the front of its deck: it can fire from here');
+      return { notes, links, fires, sky };
+    }
+
+    // Replaces the ship with modules at fixed slots: [[id, row, col], ...].
+    buildShip(spec) {
+      this.hull = COLS.map(() => null);
+      this.top = COLS.map(() => null);
+      for (const [id, r, col] of spec) this.set(col, r, this.makeCard(id));
+      this.clampAll();
     }
 
     // ---------- run setup ----------
@@ -272,8 +395,8 @@
       if (this.phase !== 'coreSelect') return;
       const c = CORES[id];
       this.core = { uid: 'core', id, name: c.name, weight: c.weight, hp: c.hp, baseMax: c.hp, bonusMax: 0, tokens: noTokens(), pressure: 0 };
-      for (const side of SIDES) this[side] = (c.start[side] || []).map((p) => this.makeCard(p));
-      this.say(`${c.name} selected. Starting modules: ${SIDES.flatMap((sd) => c.start[sd] || []).map((p) => PARTS[p].name).join(', ')}.`, 'sys');
+      this.buildShip(c.start);
+      this.say(`${c.name} selected. Starting modules: ${c.start.map(([p]) => PARTS[p].name).join(', ')}.`, 'sys');
       if (!this.bossId) this.bossId = this.pick(BOSSES);
       this.generateMap();
       this.say(`Your charts mark the final threat: ${ENEMIES[this.bossId].name}.`, 'warn');
@@ -309,16 +432,15 @@
       this.lootOffers.shift();
       return true;
     }
-    canInstall(side, pos) { return !!CAP[side] && this[side].length < CAP[side] && pos >= 0 && pos <= this[side].length; }
-    installPending(side, pos) {
-      if (!this.pendingLoot.length || !this.canInstall(side, pos)) return false;
+    installPending(pos) {
+      if (!this.pendingLoot.length || !this.canInstall(pos)) return false;
       const id = this.pendingLoot.shift();
       const card = this.makeCard(id);
-      this[side].splice(pos, 0, card);
+      this.place(card, pos);
       this.clampAll();
       this.stats.parts++;
-      this.emit('install', { uid: card.uid, side, idx: pos });
-      this.say(`Bolted ${PARTS[id].name} onto the ${side} side, layer ${pos + 1}.`);
+      this.emit('install', { uid: card.uid, row: pos.row, col: pos.col });
+      this.say(`Bolted the ${PARTS[id].name} on: ${this.placeName(this.locate(card.uid)).toLowerCase()}.`);
       if (id === 'cargo') this.questEvent('installCargo');
       return true;
     }
@@ -339,7 +461,7 @@
       const loc = this.locate(uid);
       if (!loc || loc.card === this.core) return false;
       this.say(`Scrapped ${this.def(loc.card).name}.`, 'muted');
-      this.removeCard(loc.side, loc.idx, 'scrap');
+      this.removeCard(uid, 'scrap');
       return true;
     }
     discardStored(i) {
@@ -353,11 +475,11 @@
       const stored = this.storage[storeIdx];
       if (!loc || loc.card === this.core || !stored) return false;
       if (loc.card.id === 'cargo' && this.count('cargo') === 1) return false;
-      this[loc.side][loc.idx] = stored;
+      this.set(loc.col, loc.row, stored);
       this.storage[storeIdx] = loc.card;
       this.swapAvailable = false;
       this.clampAll();
-      this.emit('install', { uid: stored.uid, side: loc.side, idx: loc.idx });
+      this.emit('install', { uid: stored.uid, row: loc.row, col: loc.col });
       this.say(`Quick Swap: ${this.def(stored).name} in, ${this.def(loc.card).name} to the hold.`);
       if (stored.id === 'cargo') this.questEvent('installCargo');
       return true;
@@ -486,12 +608,18 @@
     }
     totalHp() { return this.core.hp + this.cards().reduce((s, c) => s + c.hp, 0); }
     setOptions(stage, options) { this.event.stage = stage; this.event.options = options; }
-    // Rolls which section an attack of a given arc aims at.
-    rollLane(arc = 'direct', label = 'Aim') { return LANE_TABLE[arc][this.d6(label) - 1]; }
-    // The section an attack actually lands on: the aimed one, or the other one in its arc if that's empty.
-    landLane(side, arc) {
-      if (this[side].length) return side;
-      return (ARCS[arc] || [side]).find((l) => this[l].length) || side;
+    // Rolls where an attack aims. Direct fire comes in level from the bow: a deck (d6 1-4 the hull,
+    // 5-6 the upper deck) and how far along it (1-2 the front module, 3-4 the second, 5-6 the third).
+    // Plunging fire (bombs, lightning, lobbed shells) drops onto a column: 1-3 stern 1-3, 4-6 bow 1-3.
+    rollAim(kind = 'direct', label = null) {
+      if (kind === 'plunge') return { kind, col: PLUNGE_TABLE[this.d6(label || 'Column') - 1] };
+      return { kind, row: ROW_TABLE[this.d6(label || 'Deck') - 1], depth: DEPTH_TABLE[this.d6('Depth') - 1] };
+    }
+    aimName(aim) {
+      if (!aim) return '';
+      if (aim.kind === 'plunge') return aim.col < 0 ? `stern column ${-aim.col}` : aim.col > 0 ? `bow column ${aim.col}` : 'the bridge';
+      if (aim.zone) return `${aim.zone} columns`;
+      return `${ROW_NAME[aim.row]}${aim.depth != null ? `, module ${aim.depth + 1} from the front` : ''}`;
     }
 
     // ---------- events ----------
@@ -499,18 +627,19 @@
       const r = this.d6('Storm Front');
       this.event.rolls.push(r);
       if (r === 1) {
-        const side = this.rollLane('plunge');
-        this.say(`Rolled 1: lightning forks down into your ${side}!`, 'bad');
-        this.applyPlan(this.planHit(side, 'outer', 2, true, 'plunge'), 'storm');
+        const aim = this.rollAim('plunge');
+        this.say(`Rolled 1: lightning forks down onto your ${this.aimName(aim)}!`, 'bad');
+        this.applyPlan(this.planAim(aim, 2, true), 'storm');
       } else if (r === 2) {
         if (this.weight() >= 6) this.say(`Rolled 2: a crosswind howls, but your ${fmt(this.weight())}-Weight hull holds steady.`, 'good');
         else {
           this.say('Rolled 2: a crosswind batters both ends of the ship.', 'bad');
-          for (const side of ['bow', 'stern']) if (!this.coreDead() && this[side].length) this.applyPlan(this.planHit(side, 'outer', 1), 'storm');
+          for (const c of [this.front(HULL), this.tail(HULL)]) if (c && !this.coreDead() && this.locate(c.uid)) this.applyPlan(this.planOn(c, 1), 'storm');
         }
       } else if (r === 3) {
         this.say('Rolled 3: a downdraft drags you toward the clouds below. Lighten the ship or brace.', 'warn');
-        const opts = SIDES.filter((s) => this.outer(s)).map((s) => ({ id: 'drop-' + s, label: `Jettison ${this.def(this.outer(s)).name}`, desc: `Lose the outermost module of your ${s}.` }));
+        const edges = [...new Set([this.front(HULL), this.tail(HULL), this.front(UPPER)].filter(Boolean))];
+        const opts = edges.map((c) => ({ id: 'drop-' + c.uid, label: `Jettison the ${this.def(c).name}`, desc: `Cut it loose from the ${this.placeName(this.locate(c.uid)).toLowerCase()}.` }));
         opts.push({ id: 'brace', label: 'Brace for it', desc: 'Your Core takes 2 damage.' });
         this.setOptions('downdraft', opts);
       } else if (r === 4) {
@@ -535,7 +664,7 @@
       this.event.rolls.push(r);
       if (r === 1) {
         const weapons = this.cards().filter((c) => this.isWeapon(c));
-        if (weapons.length) { const w = this.pick(weapons); const l = this.locate(w.uid); this.say('Rolled 1: soot clogs a weapon. It stays fouled until your next fight ends.', 'bad'); this.placeToken('gas', l.side, l.idx); }
+        if (weapons.length) { const w = this.pick(weapons); this.say('Rolled 1: soot clogs a weapon. It stays fouled until your next fight ends.', 'bad'); this.placeTokenOn(w.uid, 'gas'); }
         else this.say('Rolled 1: soot drifts through an empty gun deck. No harm done.', 'muted');
       } else if (r === 2) {
         this.say('Rolled 2: choking fumes pour into the gondola.', 'warn');
@@ -568,17 +697,17 @@
       this.event.next = node.enemy;
       this.event.mods = {};
       if (r === 1) {
-        const side = this.rollLane('plunge');
-        this.say(`Rolled 1: debris from the wreck rains onto your ${side}.`, 'bad');
-        this.applyPlan(this.planHit(side, 'outer', 2, false, 'plunge'), 'storm');
+        const aim = this.rollAim('plunge');
+        this.say(`Rolled 1: debris from the wreck rains onto your ${this.aimName(aim)}.`, 'bad');
+        this.applyPlan(this.planAim(aim, 2), 'storm');
       } else if (r === 2) {
-        const side = this.landLane(this.rollLane('plunge'), 'plunge');
-        this.say(`Rolled 2: burning wreckage sets your ${side} alight.`, 'bad');
-        this.placeToken('fire', side, 'outer', 'plunge');
+        const aim = this.rollAim('plunge');
+        this.say(`Rolled 2: burning wreckage falls onto your ${this.aimName(aim)}.`, 'bad');
+        this.placeToken('fire', aim);
       } else if (r === 3) {
         const weapons = this.cards().filter((c) => this.isWeapon(c));
         const target = weapons.length ? this.pick(weapons) : this.cards()[0];
-        if (target) { const l = this.locate(target.uid); this.say('Rolled 3: a gas leak fouls one of your modules.', 'bad'); this.placeToken('gas', l.side, l.idx); }
+        if (target) { this.say('Rolled 3: a gas leak fouls one of your modules.', 'bad'); this.placeTokenOn(target.uid, 'gas'); }
         else this.say('Rolled 3: a gas leak, but nothing to foul.');
       } else if (r === 4) {
         this.say('Rolled 4: it was bait. The Skiff starts behind 4 Block.', 'warn');
@@ -611,7 +740,7 @@
       ev.stage = null;
       if (stage === 'downdraft') {
         if (id === 'brace') { this.say('You brace. The Core groans.', 'bad'); this.damageCore(2, 'storm'); }
-        else { const side = id.slice(5); const s = this[side]; this.say(`You cut the ${this.def(s[s.length - 1]).name} loose and climb clear.`, 'warn'); this.removeCard(side, s.length - 1, 'jettison'); }
+        else { const uid = id.slice(5); this.say(`You cut the ${this.def(this.locate(uid).card).name} loose and climb clear.`, 'warn'); this.removeCard(uid, 'jettison'); }
         this.finishStormCheck();
       } else if (stage === 'eye') {
         if (id === 'core') this.healCore(3);
@@ -670,18 +799,18 @@
       if (this.phase !== 'hangar') return false;
       const loc = this.locate(uid);
       if (!loc || loc.card === this.core) return false;
-      this[loc.side].splice(loc.idx, 1);
+      this.unplace(loc);
       this.hangar.dock.push(loc.card);
       this.clampAll();
       return true;
     }
-    attach(dockIdx, side, pos) {
-      if (this.phase !== 'hangar' || !this.canInstall(side, pos)) return false;
+    attach(dockIdx, pos) {
+      if (this.phase !== 'hangar' || !this.canInstall(pos)) return false;
       const card = this.hangar.dock.splice(dockIdx, 1)[0];
       if (!card) return false;
-      this[side].splice(pos, 0, card);
+      this.place(card, pos);
       this.clampAll();
-      this.emit('install', { uid: card.uid, side, idx: pos });
+      this.emit('install', { uid: card.uid, row: pos.row, col: pos.col });
       return true;
     }
     salvage() {
@@ -753,7 +882,7 @@
       if (!loc || loc.card === this.core) return false;
       const v = this.sellValue(loc.card);
       this.say(`Sold the ${this.def(loc.card).name}.`, 'muted');
-      this.removeCard(loc.side, loc.idx, 'trade');
+      this.removeCard(uid, 'trade');
       this.shop.sold++;
       this.gainCogs(v, 'sale');
       return true;
@@ -822,16 +951,16 @@
       this.hit(uid);
       this.emit('hit', { uid, dmg: n, src, hp: loc.card.hp });
       this.say(`${this.def(loc.card).name} takes ${n} (${Math.max(0, loc.card.hp)}/${this.maxHp(loc.card)}).`, 'bad');
-      if (loc.card.hp <= 0) this.removeCard(loc.side, loc.idx, src);
+      if (loc.card.hp <= 0) this.removeCard(uid, src);
     }
-    removeCard(side, idx, src) {
-      const s = this[side];
-      const card = s[idx];
-      if (!card) return;
-      const nbs = this.neighbors(side, idx).map((c) => ({ card: c, buried: this.locate(c.uid).idx < s.length - 1 }));
-      s.splice(idx, 1);
+    removeCard(uid, src) {
+      const loc = this.locate(uid);
+      if (!loc || loc.card === this.core) return;
+      const card = loc.card;
+      const nbs = this.neighborsOf(loc).map((c) => ({ card: c, buried: this.isBuried(this.locate(c.uid)) }));
+      this.unplace(loc);
       const violent = !['scrap', 'jettison', 'trade'].includes(src);
-      this.emit('destroyed', { uid: card.uid, id: card.id, side, idx, src, violent });
+      this.emit('destroyed', { uid: card.uid, id: card.id, row: loc.row, col: loc.col, src, violent });
       if (violent) this.say(`${this.def(card).name} is destroyed!`, 'bad');
       if (card.id === 'cargo' && !this.has('cargo') && this.storage.length) {
         this.say(`The Cargo Hold's contents are lost: ${this.storage.map((c) => this.def(c).name).join(', ')}.`, 'bad');
@@ -845,68 +974,90 @@
       }
       if (card.id === 'boiler' && violent) {
         this.say('The Auxiliary Boiler bursts, scalding its neighbours.', 'bad');
-        for (const nb of nbs) this.damageModule(nb.card.uid, 2, 'explosion');
+        for (const nb of nbs) if (this.locate(nb.card.uid)) this.damageModule(nb.card.uid, 2, 'explosion');
       }
       this.clampAll();
     }
 
     // Works out who takes how much from a hit, without changing anything. Used for both
     // resolving attacks and previewing the enemy's telegraphed intent.
-    // arc ('direct' or 'plunge') lets a shot at an empty section fall on the other section it can reach.
-    planHit(side, layer, dmg, lightning = false, arc = null) {
-      if (arc) side = this.landLane(side, arc);
-      // A Lightning Rod on top of the deck drinks every bolt.
-      const rodTop = this.outer('deck');
-      if (lightning && rodTop && rodTop.id === 'lightningrod') return [{ uid: rodTop.uid, dmg: 0, rod: true }];
-      const s = this[side];
-      if (!s.length) return [{ uid: 'core', dmg, exposed: true }];
-      const last = s.length - 1;
-      const i = layer === 'outer' ? last : Math.min(layer, last);
-      if (this.combat && this.combat.braced[side]) return [{ uid: s[last].uid, dmg: 0, braced: true }];
-      const out = s[last];
-      if (lightning) return [{ uid: s[i].uid, dmg, lightning: true }];
-      if (i !== last && ARMOR[out.id]) return [{ uid: out.uid, dmg: Math.max(0, dmg - ARMOR[out.id].reduce), intercept: true }];
-      const target = s[i];
-      if (i === last && ARMOR[target.id]) return [{ uid: target.uid, dmg: Math.max(0, dmg - ARMOR[target.id].reduce) }];
-      const plan = [];
-      let rest = dmg;
-      const guard = this.neighbors(side, i).find((c) => ARMOR[c.id] && c !== out);
-      if (guard && rest > 0 && !ARMOR[target.id]) {
-        const soak = Math.min(rest, ARMOR[guard.id].soak);
-        plan.push({ uid: guard.uid, dmg: soak, soak: true });
-        rest -= soak;
+    // A hit on one module: armor shrugs off part of it, a buried armor neighbour soaks some,
+    // and a braced Deflector Vane turns it aside.
+    planOn(target, dmg, extra = {}) {
+      if (target === this.core || target === 'core') return [{ uid: 'core', dmg, exposed: true, ...extra }];
+      if (this.combat && this.combat.braced && this.combat.braced.includes(target.uid)) {
+        extra = { ...extra, braced: true };
+        dmg = Math.max(0, dmg - BRACE);
       }
-      plan.unshift({ uid: target.uid, dmg: rest });
+      if (ARMOR[target.id]) return [{ uid: target.uid, dmg: Math.max(0, dmg - ARMOR[target.id].reduce), ...extra }];
+      const loc = this.locate(target.uid);
+      const guard = this.neighborsOf(loc).find((c) => ARMOR[c.id] && this.isBuried(this.locate(c.uid)));
+      const plan = [{ uid: target.uid, dmg, ...extra }];
+      if (guard && dmg > 0) {
+        const soak = Math.min(dmg, ARMOR[guard.id].soak);
+        plan[0].dmg -= soak;
+        plan.push({ uid: guard.uid, dmg: soak, soak: true });
+      }
       return plan;
+    }
+    // Direct fire along a deck: it meets the front module first; armor at the front catches shots
+    // aimed deeper. An empty upper deck lets the shot fall to the hull; an empty bow hull exposes the Core.
+    planDirect(r, depth, dmg) {
+      let line = this.lineOfFire(r);
+      if (!line.length && r === UPPER) line = this.lineOfFire(HULL);
+      if (!line.length) return this.planOn(this.core, dmg);
+      const i = depth < line.length ? depth : 0;
+      const head = line[0];
+      if (i > 0 && ARMOR[head.id]) return this.planOn(head, dmg, { intercept: true });
+      return this.planOn(line[i], dmg);
+    }
+    // The column plunging fire actually lands on: an empty one lets it drift in toward the Core.
+    landColumn(col) {
+      while (col !== 0 && !this.at(col, HULL) && !this.at(col, UPPER)) col -= Math.sign(col);
+      return col;
+    }
+    // Plunging fire hits the top of its column: the upper module, else the hull module, else (over
+    // the Core) the bridge or the Core. Lightning arcs past armor to the first thing that isn't.
+    planPlunge(col, dmg, lightning = false) {
+      if (lightning) {
+        const rod = this.cards().find((c) => c.id === 'lightningrod' && this.openSky(this.locate(c.uid)));
+        if (rod) return [{ uid: rod.uid, dmg: 0, rod: true }];
+      }
+      col = this.landColumn(col);
+      const stack = [this.at(col, UPPER), col === 0 ? this.core : this.at(col, HULL)].filter(Boolean);
+      if (lightning) {
+        const t = stack.find((c) => c === this.core || !ARMOR[c.id]) || stack[0];
+        return this.planOn(t, dmg, { lightning: t !== stack[0] });
+      }
+      return this.planOn(stack[0], dmg);
+    }
+    planAim(aim, dmg, lightning = false) {
+      if (aim.kind === 'plunge') return this.planPlunge(aim.col, dmg, lightning);
+      return this.planDirect(aim.row, aim.depth || 0, dmg);
     }
     applyPlan(plan, src) {
       for (const p of plan) {
         if (this.coreDead()) return;
-        if (p.braced) { this.say('The Deflector Vane turns the hit aside.', 'good'); this.emit('block', { uid: p.uid }); this.combat.braced = { stern: false, deck: false, bow: false }; continue; }
+        if (p.uid !== 'core' && !this.locate(p.uid)) continue;
+        if (p.braced) { this.say(p.dmg > 0 ? 'The Deflector Vane takes the worst of the hit.' : 'The Deflector Vane turns the hit aside.', 'good'); this.combat.braced = []; if (p.dmg <= 0) { this.emit('block', { uid: p.uid }); continue; } }
         if (p.rod) { this.say('The Lightning Rod drinks the bolt: +1 Steam next turn.', 'good'); this.emit('block', { uid: p.uid }); if (this.combat) this.combat.rodCharge += 1; continue; }
         if (p.lightning) this.say('Lightning arcs straight past the plating!', 'warn');
-        if (p.intercept) this.say('Outside plating takes the hit.');
+        if (p.intercept) this.say('The armor at the front takes the hit.');
         if (p.soak) this.say('A buried bulkhead soaks some of the blow.');
         if (p.dmg <= 0) { this.emit('block', { uid: p.uid }); this.say(`${this.nameOf(this.locate(p.uid).card)} shrugs it off.`); continue; }
         this.damageModule(p.uid, p.dmg, src);
       }
     }
-    // Where a token aimed at side/layer lands (outside armor catches it too).
-    tokenTarget(side, layer, arc = null) {
-      if (arc) side = this.landLane(side, arc);
-      if (!this[side].length) return 'core';
-      return this.planHit(side, layer, 1)[0].uid;
-    }
+    // Where a token aimed this way lands (front armor catches it too).
+    tokenTarget(aim) { return this.planAim(aim, 1)[0].uid; }
     tokenImmune(card, token) {
       if (card === this.core) return false;
-      const l = this.locate(card.uid);
-      if (!l) return true;
-      const nbs = this.neighbors(l.side, l.idx);
+      const nbs = this.neighbors(card.uid);
       if (token === 'fire') return nbs.some((c) => c.id === 'sprinkler');
       return nbs.some((c) => c.id === 'scrubber');
     }
-    placeToken(token, side, layer, arc = null) {
-      const uid = this.tokenTarget(side, layer, arc);
+    placeToken(token, aim) { this.placeTokenOn(this.tokenTarget(aim), token); }
+    placeTokenOn(uid, token) {
       const card = this.locate(uid).card;
       if (this.tokenImmune(card, token)) { this.say(`${this.nameOf(card)} is protected from ${TOKENS[token].name}.`, 'good'); return; }
       card.tokens[token] = true;
@@ -930,7 +1081,7 @@
         galeSide: 'bow', turnDamage: 0, rodCharge: 0,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
-        braced: { stern: false, deck: false, bow: false },
+        braced: [],
         fireAfflicted: this.cards().some((c) => c.tokens.fire) || this.core.tokens.fire,
         lastSource: null, loot: opts.loot || null,
       };
@@ -965,15 +1116,13 @@
       const p = this.enemyDef().phases[pi];
       const r = this.d6(`${en.name}: ${p.name}`);
       const intent = { ...p.table[r - 1], roll: r };
-      // Direct fire aims at the bow or deck, plunging fire (bombs, lightning, lobbed shells) at the deck or stern.
-      intent.arc = intent.aim || 'direct';
-      if (['shot', 'token'].includes(intent.kind)) {
-        intent.side = this.rollLane(intent.arc, 'Section');
-        intent.layer = LAYER_TABLE[CAP[intent.side]][this.d6('Layer') - 1] - 1;
-      } else if (intent.kind === 'rake') {
-        intent.side = this.rollLane(intent.arc, 'Section');
-      } else if (intent.kind === 'ram') {
-        intent.side = 'bow';
+      // Direct fire comes in along a deck; plunging fire (bombs, lightning, lobbed shells) drops onto a column.
+      const kind = intent.aim || 'direct';
+      if (['shot', 'token'].includes(intent.kind)) intent.target = this.rollAim(kind);
+      else if (intent.kind === 'rake') {
+        // A rake sweeps a whole deck, or bombs every column on one side.
+        const r = this.d6('Sweep');
+        intent.target = kind === 'plunge' ? { kind, zone: r <= 3 ? 'stern' : 'bow' } : { kind, row: ROW_TABLE[r - 1] };
       }
       en.intent = intent;
       this.emit('intent', { intent });
@@ -1001,25 +1150,38 @@
       const it = c.enemy.intent;
       const dmg = this.intentDamage(it);
       let plan = [];
-      if (it.kind === 'shot') plan = this.planHit(it.side, it.layer, dmg, !!it.lightning, it.arc);
-      if (it.kind === 'ram') plan = this.planHit('bow', 'outer', dmg, false, 'direct');
-      if (it.kind === 'broadside') plan = this.broadsidePlan(dmg);
-      if (it.kind === 'rake') plan = this.rakePlan(this.landLane(it.side, it.arc), dmg);
-      if (it.kind === 'token') plan = [{ uid: this.tokenTarget(it.side, it.layer, it.arc), dmg: dmg > 0 ? this.planHit(it.side, it.layer, dmg, false, it.arc)[0].dmg : 0, token: it.token }];
+      plan = this.intentPlan(it, dmg);
+      if (it.kind === 'token') plan = [{ uid: this.tokenTarget(it.target), dmg: dmg > 0 ? plan[0].dmg : 0, token: it.token }];
       if (c.evading && this.isAttack(it)) plan = plan.map((p) => ({ ...p, dmg: 0, evaded: true }));
       return { intent: it, dmg, plan };
     }
-    // A broadside hits the outside module of the bow and of the deck (or the Core once if both are bare).
-    broadsidePlan(dmg) {
-      const lanes = ['bow', 'deck'].filter((l) => this[l].length);
-      if (!lanes.length) return [{ uid: 'core', dmg, exposed: true }];
-      return lanes.flatMap((l) => this.planHit(l, 'outer', dmg));
+    // Who an attacking intent hits, as a plan (a token intent's plan is for its damage).
+    intentPlan(it, dmg) {
+      if (it.kind === 'shot' || it.kind === 'token') return this.planAim(it.target, dmg, !!it.lightning);
+      if (it.kind === 'ram') return this.planDirect(HULL, 0, dmg);
+      if (it.kind === 'broadside') return this.broadsidePlan(dmg);
+      if (it.kind === 'rake') return this.rakePlan(it.target, dmg);
+      return [];
     }
-    rakePlan(side, dmg) {
-      const s = this[side];
-      if (!s.length) return [{ uid: 'core', dmg, exposed: true }];
+    // A broadside hits the front of the hull (or the Core) and the front of the upper deck.
+    broadsidePlan(dmg) {
+      const plan = this.planDirect(HULL, 0, dmg);
+      if (this.front(UPPER)) plan.push(...this.planDirect(UPPER, 0, dmg));
+      return plan;
+    }
+    // A raking sweep hits up to three modules along a deck, front armor catching each shot;
+    // a bombing sweep hits the top of every column on one side (the bridge or Core if it is bare).
+    rakePlan(target, dmg) {
+      if (target.zone) {
+        const d = target.zone === 'stern' ? -1 : 1;
+        const cols = [1, 2, 3].map((k) => d * k).filter((col) => this.at(col, HULL));
+        return (cols.length ? cols : [0]).flatMap((col) => this.planPlunge(col, dmg));
+      }
+      let r = target.row;
+      if (r === UPPER && !this.front(UPPER)) r = HULL;
+      const n = Math.max(1, Math.min(3, this.lineOfFire(r).length));
       const plan = [];
-      for (let i = 0; i < s.length; i++) plan.push(...this.planHit(side, i, dmg));
+      for (let i = 0; i < n; i++) plan.push(...this.planDirect(r, i, dmg));
       return plan;
     }
     beginPlayerTurn() {
@@ -1087,32 +1249,39 @@
       if (c.enemyId === 'colossus') { en.wound++; this.say(`The Mainspring tightens: +${en.wound} damage per hit.`, 'warn'); }
       if (en.weak > 0) en.weak--;
       if (en.vuln > 0) en.vuln--;
-      c.braced = { stern: false, deck: false, bow: false };
+      c.braced = [];
       c.evadeStreak = c.evading ? c.evadeStreak + 1 : 0;
       c.evading = false;
       if (this.enrage() === 1) this.say(`${theName(en.name)} is Enraged: its hits grow stronger every round.`, 'warn');
       this.rollIntent();
       this.beginPlayerTurn();
     }
-    // Storm Queen: her winds swap your two outside modules on one side, alternating sides.
-    galeTargets(side) {
-      const s = this[side];
-      if (s.length < 2) return null;
-      const a = s[s.length - 1], b = s[s.length - 2];
-      if (a.tokens.glue || b.tokens.glue) return null;
-      return [a, b];
+    // Storm Queen: her winds shove two modules past each other, in turn the two at the prow, the
+    // two at the stern tail, and the two at the front of the upper deck.
+    galeTargets(zone) {
+      let pair;
+      if (zone === 'bow') { const n = this.hullCount('bow'); pair = [this.at(n, HULL), this.at(n - 1, HULL)]; }
+      else if (zone === 'stern') { const n = this.hullCount('stern'); pair = [this.at(-n, HULL), this.at(-n + 1, HULL)]; }
+      else pair = this.lineOfFire(UPPER).slice(0, 2);
+      if (pair.length < 2 || !pair[0] || !pair[1] || pair.some((c) => c.tokens.glue)) return null;
+      return pair;
     }
     gale() {
       const c = this.combat;
-      const side = c.galeSide;
-      c.galeSide = { bow: 'stern', stern: 'deck', deck: 'bow' }[side];
-      const pair = this.galeTargets(side);
-      if (!pair) { this.say(`The gale howls past your ${side}.`); return; }
-      const s = this[side];
-      [s[s.length - 1], s[s.length - 2]] = [s[s.length - 2], s[s.length - 1]];
-      this.clampAll();
-      this.emit('swap', { side, a: pair[0].uid, b: pair[1].uid, gale: true });
+      const zone = c.galeSide;
+      c.galeSide = { bow: 'stern', stern: 'deck', deck: 'bow' }[zone];
+      const pair = this.galeTargets(zone);
+      const where = { bow: 'prow', stern: 'stern', deck: 'upper deck' }[zone];
+      if (!pair) { this.say(`The gale howls past your ${where}.`); return; }
+      this.exchange(pair[0], pair[1]);
+      this.emit('swap', { a: pair[0].uid, b: pair[1].uid, gale: true, zone });
       this.say(`Gale Force! Your ${this.def(pair[0]).name} and ${this.def(pair[1]).name} are shoved past each other.`, 'warn');
+    }
+    // Two modules trade slots.
+    exchange(a, b) {
+      const la = this.locate(a.uid), lb = this.locate(b.uid);
+      this.set(la.col, la.row, b); this.set(lb.col, lb.row, a);
+      this.clampAll();
     }
     executeIntent(it) {
       const c = this.combat;
@@ -1131,24 +1300,24 @@
       const dmg = this.intentDamage(it);
       if (en.weak > 0) this.say('Gummed: its weapons are clogged (-1).');
       if (it.kind === 'ram') {
-        this.emit('ram', { side: it.side, enemy: true });
-        this.say(`It rams your ${it.side} side and takes ${it.self} itself.`, 'warn');
-        this.applyPlan(this.planHit('bow', 'outer', dmg, false, 'direct'), 'ram');
+        this.emit('ram', { enemy: true });
+        this.say(`It rams your prow and takes ${it.self} itself.`, 'warn');
+        this.applyPlan(this.intentPlan(it, dmg), 'ram');
         if (this.coreDead()) return;
         this.damageEnemy(it.self, { pierce: true, source: 'recoil', noVuln: true });
       } else if (it.kind === 'shot') {
-        this.emit('enemyShot', { side: it.side, layer: it.layer, dmg, lightning: !!it.lightning });
-        this.applyPlan(this.planHit(it.side, it.layer, dmg, !!it.lightning, it.arc), 'attack');
+        this.emit('enemyShot', { target: it.target, dmg, lightning: !!it.lightning });
+        this.applyPlan(this.intentPlan(it, dmg), 'attack');
       } else if (it.kind === 'broadside') {
-        this.emit('enemyShot', { side: 'both', dmg });
+        this.emit('enemyShot', { broadside: true, dmg });
         this.applyPlan(this.broadsidePlan(dmg), 'attack');
       } else if (it.kind === 'rake') {
-        this.emit('enemyShot', { side: it.side, rake: true, dmg });
-        this.applyPlan(this.rakePlan(this.landLane(it.side, it.arc), dmg), 'attack');
+        this.emit('enemyShot', { target: it.target, rake: true, dmg });
+        this.applyPlan(this.intentPlan(it, dmg), 'attack');
       } else if (it.kind === 'token') {
-        this.emit('enemyShot', { side: it.side, layer: it.layer, dmg, token: it.token });
-        if (dmg > 0) this.applyPlan(this.planHit(it.side, it.layer, dmg, false, it.arc), 'attack');
-        if (!this.coreDead()) this.placeToken(it.token, it.side, it.layer, it.arc);
+        this.emit('enemyShot', { target: it.target, dmg, token: it.token });
+        if (dmg > 0) this.applyPlan(this.intentPlan(it, dmg), 'attack');
+        if (!this.coreDead()) this.placeToken(it.token, it.target);
       }
       en.charge = 0;
     }
@@ -1233,15 +1402,16 @@
     fireInfo(uid, mode = 'normal') {
       const loc = this.locate(uid);
       if (!loc || loc.card === this.core || !this.isWeapon(loc.card)) return null;
-      const { card, side, idx } = loc;
+      const { card } = loc;
       const d = this.def(card);
       let cost = this.useCost(card) + (mode !== 'normal' ? 1 : 0);
       let blocked = null;
-      if (!this.canFireFrom(card, side, idx)) blocked = side === 'stern' ? 'Faces away: only arcing weapons fire from the stern' : 'Buried: only the prow or deck top fires';
+      if (!this.canFireFrom(card, loc)) blocked = this.whyNotFire(card, loc);
       else if (card.reload > 0) blocked = 'Reloading';
       else if (card.fired >= this.shotsAllowed(card)) blocked = 'Already fired';
       else if (this.combat && this.combat.steam < cost) blocked = 'Not enough Steam';
-      const bonus = (this[side][idx - 1] && this[side][idx - 1].id === 'harpoon' ? 1 : 0)
+      const under = loc.row === UPPER ? this.at(loc.col, HULL) : null;
+      const bonus = (under && under.id === 'harpoon' ? 1 : 0)
         + (card.id === 'sniper' && this.touching(uid, 'telescope') ? 1 : 0)
         - (card.tokens.glue ? 1 : 0);
       let summary;
@@ -1252,20 +1422,20 @@
       if (d.burn) summary += ` +${d.burn} Burn`;
       if (d.weak) summary += ` +${d.weak} Gummed`;
       if (d.vuln) summary += ` +${d.vuln} Choking`;
-      return { card, side, idx, cost, blocked, bonus, summary, modes: card.id === 'cannon' ? ['normal', 'aimed'] : card.id === 'sniper' ? ['normal', 'steady'] : ['normal'] };
+      return { card, loc, cost, blocked, bonus, summary, modes: card.id === 'cannon' ? ['normal', 'aimed'] : card.id === 'sniper' ? ['normal', 'steady'] : ['normal'] };
     }
     fire(uid, mode = 'normal') {
       if (!this.canAct()) return false;
       const w = this.fireInfo(uid, mode);
       if (!w || w.blocked) return false;
-      const { card, side, idx } = w;
+      const { card, loc } = w;
       const d = this.def(card);
       this.pay(w.cost);
       card.fired++;
       const times = this.combat.overclock ? 2 : 1;
       this.combat.overclock = false;
       for (let t = 0; t < times && !this.combat.over; t++) {
-        this.emit('fire', { uid, id: card.id, side, idx, mode });
+        this.emit('fire', { uid, id: card.id, row: loc.row, col: loc.col, mode });
         this.say(`${t ? 'Overclocked! ' : ''}Your ${d.name} fires${mode === 'aimed' ? ' an aimed shot' : mode === 'steady' ? ' a steadied shot' : ''}.`, 'you');
         let dmg = d.dmg || 0;
         let pierce = false;
@@ -1298,7 +1468,7 @@
       let summary = '';
       if (a.id === 'strafe') summary = `${this.weaponsInstalled()} dmg`;
       if (a.id === 'ram') summary = `${this.ramDamage()} dmg · bow takes 1`;
-      if (a.id === 'bombard') summary = `${BALANCE.bombardPerPressure * this.core.pressure} piercing`;
+      if (a.id === 'bombard') summary = `${Math.floor(BALANCE.bombardPerPressure * this.core.pressure)} piercing`;
       if (a.id === 'overclock') summary = 'next weapon fires twice';
       return { ability: a, blocked, summary, cost: a.cost };
     }
@@ -1319,9 +1489,9 @@
         this.emit('ram', { player: true });
         this.damageEnemy(this.ramDamage(), { source: 'ram' });
         if (!this.combat.over) {
-          const bow = this.outer('bow');
-          this.say('The impact jars your bow.', 'bad');
-          this.damageModule(bow ? bow.uid : 'core', 1, 'recoil');
+          const prow = this.front(HULL);
+          this.say('The impact jars your prow.', 'bad');
+          this.damageModule(prow ? prow.uid : 'core', 1, 'recoil');
         }
       }
       if (a.id === 'bombard') { const p = this.core.pressure; this.core.pressure = 0; this.damageEnemy(Math.floor(BALANCE.bombardPerPressure * p), { pierce: true, source: 'bombard' }); }
@@ -1336,8 +1506,7 @@
       if (this.has('gyro') && this.combat && !this.combat.gyroUsed && !fatigue) return 0;
       let cost = Math.min(5, BALANCE.evadeBase + Math.floor(Math.max(0, this.weight()) / 3));
       if (this.core.id === 'airship') cost -= BALANCE.nimbleDiscount;
-      const tail = this.outer('stern');
-      if (tail && tail.id === 'propeller') cost -= 1;
+      if (this.working('propeller')) cost -= 1;
       return Math.max(1, cost) + fatigue * BALANCE.evadeFatigue;
     }
     canEvade() {
@@ -1357,16 +1526,17 @@
       return true;
     }
     swapCost() { return this.core.id === 'airship' && this.combat && !this.combat.freeSwapUsed ? 0 : 1; }
+    // Two touching modules (side by side, or one on top of the other) can trade places.
     canSwap(uidA, uidB) {
       const a = this.locate(uidA), b = this.locate(uidB);
-      if (!a || !b || !a.side || a.side !== b.side || Math.abs(a.idx - b.idx) !== 1) return false;
+      if (!a || !b || !a.side || !b.side || !this.neighborsOf(a).includes(b.card)) return false;
       if (a.card.tokens.glue || b.card.tokens.glue) return false;
       return this.spendable(this.swapCost());
     }
     swapTargets(uid) {
       const l = this.locate(uid);
       if (!l || !l.side) return [];
-      return this.neighbors(l.side, l.idx).filter((c) => this.canSwap(uid, c.uid)).map((c) => c.uid);
+      return this.neighborsOf(l).filter((c) => this.canSwap(uid, c.uid)).map((c) => c.uid);
     }
     swap(uidA, uidB) {
       if (!this.canSwap(uidA, uidB)) return false;
@@ -1374,10 +1544,8 @@
       const cost = this.swapCost();
       if (cost === 0) this.combat.freeSwapUsed = true;
       this.pay(cost);
-      const s = this[a.side];
-      [s[a.idx], s[b.idx]] = [s[b.idx], s[a.idx]];
-      this.clampAll();
-      this.emit('swap', { side: a.side, a: uidA, b: uidB });
+      this.exchange(a.card, b.card);
+      this.emit('swap', { a: uidA, b: uidB });
       this.say(`Swapped ${this.def(a.card).name} and ${this.def(b.card).name}.`, 'you');
       return true;
     }
@@ -1397,13 +1565,13 @@
       if (!loc || loc.card === this.core) return [];
       const id = loc.card.id;
       if (id === 'repair') {
-        const t = this.neighbors(loc.side, loc.idx).filter((c) => c.hp < this.maxHp(c)).map((c) => c.uid);
-        if (loc.idx === 0 && this.core.hp < this.maxHp(this.core)) t.unshift('core');
+        const t = this.neighborsOf(loc).filter((c) => c.hp < this.maxHp(c)).map((c) => c.uid);
+        if (this.touchesCore(loc) && this.core.hp < this.maxHp(this.core)) t.unshift('core');
         return t;
       }
       if (id === 'sprinkler') return [this.core, ...this.cards()].filter((c) => c.tokens.fire).map((c) => c.uid);
       if (id === 'scrubber') return [this.core, ...this.cards()].filter((c) => c.tokens.gas || c.tokens.glue).map((c) => c.uid);
-      if (id === 'deflector') return this.combat && !this.combat.braced[loc.side] ? [uid] : [];
+      if (id === 'deflector') return this.combat && !this.combat.braced.includes(uid) ? [uid] : [];
       return [];
     }
     canUseSupport(uid) {
@@ -1426,10 +1594,10 @@
       }
       if (card.id === 'sprinkler') { target.tokens.fire = false; this.emit('cleanse', { uid: targetUid }); this.say(`Sprinklers douse your ${this.nameOf(target)}.`, 'you'); }
       if (card.id === 'scrubber') { target.tokens.gas = false; target.tokens.glue = false; this.emit('cleanse', { uid: targetUid }); this.say(`The Air Scrubber clears your ${this.nameOf(target)}.`, 'you'); }
-      if (card.id === 'deflector') { this.combat.braced[this.locate(uid).side] = true; this.emit('brace', { uid }); this.say('The Deflector Vane swings into place.', 'you'); }
+      if (card.id === 'deflector') { this.combat.braced = [uid, ...this.neighbors(uid).map((c) => c.uid)]; this.emit('brace', { uid }); this.say('The Deflector Vane swings into place.', 'you'); }
       return true;
     }
   }
 
-  return { Game, fmt, cap, MAX_LAYERS, SIDES, CAP, ARCS, VENT_COST, MAX_PRESSURE };
+  return { Game, fmt, cap, COLS, SIDE_COLS, MAX_MODULES, HULL, UPPER, VENT_COST, MAX_PRESSURE };
 });

@@ -112,3 +112,35 @@ Bosses once reached (seed 1): Iron Leviathan 58.1%, Storm Queen 65.4%, Clockwork
 The most common part on winning ships is the **Repair Bay at 54–57%**, under the 60% ceiling but higher than before, because the stern now keeps it safe. That is the intended role of the stern. If it climbs further, the first lever to try is its repair amount (2) or making it uncommon. Making it uncommon was tested; it raised overall win rates, because the bot filled the slot with stronger parts. Next is Mortar at 43.5%, which now has a natural home firing from the sheltered stern.
 
 Note: the simulator previously read the run count as its seed base when no `--seed` was given. That is fixed. The earlier before/after tables were both produced the same way, so their comparison still stands.
+
+## Re-tune for the two-deck grid
+
+The ship moved from stern / deck tower / bow lanes to a hull row plus an upper deck (see DESIGN_CHANGES.md). The greedy bot learned the grid: it scores slots by front, open sky, buried and sheltered positions. Then the simulator ran 1,000 runs per Core on 3 seed sets.
+
+First pass, with no tuning:
+
+| Core | Win |
+| --- | --- |
+| Airship | 44.5% |
+| Battleship | 45.7% |
+| Zeppelin | 29.3–33.9% |
+| Clockwork | 33.4–34.4% |
+
+Repair Bay was on 58–61% of winning ships.
+
+Changes:
+- **Zeppelin:** Durability 6 → 8, and Bombard 1½ → 1¾ damage per Pressure.
+- **Clockwork:** starts with Crew Quarters instead of a Repair Bay. With a Repair Bay it was redundant with Self-Winding, and it inflated that part's share.
+- **Deflector Vane:** bracing takes 3 off a hit instead of negating it. This fixes an endless stalemate the bot found.
+
+After, at 1,000 runs per Core:
+
+| Core | Seed set 1 | Seed set 2 | Seed set 3 |
+| --- | --- | --- | --- |
+| Airship | 44.5% | 40.3% | 40.6% |
+| Battleship | 45.7% | 48.5% | 44.2% |
+| Zeppelin | 44.9% | 42.3% | 45.3% |
+| Clockwork | 38.8% | 38.0% | 35.3% |
+
+The most common part on winning ships is the Repair Bay, at 47.6–48.9%. Next come the Mortar (44.0–47.2%) and Brass Plating (40.3–41.8%). Bosses won when reached: Colossus 62.8%, Leviathan 56.2%, Storm Queen 70.1% (seed set 1).
+

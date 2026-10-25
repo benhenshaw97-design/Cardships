@@ -213,5 +213,5 @@
 
   const allReady = () => SHEETS.every(loaded);
 
-  window.CardshipsSprites = { FRAMES, draw, drawStretched, aspect, ready, allReady, image: img };
+  window.CardshipsSprites = { FRAMES, draw, drawStretched, aspect, ready, allReady, image: img, sheets: SHEETS };
 })();

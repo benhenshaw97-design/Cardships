@@ -7,7 +7,6 @@
   if (isNode) module.exports = api;
   else root.CardshipsBot = api;
 })(this, function (D) {
-  const SIDES = ['stern', 'deck', 'bow'];
   const SUPPORT = new Set(['repair', 'boiler', 'overpressure', 'quarters', 'cargo', 'hatch', 'heart', 'sprinkler', 'scrubber', 'gyro', 'autoloader']);
 
   // Rough worth of a module in place, used to judge layouts and losses.
@@ -17,36 +16,43 @@
     telescope: 1, gasbag: 1, propeller: 0.8, cargo: 0.6, hatch: 1.6, autoloader: 1, gyro: 2.4, heart: 0.6, overpressure: 3,
   };
 
-  function moduleValue(g, card, side, idx) {
+  const ARMOR = new Set(['plating', 'bulwark']);
+  function moduleValue(g, card, loc = g.locate(card.uid)) {
     const d = D.PARTS[card.id];
-    const s = g[side];
-    const outer = idx === s.length - 1;
-    const nbs = [s[idx - 1], s[idx + 1]].filter(Boolean);
+    const nbs = g.neighborsOf(loc);
+    const front = g.isFront(loc), sky = g.openSky(loc), buried = g.isBuried(loc);
+    const sheltered = loc.row === 0 && loc.col < 0; // behind the Core: only bombs reach it
     let v = BASE[card.id] || 1;
-    if (d.type === 'weapon' && !g.canFireFrom(card, side, idx)) v *= card.id === 'harpoon' && side !== 'stern' && s[idx + 1] && D.PARTS[s[idx + 1].id].type === 'weapon' ? 0.7 : 0.2;
-    if (card.id === 'plating' || card.id === 'bulwark') v += outer ? (side === 'bow' ? 1 + idx * 1.2 : side === 'deck' ? 0.4 + idx : idx * 0.3) : nbs.length * 0.6;
-    // Supports are safest in the sheltered stern and most exposed at the bow.
-    if (SUPPORT.has(card.id)) v += side === 'stern' ? 0.6 : side === 'bow' ? -0.4 : 0;
+    if (d.type === 'weapon' && !g.canFireFrom(card, loc)) {
+      const above = loc.row === 0 ? g.at(loc.col, 1) : null;
+      v *= card.id === 'harpoon' && above && D.PARTS[above.id].type === 'weapon' ? 0.7 : 0.2;
+    }
+    if (ARMOR.has(card.id)) {
+      const line = g.lineOfFire(loc.row).length;
+      if (front) v += loc.row === 0 ? 1 + line : 0.5 + line * 0.6;
+      else if (loc.row === 1 && g.at(loc.col, 0)) v += 0.7;
+      else if (buried) v += nbs.length * 0.6;
+    }
+    // Supports are safest behind the Core and most exposed at the front.
+    if (SUPPORT.has(card.id)) v += sheltered ? (sky ? 0.4 : 0.7) : front ? -0.5 : 0;
     if (card.id === 'quarters' || card.id === 'autoloader') v += nbs.filter((n) => D.PARTS[n.id].type === 'weapon').length * (card.id === 'autoloader' ? 2 : 1);
-    if (card.id === 'repair' && idx === 0) v += 1;
-    if (card.id === 'heart' && idx === 0) v += 4;
-    if (card.id === 'telescope') v += (outer && side !== 'stern' ? 0.6 : 0) + nbs.filter((n) => n.id === 'mortar' || n.id === 'sniper').length * 1.5;
-    if (card.id === 'propeller' && !(outer && side === 'stern')) v *= 0.3;
-    if (card.id === 'lightningrod') v += outer && side === 'deck' ? 0.8 : -0.5;
+    if (card.id === 'repair' && g.touchesCore(loc)) v += 1;
+    if (card.id === 'heart' && g.touchesCore(loc)) v += 4;
+    if (card.id === 'telescope') v += (sky ? 0.6 : 0) + nbs.filter((n) => n.id === 'mortar' || n.id === 'sniper').length * 1.5;
+    if (card.id === 'propeller' && !g.isTail(loc)) v *= 0.3;
+    if (card.id === 'lightningrod') v += sky ? 0.8 : -0.5;
     if (card.id === 'gasbag' && ['zeppelin', 'airship'].includes(g.core.id)) v += 1;
     if (card.id === 'tesla') v += g.weaponsInstalled() * 0.5;
+    if (loc.row === 1 && loc.col === 0 && !ARMOR.has(card.id)) v += 0.3; // the bridge shelters the Core
     return v + card.hp * 0.15;
   }
   function layoutScore(g) {
     let v = 0;
-    for (const side of SIDES) {
-      const s = g[side];
-      if (!s.length) v -= side === 'bow' ? 2.5 : 1;
-      s.forEach((c, i) => { v += moduleValue(g, c, side, i); });
-    }
-    // A bare front exposes the Core to direct fire; a ship with nothing that can shoot is helpless.
-    if (!g.bow.length && !g.deck.length) v -= 5;
-    if (!g.cards().some((c, i) => { const l = g.locate(c.uid); return g.canFireFrom(c, l.side, l.idx); })) v -= 3;
+    for (const c of g.cards()) v += moduleValue(g, c);
+    // A bare bow leaves the Core in the line of direct fire; a bare stern lets bombs drift onto it.
+    if (!g.hullCount('bow')) v -= 4;
+    if (!g.hullCount('stern') && !g.at(0, 1)) v -= 1.5;
+    if (!g.cards().some((c) => g.canFireFrom(c))) v -= 3;
     if (g.core.id === 'battleship') v += g.weight() * 0.25;
     if (g.core.id === 'zeppelin' || g.core.id === 'airship') v -= Math.max(0, g.weight() - 2) * 0.2;
     return v;
@@ -56,23 +62,27 @@
   function bestPlacement(g, id) {
     let best = null;
     const base = layoutScore(g);
-    for (const side of SIDES) {
-      for (let pos = 0; pos <= g[side].length; pos++) {
-        if (!g.canInstall(side, pos)) continue;
-        const card = g.makeCard(id);
-        g[side].splice(pos, 0, card);
-        const score = layoutScore(g) - base;
-        g[side].splice(pos, 1);
-        g.nextUid--;
-        if (!best || score > best.score) best = { side, pos, score };
-      }
+    for (const pos of g.installSlots()) {
+      const snap = g.snapshot();
+      const card = g.makeCard(id);
+      g.place(card, pos);
+      const score = layoutScore(g) - base;
+      g.restore(snap);
+      g.nextUid--;
+      if (!best || score > best.score) best = { pos, score };
     }
     return best;
   }
   function weakestModule(g) {
     let worst = null;
-    for (const side of SIDES) g[side].forEach((c, i) => { const v = moduleValue(g, c, side, i); if (!worst || v < worst.v) worst = { uid: c.uid, v }; });
+    for (const c of g.cards()) { const v = moduleValue(g, c); if (!worst || v < worst.v) worst = { uid: c.uid, v }; }
     return worst;
+  }
+  // Every pair of touching modules, once.
+  function adjacentPairs(g) {
+    const out = [];
+    for (const c of g.cards()) for (const n of g.neighbors(c.uid)) if (c.uid < n.uid) out.push([c, n]);
+    return out;
   }
 
   // How bad the telegraphed intent looks against the ship as it stands.
@@ -86,7 +96,7 @@
       const loc = g.locate(h.uid);
       if (!loc) continue;
       t += h.dmg;
-      if (h.dmg >= loc.card.hp) t += 1.5 + moduleValue(g, loc.card, loc.side, loc.idx);
+      if (h.dmg >= loc.card.hp) t += 1.5 + moduleValue(g, loc.card, loc);
       if (h.token) t += h.token === 'fire' ? 2 : 1;
     }
     return t;
@@ -142,7 +152,7 @@
           if (card.id === 'repair') s = Math.min(2, g.maxHp(target) - target.hp) * (tgt === 'core' ? 2.5 : 1.2);
           if (card.id === 'sprinkler') s = 2.5;
           if (card.id === 'scrubber') s = D.PARTS[target.id] && D.PARTS[target.id].type === 'weapon' ? 1.8 : 0.8;
-          if (card.id === 'deflector') { const p = g.previewIntent(); s = p && p.intent.side === g.locate(card.uid).side ? t0 : 0; }
+          if (card.id === 'deflector') { const p = g.previewIntent(); const guard = new Set([card.uid, ...g.neighbors(card.uid).map((n) => n.uid)]); s = p ? p.plan.filter((h) => guard.has(h.uid)).reduce((x, h) => x + h.dmg, 0) * 1.2 : 0; }
           acts.push({ score: s - g.useCost(card) * steamWorth, run: () => g.useSupport(card.uid, tgt) });
         }
       }
@@ -164,16 +174,15 @@
     // Swaps that move a fragile or valuable module out of the line of fire.
     if (t0 > 0 && g.spendable(g.swapCost())) {
       const fp0 = firepower(g);
-      for (const side of SIDES) {
-        const s = g[side];
-        for (let i = 0; i + 1 < s.length; i++) {
-          if (!g.canSwap(s[i].uid, s[i + 1].uid)) continue;
-          [s[i], s[i + 1]] = [s[i + 1], s[i]];
-          const t1 = threat(g), fp1 = firepower(g);
-          [s[i], s[i + 1]] = [s[i + 1], s[i]];
-          const a = s[i].uid, b = s[i + 1].uid;
-          acts.push({ score: (t0 - t1) - (fp0 - fp1) * 1.2 - g.swapCost() * steamWorth - 0.2, run: () => g.swap(a, b) });
-        }
+      for (const [x, y] of adjacentPairs(g)) {
+        if (!g.canSwap(x.uid, y.uid)) continue;
+        // Try the swap in place (without clamping Durability), then put it back.
+        const snap = g.snapshot();
+        const lx = g.locate(x.uid), ly = g.locate(y.uid);
+        g.set(lx.col, lx.row, y); g.set(ly.col, ly.row, x);
+        const t1 = threat(g), fp1 = firepower(g);
+        g.restore(snap);
+        acts.push({ score: (t0 - t1) - (fp0 - fp1) * 1.2 - g.swapCost() * steamWorth - 0.2, run: () => g.swap(x.uid, y.uid) });
       }
     }
     for (const uid of g.ventTargets()) {
@@ -218,13 +227,13 @@
     if (g.pendingLoot.length) {
       const id = g.pendingLoot[0];
       if (rnd) {
-        const side = SIDES[Math.floor(rnd() * SIDES.length)];
-        if (g.canInstall(side, g[side].length)) g.installPending(side, Math.floor(rnd() * (g[side].length + 1)));
+        const slots = g.installSlots();
+        if (slots.length) g.installPending(slots[Math.floor(rnd() * slots.length)]);
         else if (!g.storePending()) { if (rnd() < 0.4 && g.cards().length) g.scrap(g.cards()[0].uid); else g.jettisonPending(); }
         return;
       }
       const p = bestPlacement(g, id);
-      if (p && p.score > 0) { g.installPending(p.side, p.pos); return; }
+      if (p && p.score > 0) { g.installPending(p.pos); return; }
       if (!p) {
         const w = weakestModule(g);
         if (w && (BASE[id] || 1) > w.v + 0.5) { g.scrap(w.uid); return; }
@@ -270,7 +279,7 @@
           case 'downdraft': {
             if (g.core.hp > 4) return 'brace';
             let worst = null;
-            for (const side of SIDES) { const s = g[side]; if (s.length) { const v = moduleValue(g, s[s.length - 1], side, s.length - 1); if (!worst || v < worst.v) worst = { id: 'drop-' + side, v }; } }
+            for (const id of ids.filter((x) => x.startsWith('drop-'))) { const v = moduleValue(g, g.locate(id.slice(5)).card); if (!worst || v < worst.v) worst = { id, v }; }
             return worst ? worst.id : 'brace';
           }
           case 'eye': return g.core.hp <= g.maxHp(g.core) - 3 ? 'core' : needRepair(g) > 6 ? 'all' : 'scavenge';
@@ -291,9 +300,9 @@
     let best = pc.eligible[0], bv = -Infinity;
     for (const uid of pc.eligible) {
       const loc = g.locate(uid);
-      let v = loc.side ? moduleValue(g, loc.card, loc.side, loc.idx) : 0;
+      let v = loc.side ? moduleValue(g, loc.card, loc) : 0;
       if (pc.kind === 'maintain') v = g.maxHp(loc.card) - loc.card.hp;
-      if (loc.side && loc.idx === g[loc.side].length - 1 && D.PARTS[loc.card.id].type === 'defense') v += 2;
+      if (loc.side && g.isFront(loc) && D.PARTS[loc.card.id].type === 'defense') v += 2;
       if (v > bv) { bv = v; best = uid; }
     }
     g.resolveChoice(best);
