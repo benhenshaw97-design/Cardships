@@ -331,6 +331,9 @@
       this.ventT = (this.ventT || 0) - dt;
       if (this.ventT <= 0) { this.ventT = 0.5 + Math.random() * 0.7; this.smoke.push({ x: -CORE_W * 0.18, y: -H / 2 - 12, vx: -12, vy: -26, r: 3, life: 1.3, max: 1.3, steam: true }); }
       this.core.flash = Math.max(0, this.core.flash - dt * 4);
+      this.lunge = Math.max(0, (this.lunge || 0) - dt * 2.2);
+      this.dodge = Math.max(0, (this.dodge || 0) - dt * 1.8);
+      if (this.dying > 0) this.dying += dt;
       for (const p of this.smoke) { p.x += p.vx * dt; p.y += p.vy * dt; p.r += dt * 6; p.life -= dt; }
       this.smoke = this.smoke.filter((p) => p.life > 0);
       for (const d of this.debris) { d.vy += 380 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.r += d.vr * dt; d.life -= dt; }
@@ -343,10 +346,16 @@
     }
     // Draws the ship with its Core at (x, y). facing 1 = bow to the right.
     draw(g, x, y, scale, t, opts = {}) {
+      // Ram lunges forward, Evade hops up, defeat sends the hull tumbling down through the clouds.
+      if (this.lunge > 0) x += Math.sin((1 - this.lunge) * Math.PI) * 46 * scale;
+      if (this.dodge > 0) y -= Math.sin((1 - this.dodge) * Math.PI) * 34 * scale;
+      let fall = 0;
+      if (this.dying > 0) { y += this.dying * this.dying * 160; x -= this.dying * 20; fall = this.dying * 0.35; }
       this.x = x; this.y = y; this.scale = scale; this.facing = 1;
       this.hits = [];
       g.save();
       g.translate(x, y);
+      if (fall) g.rotate(fall);
       g.scale(scale, scale);
       const tilt = Math.sin(t * 0.9) * 0.015;
       g.rotate(tilt);
@@ -678,6 +687,7 @@
     update(dt) {
       this.flash = Math.max(0, this.flash - dt * 4);
       this.recoil = Math.max(0, this.recoil - dt * 3);
+      this.lunge = Math.max(0, (this.lunge || 0) - dt * 2.2);
       this.phaseFlash = Math.max(0, this.phaseFlash - dt * 1.2);
       if (this.sinking > 0) this.sinking += dt;
       const frac = this.hpFrac ?? 1;
@@ -708,6 +718,7 @@
       for (const p of this.smoke) { b.fillStyle = p.fire ? `rgba(255,130,50,${(p.life / p.max) * 0.7})` : `rgba(40,34,30,${(p.life / p.max) * 0.55})`; b.beginPath(); b.arc(p.x, p.y, p.r, 0, TAU); b.fill(); }
       const sink = this.sinking;
       g.save();
+      if (this.lunge > 0) x -= Math.sin((1 - this.lunge) * Math.PI) * 46 * scale;
       g.translate(x + sink * 30, y + sink * sink * 80);
       g.rotate(-sink * 0.4);
       g.globalAlpha = Math.max(0, 1 - sink * 0.35);

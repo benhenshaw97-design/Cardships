@@ -8,9 +8,13 @@
   const Scene = window.CardshipsScene;
   const scene = new Scene(document.getElementById('scene'));
   const Actors = window.CardshipsActors;
+  const FX = window.CardshipsFX;
   Scene.actors = (g, v) => Actors.draw(g, v);
+  Scene.fx = FX.drawFx;
+  Scene.overlay = FX.drawOverlay;
   // Taps on the flight view select modules or hit install bolts.
   document.getElementById('scene').addEventListener('click', (ev) => {
+    if (FX.isPlaying()) { FX.skip(); return; }
     const r = ev.currentTarget.getBoundingClientRect();
     Actors.tap(ev.clientX - r.left, ev.clientY - r.top);
   });
@@ -34,7 +38,9 @@
   try { ui.cardView = localStorage.getItem('cardships.cardView') === '1'; } catch (e) { /* storage unavailable */ }
   function newRun(coreId) {
     game = new Game({ unlocked: meta.unlocked });
+    Actors.reset();
     game.chooseCore(coreId);
+    game.events = [];
     ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
     render();
   }
@@ -92,7 +98,20 @@
     else if (phase === 'combat') { scene.setBiome(node && node.enc === 'boss' ? 'lair' : here); scene.setMode('combat'); }
     else { scene.setBiome(here); scene.setMode(ui.flying ? 'travel' : 'flight'); }
   }
+  // Animates whatever just happened in the game, then redraws the panels.
   function render() {
+    if (game && game.events.length && !FX.isPlaying() && FX.worthPlaying(game.events)) {
+      const evs = game.events;
+      game.events = [];
+      syncScene();
+      Actors.prepare(game);
+      FX.play(evs, () => renderNow());
+      return;
+    }
+    if (FX.isPlaying()) return;
+    renderNow();
+  }
+  function renderNow() {
     syncScene();
     renderHud();
     ui.insertFn = null;
@@ -683,6 +702,27 @@
       shipView({ title: 'Final ship' }),
     ];
   }
+
+  // ---------- settings ----------
+  function renderSettings() {
+    const P = FX.prefs;
+    const radio = (key, label, options) => h('fieldset', { class: 'set-group' }, h('legend', {}, label),
+      h('div', { class: 'seg' }, options.map(([val, text]) => h('label', { class: `seg-opt ${P[key] === val ? 'on' : ''}` },
+        h('input', { type: 'radio', name: key, id: `set-${key}-${val}`, value: String(val), checked: P[key] === val || null, onchange: () => { P[key] = val; FX.savePrefs(); applyPrefs(); renderSettings(); } }), text))));
+    const slider = (key, label) => h('label', { class: 'set-slider', for: `set-${key}` }, h('span', {}, label),
+      h('input', { type: 'range', id: `set-${key}`, min: '0', max: '1', step: '0.05', value: String(P[key]), oninput: (e) => { P[key] = Number(e.target.value); FX.savePrefs(); applyPrefs(); } }));
+    $('settings').replaceChildren(
+      h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Settings'), h('button', { class: 'btn small', onclick: () => { $('settings').hidden = true; } }, 'Done')),
+      radio('shake', 'Screen shake', [['full', 'Full'], ['reduced', 'Reduced'], ['off', 'Off']]),
+      radio('flash', 'Flashing effects', [[true, 'On'], [false, 'Off']]),
+      radio('dice', 'Dice animation', [['normal', 'Normal'], ['fast', 'Fast'], ['off', 'Off']]),
+      slider('music', 'Music volume'),
+      slider('sfx', 'Sound effects volume'),
+      radio('mute', 'Sound', [[false, 'On'], [true, 'Muted']]),
+      h('p', { class: 'muted' }, 'Tap the flight view during an animation to skip ahead.'));
+  }
+  function applyPrefs() { if (window.CardshipsAudio) window.CardshipsAudio.applyPrefs(FX.prefs); }
+  $('settings-btn').addEventListener('click', () => { const el = $('settings'); el.hidden = !el.hidden; if (!el.hidden) renderSettings(); });
 
   $('brand').addEventListener('click', () => { if (!game || ['gameover', 'victory'].includes(game.phase)) { game = null; render(); } });
   render();

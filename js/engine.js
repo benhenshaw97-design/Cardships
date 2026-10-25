@@ -24,6 +24,8 @@
   function noTokens() { return { fire: false, glue: false, gas: false }; }
   function cap(s) { return s[0].toUpperCase() + s.slice(1); }
   function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1); }
+  // 'The Pirate Cutter', but never 'The The Iron Leviathan'.
+  function theName(name) { return name.startsWith('The ') ? name : 'The ' + name; }
 
   class Game {
     constructor(opts = {}) {
@@ -690,12 +692,12 @@
     healCore(n) {
       const before = this.core.hp;
       this.core.hp = Math.min(this.maxHp(this.core), this.core.hp + n);
-      if (this.core.hp > before) { this.emit('heal', { uid: 'core', amount: this.core.hp - before }); this.say(`Core repaired to ${this.core.hp}/${this.maxHp(this.core)}.`, 'good'); }
+      if (this.core.hp > before) { this.emit('heal', { uid: 'core', amount: this.core.hp - before, hp: this.core.hp }); this.say(`Core repaired to ${this.core.hp}/${this.maxHp(this.core)}.`, 'good'); }
     }
     healCard(card, n) {
       const before = card.hp;
       card.hp = Math.min(this.maxHp(card), card.hp + n);
-      if (card.hp > before) { this.emit('heal', { uid: card.uid, amount: card.hp - before }); this.hit(card.uid); }
+      if (card.hp > before) { this.emit('heal', { uid: card.uid, amount: card.hp - before, hp: card.hp }); this.hit(card.uid); }
       return card.hp - before;
     }
     damageCore(n, src) {
@@ -703,7 +705,7 @@
       this.core.hp -= n;
       this.stats.dmgTaken += n;
       this.hit('core');
-      this.emit('hit', { uid: 'core', dmg: n, src });
+      this.emit('hit', { uid: 'core', dmg: n, src, hp: this.core.hp });
       this.say(`Your Core takes ${n} (${Math.max(0, this.core.hp)}/${this.maxHp(this.core)}).`, 'bad');
       if (this.coreDead()) this.gameOver();
     }
@@ -715,7 +717,7 @@
       loc.card.hp -= n;
       this.stats.dmgTaken += n;
       this.hit(uid);
-      this.emit('hit', { uid, dmg: n, src });
+      this.emit('hit', { uid, dmg: n, src, hp: loc.card.hp });
       this.say(`${this.def(loc.card).name} takes ${n} (${Math.max(0, loc.card.hp)}/${this.maxHp(loc.card)}).`, 'bad');
       if (loc.card.hp <= 0) this.removeCard(loc.side, loc.idx, src);
     }
@@ -960,12 +962,12 @@
       en.block = 0;
       if (en.burn > 0) {
         this.emit('enemyBurn', { dmg: en.burn });
-        this.say(`The ${en.name} burns for ${en.burn}.`, 'good');
+        this.say(`${theName(en.name)} burns for ${en.burn}.`, 'good');
         this.damageEnemy(en.burn, { pierce: true, source: 'burn', noVuln: true });
         en.burn--;
         if (this.checkEnd()) return;
       }
-      if (en.stunned) { en.stunned = false; this.say(`The ${en.name} shudders, its spring unwound. It does nothing.`, 'good'); }
+      if (en.stunned) { en.stunned = false; this.say(`${theName(en.name)} shudders, its spring unwound. It does nothing.`, 'good'); }
       else this.executeIntent(en.intent);
       if (this.checkEnd()) return;
       if (c.enemyId === 'stormqueen') this.gale();
@@ -975,7 +977,7 @@
       c.braced = { left: false, right: false };
       c.evadeStreak = c.evading ? c.evadeStreak + 1 : 0;
       c.evading = false;
-      if (this.enrage() === 1) this.say(`The ${en.name} is Enraged: its hits grow stronger every round.`, 'warn');
+      if (this.enrage() === 1) this.say(`${theName(en.name)} is Enraged: its hits grow stronger every round.`, 'warn');
       this.rollIntent();
       this.beginPlayerTurn();
     }
@@ -1016,7 +1018,7 @@
       const dmg = this.intentDamage(it);
       if (en.weak > 0) this.say('Gummed: its weapons are clogged (-1).');
       if (it.kind === 'ram') {
-        this.emit('ram', { side: it.side });
+        this.emit('ram', { side: it.side, enemy: true });
         this.say(`It rams your ${it.side} side and takes ${it.self} itself.`, 'warn');
         this.applyPlan(this.planHit(it.side, 'outer', dmg), 'ram');
         if (this.coreDead()) return;
@@ -1055,7 +1057,7 @@
       this.stats.dmgDealt += n;
       if (c.active === 'player') c.turnDamage += n;
       c.lastSource = opts.source || 'weapon';
-      this.emit('enemyHit', { dmg: n, source: opts.source || 'weapon' });
+      this.emit('enemyHit', { dmg: n, source: opts.source || 'weapon', hp: en.hp, pierce: !!opts.pierce });
       this.say(`${en.name} takes ${n} (${Math.max(0, en.hp)}/${en.max}).`, 'good');
       return n;
     }
@@ -1077,7 +1079,7 @@
       c.over = true;
       this.stats.kills++;
       this.emit('victory', { enemyId: c.enemyId });
-      this.say(`The ${c.enemy.name} goes down in flames!`, 'good');
+      this.say(`${theName(c.enemy.name)} goes down in flames!`, 'good');
       for (const x of [this.core, ...this.cards()]) { x.tokens = noTokens(); x.fired = 0; x.reload = 0; }
       this.core.pressure = 0;
       for (const b of this.cards().filter((x) => x.id === 'repair')) if (b.hp < this.maxHp(b)) { b.hp++; this.say('The Repair Bay patches itself (+1).'); }
@@ -1197,7 +1199,9 @@
       this.combat.abilityUsed = true;
       this.emit('coreAbility', { id: a.id });
       this.say(`Core ability: ${a.name}!`, 'you');
+      if (a.id === 'strafe') this.emit('strafe', { uids: this.cards().filter((x) => this.isWeapon(x)).map((x) => x.uid) });
       if (a.id === 'strafe') this.damageEnemy(this.weaponsInstalled(), { source: 'strafe' });
+      if (a.id === 'bombard') this.emit('bombard', {});
       if (a.id === 'ram') {
         this.emit('ram', { player: true });
         this.damageEnemy(this.ramDamage(), { source: 'ram' });

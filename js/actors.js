@@ -15,12 +15,25 @@
     onInsert: null,
     synergy: null,
 
+    reset() { this.player = new PlayerShip(); this.enemy = null; this.enemyKey = null; },
+    // Before an event sequence plays: switch layout and make sure the enemy is on screen,
+    // without snapping the ship to its final state.
+    prepare(game) {
+      this.game = game;
+      if (!game || !game.core) return;
+      this.phase = game.phase;
+      const c = game.combat;
+      if (c && game.phase === 'combat') {
+        const key = c.enemyId + ':' + game.depth;
+        if (this.enemyKey !== key) { this.enemy = new EnemyShip(D.ENEMIES[c.enemyId].look); this.enemyKey = key; this.enemy.phase = c.enemy.phase; this.enemy.hpFrac = 1; }
+      }
+    },
     // Called after every UI render with the latest game state.
     sync(game, ui) {
       this.game = game;
       if (!game || !game.core) { this.phase = null; return; }
       this.phase = game.phase;
-      this.player.sync(game);
+      if (game.phase !== 'gameover') this.player.sync(game);
       const c = game.combat;
       if (c && game.phase === 'combat') {
         const key = c.enemyId + ':' + game.depth;
@@ -89,10 +102,9 @@
       // Centre the whole ship, not just the Core, when it's alone on screen.
       const e = this.player.extent();
       const shift = L.enemy ? 0 : ((e.left - e.right) / 2) * L.player.s;
-      if (this.phase !== 'gameover') this.player.draw(g, L.player.x + shift, L.player.y + bob, L.player.s, v.t, { synergy: this.synergy });
+      if (this.phase !== 'gameover' || this.player.dying > 0) this.player.draw(g, L.player.x + shift, L.player.y + bob, L.player.s, v.t, { synergy: this.synergy });
       if (L.enemy && this.enemy) this.enemy.draw(g, L.enemy.x, L.enemy.y - bob * 0.8, L.enemy.s, v.t);
       if (this.enemy && this.enemy.sinking > 3) { this.enemy = null; this.enemyKey = null; }
-      if (this.phase === 'gameover' && Actors.drawWreck) Actors.drawWreck(g, v, L.player);
     },
 
     // Taps on the canvas: a module, an install bolt or the enemy.
