@@ -145,7 +145,7 @@ Every change to the rules, content and presentation, with a one-line reason. New
 - **Drop-in hook for real sound files:** list files in `SFX_FILES` in `js/audio.js` (or call `CardshipsAudio.registerSfx(name, url)`); each replaces the synthesised version of that name. *Reason: leave clean hooks, as asked.*
 - **Settings:** separate Music and Sound effects volume sliders plus Mute, remembered in localStorage. *Reason: player control.*
 - **Audio starts on the first tap or key press,** as browsers require. *Reason: autoplay rules.*
-- **Safari support:** AAC copies of the tracks sit next to your Opus originals and are used when the browser supports them. Opening `index.html` straight from disk falls back to plain volume control, because browsers block WebAudio filters on local files. *Reason: works everywhere it can.*
+- **Safari support:** AAC copies of the tracks (`.aac.mp4`) sit next to your Opus originals and are used when the browser supports them. Opening `index.html` straight from disk falls back to plain volume control, because browsers block WebAudio filters on local files. *Reason: works everywhere it can.*
 
 ## Phase 7: clarity
 

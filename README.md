@@ -61,4 +61,4 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/music/pirate-battle-2` | Standard combat |
 | `assets/music/pirate-battle-3` | Boss (stepping up per phase) and hazards |
 
-Each track ships as the original Opus file and an AAC copy for Safari. To use real sound effects, add them to `SFX_FILES` in `js/audio.js`; each replaces the synthesised sound of the same name.
+Each track ships as the original Opus file (`.opus.m4a`) and an AAC copy (`.aac.mp4`) for Safari and wider support. To use real sound effects, add them to `SFX_FILES` in `js/audio.js`; each replaces the synthesised sound of the same name.

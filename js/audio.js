@@ -37,7 +37,7 @@
 
   function ext() {
     const a = document.createElement('audio');
-    return a.canPlayType('audio/mp4; codecs="mp4a.40.2"') ? '.aac.m4a' : '.opus.m4a';
+    return a.canPlayType('audio/mp4; codecs="mp4a.40.2"') ? '.aac.mp4' : '.opus.m4a';
   }
   const EXT = ext();
 
