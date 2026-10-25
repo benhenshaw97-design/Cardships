@@ -9,7 +9,7 @@ const D = require(path.join(__dirname, '../js/data.js'));
 
 const args = process.argv.slice(2);
 const runs = Number(args.find((a) => /^\d+$/.test(a)) || 1000);
-const seedBase = Number((args[args.indexOf('--seed') + 1]) || 1) || 1;
+const seedBase = args.includes('--seed') ? Number(args[args.indexOf('--seed') + 1]) || 1 : 1;
 const jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
 // TUNE='{"BALANCE":{"hpPerColumn":0.08},"CORES":{"zeppelin":{"hp":5}}}' overrides data for experiments.
 function merge(dst, src) { for (const [k, v] of Object.entries(src)) { if (v && typeof v === 'object' && !Array.isArray(v) && dst[k]) merge(dst[k], v); else dst[k] = v; } }

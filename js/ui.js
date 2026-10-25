@@ -2,7 +2,7 @@
 // clicks into engine calls.
 (function () {
   const D = window.CardshipsData;
-  const { Game, fmt, SIDES, VENT_COST } = window.CardshipsEngine;
+  const { Game, fmt, SIDES, CAP, VENT_COST } = window.CardshipsEngine;
   const Meta = window.CardshipsMeta;
   const SkyMap = window.CardshipsSkyMap;
   const Scene = window.CardshipsScene;
@@ -72,7 +72,7 @@
   let meta = Meta.load();
   const ui = { cardView: false, insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
   try { ui.cardView = localStorage.getItem('cardships.cardView') === '1'; } catch (e) { /* storage unavailable */ }
-  const SAVE_KEY = 'cardships.run.v2';
+  const SAVE_KEY = 'cardships.run.v3'; // v3: stern / deck / bow sections
   function loadSave() { try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
   function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage unavailable */ } }
   // Autosave: the whole run, dice generator included, after every change.
@@ -300,10 +300,10 @@
       h('div', { class: 'panel stack' },
         h('h3', {}, 'How it flies'),
         h('div', { class: 'primer' },
-          h('div', {}, h('b', {}, 'Layers'), h('span', {}, 'Up to 3 modules per side. Layer 1 touches the Core. Most weapons fire only from the outside; Mortars and Tesla Coils arc over.')),
+          h('div', {}, h('b', {}, 'Sections'), h('span', {}, 'Build out from the Core: the bow faces the enemy (3 slots), a deck tower rises on top (2), and the sheltered stern trails behind (3). Guns fire from the prow and the deck top; Mortars and Tesla Coils arc from anywhere.')),
           h('div', {}, h('b', {}, 'Intents'), h('span', {}, 'The enemy\'s next move and target are shown before you act. Answer it: swap modules, Evade, cleanse, or kill it first.')),
           h('div', {}, h('b', {}, 'Steam'), h('span', {}, 'Refills every turn and pays for everything. Durability is only health.')),
-          h('div', {}, h('b', {}, 'Targeting'), h('span', {}, 'A hit on an empty layer strikes the next module inward. Only a bare side exposes the Core. Outside plating takes every hit on its side.')),
+          h('div', {}, h('b', {}, 'Targeting'), h('span', {}, 'Direct fire hits the bow or deck; bombs and lightning plunge onto the deck or stern. Outermost plating takes every hit on its section. Shots at an empty section fall on the other; only a bare arc exposes the Core.')),
           h('div', {}, h('b', {}, 'Weight'), h('span', {}, 'Lighter than the enemy: +1 Steam on turn one and cheap Evades. Heavier: rams and crosswinds hurt less.')),
           h('div', {}, h('b', {}, 'Dice'), h('span', {}, 'Everything rolls a d6. Results with a downside give you a choice.')),
         ),
@@ -365,41 +365,48 @@
     if (!insert || (ui.preview && ui.preview.id !== previewId)) { ui.preview = null; ui.previewKey = null; Actors.previewKey = null; }
     const toggle = h('button', { class: 'btn small', onclick: () => { ui.cardView = !ui.cardView; try { localStorage.setItem('cardships.cardView', ui.cardView ? '1' : '0'); } catch (e) { /* storage unavailable */ } render(); } }, ui.cardView ? 'Hide cards' : 'Card view');
     if (!ui.cardView) {
-      const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 modules`), toggle),
+      const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/8 modules`), toggle),
         h('p', { class: 'muted' }, insert ? 'Tap a brass bolt on your ship in the flight view to install the part there, or open the card view.' : 'Tap a module on your ship in the flight view to see its card and actions.')];
       if (game.has('cargo')) parts.push(h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Cargo ${game.storage.length}/2`), game.storage.map((c) => h('div', { class: 'slot' }, cardEl(c)))));
       if (ui.targeting) parts.push(h('p', { class: 'muted' }, 'Choose a highlighted module on your ship.'));
       return h('section', { class: 'panel ship-wrap compact' }, parts);
     }
     const hits = predictedHits();
+    // Card grid mirrors the ship: deck tower above the Core, stern to the left, bow to the right.
     const grid = h('div', { class: 'ship' });
     grid.append(
-      h('div', { class: 'side-label', style: 'grid-column: 1 / 4' }, '◂ Stern (left)'),
-      h('div', { class: 'side-label', style: 'grid-column: 4' }, 'Core'),
-      h('div', { class: 'side-label', style: 'grid-column: 5 / 8' }, 'Bow (right) ▸'),
+      h('div', { class: 'side-label deck-label', style: 'grid-column: 5 / 8; grid-row: 1 / 3' }, 'Deck tower: the top module fires; takes plunging fire'),
+      h('div', { class: 'side-label', style: 'grid-column: 1 / 4; grid-row: 5' }, '◂ Stern · sheltered'),
+      h('div', { class: 'side-label', style: 'grid-column: 4; grid-row: 5' }, 'Core'),
+      h('div', { class: 'side-label', style: 'grid-column: 5 / 8; grid-row: 5' }, 'Bow · faces the enemy ▸'),
     );
+    const place = (side, i) => (side === 'deck' ? { col: 4, row: 2 - i } : { col: side === 'stern' ? 3 - i : 5 + i, row: 3 });
     for (const side of SIDES) {
       const s = game[side];
-      const full = s.length >= 3;
-      for (let i = 0; i < 3; i++) {
-        const col = side === 'left' ? 3 - i : 5 + i;
-        const slot = h('div', { class: 'slot', style: `grid-column: ${col}; grid-row: 2` });
+      const n = CAP[side];
+      const full = s.length >= n;
+      const tabClass = { stern: 'at-right', bow: 'at-left', deck: 'at-bottom' }[side];
+      for (let i = 0; i < n; i++) {
+        const { col, row } = place(side, i);
+        const slot = h('div', { class: 'slot', style: `grid-column: ${col}; grid-row: ${row}` });
         if (s[i]) {
           slot.append(cardEl(s[i], hits));
-          if (insert && !full) slot.append(h('button', { class: `insert-tab ${side === 'left' ? 'at-right' : 'at-left'}`, title: `Insert at ${side} layer ${i + 1}`, 'aria-label': `Insert at ${side} layer ${i + 1}`, onmouseenter: () => { if (ui.previewKey !== `${side}:${i}`) setPreview(side, i); }, onclick: () => commitInsert(side, i) }, '+'));
+          if (insert && !full) slot.append(h('button', { class: `insert-tab ${tabClass}`, title: `Insert into the ${side} at layer ${i + 1}`, 'aria-label': `Insert into the ${side} at layer ${i + 1}`, onmouseenter: () => { if (ui.previewKey !== `${side}:${i}`) setPreview(side, i); }, onclick: () => commitInsert(side, i) }, '+'));
         } else if (insert && i === s.length) {
-          slot.append(h('button', { class: 'slot-attach', onmouseenter: () => { if (ui.previewKey !== `${side}:${i}`) setPreview(side, i); }, onclick: () => commitInsert(side, i) }, `Attach at layer ${i + 1}`));
+          slot.append(h('button', { class: 'slot-attach', onmouseenter: () => { if (ui.previewKey !== `${side}:${i}`) setPreview(side, i); }, onclick: () => commitInsert(side, i) }, `Attach to ${side}`));
         } else {
-          slot.append(h('div', { class: 'slot-empty' }, s.length === 0 && i === 0 ? 'Bare: Core exposed' : 'Open'));
+          slot.append(h('div', { class: 'slot-empty' }, s.length === 0 && i === 0 ? `Bare ${side}` : 'Open'));
         }
         grid.append(slot);
-        grid.append(h('div', { class: 'layer-tag', style: `grid-column: ${col}; grid-row: 3` }, `L${i + 1}${s[i] && i === s.length - 1 ? ' · out' : ''}`));
+        const tag = `${side === 'deck' ? 'Deck ' : ''}L${i + 1}${s[i] && i === s.length - 1 ? (side === 'bow' ? ' · prow' : side === 'deck' ? ' · top' : ' · tail') : ''}`;
+        if (side === 'deck') grid.append(h('div', { class: 'layer-tag deck-tag', style: `grid-column: 3; grid-row: ${row}` }, tag));
+        else grid.append(h('div', { class: 'layer-tag', style: `grid-column: ${col}; grid-row: 4` }, tag));
       }
     }
-    grid.append(h('div', { class: 'slot', style: 'grid-column: 4; grid-row: 2' }, cardEl(game.core, hits)));
-    grid.append(h('div', { class: 'layer-tag', style: 'grid-column: 4; grid-row: 3' }, D.CORES[game.core.id].name.split(' ')[0]));
+    grid.append(h('div', { class: 'slot', style: 'grid-column: 4; grid-row: 3' }, cardEl(game.core, hits)));
+    grid.append(h('div', { class: 'layer-tag', style: 'grid-column: 4; grid-row: 4' }, 'Core'));
 
-    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 modules`), toggle), grid];
+    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/8 modules`), toggle), grid];
     if (game.has('cargo')) {
       const store = h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Cargo ${game.storage.length}/2`));
       for (const c of game.storage) store.append(h('div', { class: 'slot' }, cardEl(c)));
@@ -434,7 +441,7 @@
       info.rarity ? h('span', { class: `rarity-chip ${info.rarity}` }, info.rarity) : null,
       h('h3', {}, info.name),
       statline(`W${fmt(info.weight)}`, `Dur ${Math.max(0, card.hp)}/${info.max}`)));
-    if (card !== game.core) box.append(h('p', { class: 'muted' }, loc.stored ? 'In the Cargo Hold.' : `${loc.side === 'left' ? 'Stern' : 'Bow'} side, layer ${loc.idx + 1}: ${game.isOuter(loc.side, loc.idx) ? 'outside' : 'buried'}.`));
+    if (card !== game.core) box.append(h('p', { class: 'muted' }, loc.stored ? 'In the Cargo Hold.' : `${{ stern: 'Stern', deck: 'Deck', bow: 'Bow' }[loc.side]}, layer ${loc.idx + 1}: ${game.isOuter(loc.side, loc.idx) ? { stern: 'the tail, sheltered', deck: 'top of the tower', bow: 'the prow' }[loc.side] : 'buried'}.`));
     box.append(rulesBlock(card));
     if (!loc.stored) {
       const links = game.synergies(uid);
@@ -514,7 +521,7 @@
         h('div', { class: 'row' }, h('button', { class: 'btn', onclick: act(() => game.skipOffer()) }, 'Take nothing')));
     } else if (game.pendingLoot.length) {
       const id = game.pendingLoot[0];
-      const full = game.left.length >= 3 && game.right.length >= 3;
+      const full = SIDES.every((sd) => !game.canInstall(sd, game[sd].length));
       const canStore = game.storage.length < game.storageCap();
       insert = (side, pos) => game.installPending(side, pos);
       appendAll(panel, 
@@ -546,7 +553,7 @@
     const res = game.previewInstall(id, pv.side, pv.pos);
     if (!res) return null;
     return h('div', { class: 'enc preview' },
-      h('span', { class: 'eyebrow' }, `Preview · ${pv.side === 'left' ? 'stern' : 'bow'} layer ${pv.pos + 1}`),
+      h('span', { class: 'eyebrow' }, `Preview · ${pv.side} layer ${pv.pos + 1}`),
       h('ul', { class: 'notes' }, res.notes.map((n) => h('li', {}, n))),
       res.links.length ? h('ul', { class: 'notes links' }, res.links.map((n) => h('li', {}, n))) : h('p', { class: 'muted' }, 'No synergies with its neighbours here.'),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => commitInsert(pv.side, pv.pos) }, 'Install here'), h('button', { class: 'btn', onclick: () => setPreview(null) }, 'Cancel')));
@@ -583,7 +590,7 @@
       const e = D.ENEMIES[n.enemy];
       return { kind: 'Boss', name: e.name, text: e.gimmick, enemy: e };
     }
-    if (!known) return { kind: '?', name: n.cloud ? 'Cloud cover' : 'Uncharted', text: n.cloud ? 'Thick cloud hides this route. An outside Telescope sees through it.' : 'Too far to make out. Fly closer, mount a Telescope or buy sky charts.' };
+    if (!known) return { kind: '?', name: n.cloud ? 'Cloud cover' : 'Uncharted', text: n.cloud ? 'Thick cloud hides this route. A Telescope lookout on the deck or prow sees through it.' : 'Too far to make out. Fly closer, mount a Telescope or buy sky charts.' };
     const enc = D.ENCOUNTERS[n.enc];
     const enemy = n.enemy && D.ENEMIES[n.enemy];
     return { kind: enc.kind, name: enemy && n.enc !== 'beacon' ? `${enc.name}: ${enemy.name}` : enc.name, text: enc.text, enemy, table: enc.table };
@@ -703,12 +710,12 @@
   // ---------- combat ----------
   function intentText(it) {
     if (!it) return '';
-    const where = it.side ? `${it.side === 'left' ? 'stern' : 'bow'}${it.layer != null ? ` layer ${it.layer + 1}` : ''}` : '';
+    const where = it.side ? `${it.side}${it.layer != null ? ` layer ${it.layer + 1}` : ''}${it.arc === 'plunge' ? ' (plunging)' : ''}` : '';
     switch (it.kind) {
       case 'shot': return `${game.intentDamage(it)} damage → ${where}`;
       case 'rake': return `${game.intentDamage(it)} to every module on the ${where}`;
-      case 'broadside': return `${game.intentDamage(it)} to the outside module on both sides`;
-      case 'ram': return `Ram for ${game.intentDamage(it)} → outside of the ${where}`;
+      case 'broadside': return `${game.intentDamage(it)} to the prow and the deck top`;
+      case 'ram': return `Ram for ${game.intentDamage(it)} → the prow`;
       case 'token': return `${D.TOKENS[it.token].name}${it.dmg ? ` + ${game.intentDamage(it)} damage` : ''} → ${where}`;
       case 'block': return `Gains ${it.amount} Block`;
       case 'repair': return `Repairs ${it.amount}`;
@@ -732,7 +739,7 @@
       game.enrage() ? h('span', { class: 'chip fire' }, `Enraged +${game.enrage()}`) : null,
       en.dmgBonus ? h('span', { class: 'chip fire' }, `Veteran +${en.dmgBonus}`) : null,
       c.enemyId === 'leviathan' ? h('span', { class: 'chip shield' }, 'Ironclad Hull −1') : null,
-      c.enemyId === 'stormqueen' ? h('span', { class: 'chip gas' }, `Gale next: ${c.galeSide === 'left' ? 'stern' : 'bow'}`) : null,
+      c.enemyId === 'stormqueen' ? h('span', { class: 'chip gas' }, `Gale next: ${c.galeSide}`) : null,
       c.enemyId === 'colossus' ? h('span', { class: 'chip glue' }, `Mainspring +${en.wound} · snap ${c.turnDamage}/6`) : null,
       en.stunned ? h('span', { class: 'chip shield' }, 'Stunned') : null);
     const preview = game.previewIntent();
@@ -767,7 +774,7 @@
     const bar2 = h('div', { class: 'actionbar' });
     for (const card of game.cards()) {
       const fi = game.fireInfo(card.uid);
-      if (!fi || fi.blocked === 'Buried: only outside weapons fire') continue;
+      if (!fi || (fi.blocked && /^(Buried|Faces away)/.test(fi.blocked))) continue;
       for (const mode of fi.modes) {
         const w = game.fireInfo(card.uid, mode);
         bar2.append(h('button', { class: 'btn', disabled: w.blocked ? true : null, onclick: act(() => game.fire(card.uid, mode)) },

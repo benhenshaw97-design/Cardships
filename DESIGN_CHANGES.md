@@ -169,3 +169,33 @@ Full numbers, method and caveats are in `BALANCE_REPORT.md`. Summary of the chan
 - **Clockwork: 10 Durability and a free Overclock (once a turn)** (was 9 Durability and a 1-Steam Overclock). *Reason: lands it mid-band between the 31% and 54% versions tested.*
 - **Global knobs moved into one `BALANCE` block in `js/data.js`,** and the simulator takes a `TUNE` override for experiments. *Reason: make future tuning quick and visible.*
 - **Result: Airship 47.9%, Battleship 39.8%, Zeppelin 41.0%, Clockwork 38.2% (1,000 runs each); the most common part is on 42.4% of winning ships.** *Reason: hits both targets with margin.*
+
+## Ship layout redesign: stern, deck and bow
+
+The first layout mirrored two identical sides around the Core. In the side-on view the enemy is always ahead, so the back three slots had no role: stern guns pointed away from the enemy yet still fired through the ship, and enemies hit the back exactly as often as the front.
+
+- **Three sections, each with a job.** *Reason: every slot should make you think about what goes there.*
+  - **Bow (3 slots, in front):** faces the enemy and takes most of the direct fire. Its outermost module is the **prow**. A prow weapon fires, and prow armor shields the whole bow.
+  - **Deck (2 slots, a tower on top of the Core):** the top module is a **turret** that can fire. Direct fire reaches it less often, but it also takes plunging fire.
+  - **Stern (3 slots, behind):** **sheltered**; direct fire can't reach it, only plunging fire. It is the engine room for Repair Bays, Boilers, Propellers and cargo. Guns there face away from the enemy, so only arcing weapons (Mortar, Tesla Coil) fire from the stern.
+- **Two kinds of enemy fire.** Direct fire (guns, rams, broadsides) rolls a d6 for its section: 1–4 bow, 5–6 deck. Plunging fire (bombs, lobbed shells, lightning, tornadoes, shrapnel) rolls 1–3 deck, 4–6 stern. Each intent says which ("stern layer 2 (plunging)"). *Reason: the stern's safety has a price, and bombers and the Storm Queen threaten it.*
+- **A shot at an empty section falls on the other section in its arc;** the Core is exposed only when the whole arc is bare. Rams always strike the prow. Broadsides hit the prow and the deck top. *Reason: keeps "only a bare side exposes the Core" fair with three sections.*
+- **Part rules follow the sections:**
+  - Propellers work at the stern tail.
+  - Telescopes are lookouts from the deck top or the prow.
+  - A Lightning Rod on top of the deck drinks every lightning bolt.
+  - Armor and Deflectors protect their own section.
+  - Chain Feed works within a section.
+  *Reason: placement should matter for every part.*
+- **Ship capacity goes from 6 to 8 modules.** *Reason: the deck adds a new place to build without crowding the hull.*
+- **The Storm Queen's gale cycles bow → stern → deck.** *Reason: her positional gimmick covers the new layout.*
+- **New starting loadouts:**
+  - Airship: Harpoon turret on deck, Propeller at the tail.
+  - Battleship: Plating prow, Deck Cannon turret.
+  - Zeppelin: Gasbag on deck, Mortar sheltered in the stern.
+  - Clockwork: Harpoon prow, Repair Bay in the stern.
+  *Reason: each Core shows off a different use of the sections from turn one.*
+- **The ship art grows a deck tower:** a brass mast rises from the Core with deck modules stacked on it, facing the enemy, and the envelope lifts to make room. Stern modules face backward and bow modules face forward. Install bolts appear between modules in all three sections, and the install preview says what each slot means ("Becomes the prow…", "sheltered from direct fire", "faces away: this weapon cannot fire here"). *Reason: the layout should be readable on the ship itself.*
+- **The card view mirrors the ship:** the deck column stacks above the Core, the stern runs left and the bow right, with each section's role labelled. *Reason: the toggle view should match the picture.*
+- **Saves from the old layout are not loaded** (new save key). *Reason: old saves use the two-sided layout.*
+- **Re-tuned for the new layout** (details in `BALANCE_REPORT.md`): boss Durability ×1.5 (was ×1.35), Clockwork 11 Durability (was 10), Strafing Run 3 Steam (was 2). *Reason: the sheltered stern made ships sturdier.*

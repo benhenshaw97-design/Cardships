@@ -7,7 +7,8 @@
   if (isNode) module.exports = api;
   else root.CardshipsBot = api;
 })(this, function (D) {
-  const SIDES = ['left', 'right'];
+  const SIDES = ['stern', 'deck', 'bow'];
+  const SUPPORT = new Set(['repair', 'boiler', 'overpressure', 'quarters', 'cargo', 'hatch', 'heart', 'sprinkler', 'scrubber', 'gyro', 'autoloader']);
 
   // Rough worth of a module in place, used to judge layouts and losses.
   const BASE = {
@@ -22,13 +23,16 @@
     const outer = idx === s.length - 1;
     const nbs = [s[idx - 1], s[idx + 1]].filter(Boolean);
     let v = BASE[card.id] || 1;
-    if (d.type === 'weapon' && !d.arc && !outer) v *= card.id === 'harpoon' && s[idx + 1] && D.PARTS[s[idx + 1].id].type === 'weapon' ? 0.7 : 0.25;
-    if (card.id === 'plating' || card.id === 'bulwark') v += outer ? idx * 1.2 : nbs.length * 0.6;
+    if (d.type === 'weapon' && !g.canFireFrom(card, side, idx)) v *= card.id === 'harpoon' && side !== 'stern' && s[idx + 1] && D.PARTS[s[idx + 1].id].type === 'weapon' ? 0.7 : 0.2;
+    if (card.id === 'plating' || card.id === 'bulwark') v += outer ? (side === 'bow' ? 1 + idx * 1.2 : side === 'deck' ? 0.4 + idx : idx * 0.3) : nbs.length * 0.6;
+    // Supports are safest in the sheltered stern and most exposed at the bow.
+    if (SUPPORT.has(card.id)) v += side === 'stern' ? 0.6 : side === 'bow' ? -0.4 : 0;
     if (card.id === 'quarters' || card.id === 'autoloader') v += nbs.filter((n) => D.PARTS[n.id].type === 'weapon').length * (card.id === 'autoloader' ? 2 : 1);
     if (card.id === 'repair' && idx === 0) v += 1;
     if (card.id === 'heart' && idx === 0) v += 4;
-    if (card.id === 'telescope') v += (outer ? 0.6 : 0) + nbs.filter((n) => n.id === 'mortar' || n.id === 'sniper').length * 1.5;
-    if (card.id === 'propeller' && !outer) v *= 0.3;
+    if (card.id === 'telescope') v += (outer && side !== 'stern' ? 0.6 : 0) + nbs.filter((n) => n.id === 'mortar' || n.id === 'sniper').length * 1.5;
+    if (card.id === 'propeller' && !(outer && side === 'stern')) v *= 0.3;
+    if (card.id === 'lightningrod') v += outer && side === 'deck' ? 0.8 : -0.5;
     if (card.id === 'gasbag' && ['zeppelin', 'airship'].includes(g.core.id)) v += 1;
     if (card.id === 'tesla') v += g.weaponsInstalled() * 0.5;
     return v + card.hp * 0.15;
@@ -37,10 +41,12 @@
     let v = 0;
     for (const side of SIDES) {
       const s = g[side];
-      if (!s.length) v -= 3;
-      if (!s.some((c) => D.PARTS[c.id].type === 'weapon' && (D.PARTS[c.id].arc || c === s[s.length - 1]))) v -= 0.5;
+      if (!s.length) v -= side === 'bow' ? 2.5 : 1;
       s.forEach((c, i) => { v += moduleValue(g, c, side, i); });
     }
+    // A bare front exposes the Core to direct fire; a ship with nothing that can shoot is helpless.
+    if (!g.bow.length && !g.deck.length) v -= 5;
+    if (!g.cards().some((c, i) => { const l = g.locate(c.uid); return g.canFireFrom(c, l.side, l.idx); })) v -= 3;
     if (g.core.id === 'battleship') v += g.weight() * 0.25;
     if (g.core.id === 'zeppelin' || g.core.id === 'airship') v -= Math.max(0, g.weight() - 2) * 0.2;
     return v;
@@ -212,7 +218,7 @@
     if (g.pendingLoot.length) {
       const id = g.pendingLoot[0];
       if (rnd) {
-        const side = rnd() < 0.5 ? 'left' : 'right';
+        const side = SIDES[Math.floor(rnd() * SIDES.length)];
         if (g.canInstall(side, g[side].length)) g.installPending(side, Math.floor(rnd() * (g[side].length + 1)));
         else if (!g.storePending()) { if (rnd() < 0.4 && g.cards().length) g.scrap(g.cards()[0].uid); else g.jettisonPending(); }
         return;

@@ -87,3 +87,28 @@ All global knobs live in the `BALANCE` block at the top of `js/data.js`.
 - These are bot numbers. A human who reads intents, rearranges at Sky Docks and values utility parts will win more often; expect real win rates above these, especially for the Airship and Clockwork, which reward clever play the bot doesn't attempt.
 - The bot almost never takes Cargo Hold, Propeller, Lightning Rod or Air Scrubber because its layout score undervalues them. Their low numbers say more about the bot than the parts.
 - The Airship dies early more often than the others (light hull, few starting modules) but wins the most once established; it is the high-variance Core by design.
+
+## Update: re-tuned for the stern / deck / bow layout
+
+The sheltered stern made ships sturdier (Airship and Zeppelin rose to about 50%), so three numbers changed:
+
+| Change | Before | After | Why |
+| --- | --- | --- | --- |
+| Boss Durability | ×1.35 | ×1.5 | Bosses became easier once supports could hide in the stern. |
+| Clockwork Durability | 10 | 11 | It dipped toward the 35% floor; extra Durability alone moved it by about 1 point, but it kept it safely in band. |
+| Strafing Run | 2 Steam | 3 Steam | The Airship was touching 50%. Durability didn't matter (it survives by dodging); its burst damage did. |
+
+Results with 1,000 runs per Core on three seed sets (`--seed 1`, `2`, `3`):
+
+| Core | Seed 1 | Seed 2 | Seed 3 |
+| --- | --- | --- | --- |
+| Airship | 43.2% | 40.6% | 45.8% |
+| Battleship | 44.5% | 45.3% | 46.0% |
+| Zeppelin | 39.8% | 38.3% | 41.0% |
+| Clockwork | 40.9% | 38.5% | 41.1% |
+
+Bosses once reached (seed 1): Iron Leviathan 58.1%, Storm Queen 65.4%, Clockwork Colossus 65.6%.
+
+The most common part on winning ships is the **Repair Bay at 54–57%**, under the 60% ceiling but higher than before, because the stern now keeps it safe. That is the intended role of the stern. If it climbs further, the first lever to try is its repair amount (2) or making it uncommon. Making it uncommon was tested; it raised overall win rates, because the bot filled the slot with stronger parts. Next is Mortar at 43.5%, which now has a natural home firing from the sheltered stern.
+
+Note: the simulator previously read the run count as its seed base when no `--seed` was given. That is fixed. The earlier before/after tables were both produced the same way, so their comparison still stands.

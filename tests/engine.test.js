@@ -3,13 +3,15 @@ const assert = require('node:assert/strict');
 const { Game } = require('../js/engine.js');
 
 // A run with a fixed ship, dropped straight into a fight. The rolled intent is replaced when given.
-function fight(coreId, left, right, enemy = 'gunship', intent = null, seed = 1) {
+// Sections: stern (behind the Core), bow (in front, facing the enemy) and an optional deck tower.
+function fight(coreId, stern, bow, enemy = 'gunship', intent = null, seed = 1, deck = []) {
   const g = new Game({ seed });
   g.chooseCore(coreId);
   g.lootOffers = [];
   g.pendingLoot = [];
-  g.left = left.map((id) => g.makeCard(id));
-  g.right = right.map((id) => g.makeCard(id));
+  g.stern = stern.map((id) => g.makeCard(id));
+  g.bow = bow.map((id) => g.makeCard(id));
+  g.deck = deck.map((id) => g.makeCard(id));
   g.enterMap();
   g.startCombat(enemy, { col: 1, enc: 'patrol' });
   if (intent) g.combat.enemy.intent = intent;
@@ -19,30 +21,30 @@ function fight(coreId, left, right, enemy = 'gunship', intent = null, seed = 1) 
 const shot = (dmg, side, layer) => ({ kind: 'shot', name: 'Test Shot', dmg, side, layer });
 
 test('an attack on an empty layer hits the next module inward', () => {
-  const g = fight('battleship', ['harpoon'], ['cannon'], 'gunship', shot(2, 'left', 2));
+  const g = fight('battleship', ['harpoon'], ['cannon'], 'gunship', shot(2, 'stern', 2));
   const plan = g.previewIntent().plan;
-  assert.equal(plan[0].uid, g.left[0].uid);
+  assert.equal(plan[0].uid, g.stern[0].uid);
   g.endTurn();
-  assert.equal(g.left[0].hp, 1);
+  assert.equal(g.stern[0].hp, 1);
   assert.equal(g.core.hp, 15);
 });
 
 test('only a completely empty side exposes the Core', () => {
-  const g = fight('battleship', [], ['cannon'], 'gunship', shot(2, 'left', 0));
+  const g = fight('battleship', [], ['cannon'], 'gunship', shot(2, 'stern', 0));
   assert.equal(g.previewIntent().plan[0].uid, 'core');
   g.endTurn();
   assert.equal(g.core.hp, 13);
 });
 
 test('outside plating intercepts, buried plating soaks 1 for a neighbour', () => {
-  let g = fight('battleship', ['harpoon', 'plating'], ['cannon'], 'gunship', shot(3, 'left', 0));
+  let g = fight('battleship', ['harpoon', 'plating'], ['cannon'], 'gunship', shot(3, 'stern', 0));
   g.endTurn();
-  assert.equal(g.left[0].hp, 3);
-  assert.equal(g.left[1].hp, 1);
-  g = fight('battleship', ['plating', 'harpoon', 'telescope'], ['cannon'], 'gunship', shot(3, 'left', 1));
+  assert.equal(g.stern[0].hp, 3);
+  assert.equal(g.stern[1].hp, 1);
+  g = fight('battleship', ['plating', 'harpoon', 'telescope'], ['cannon'], 'gunship', shot(3, 'stern', 1));
   g.endTurn();
-  assert.equal(g.left[0].hp, 3);
-  assert.equal(g.left[1].hp, 1);
+  assert.equal(g.stern[0].hp, 3);
+  assert.equal(g.stern[1].hp, 1);
 });
 
 test('the enemy intent is rolled before you act, and the preview matches what happens', () => {
@@ -64,87 +66,87 @@ test('the enemy intent is rolled before you act, and the preview matches what ha
 });
 
 test('Steam refills every turn and pays for actions; weapons fire once per turn from outside', () => {
-  const g = fight('battleship', ['harpoon', 'cannon'], ['harpoon'], 'gunship', shot(0, 'left', 0));
+  const g = fight('battleship', ['harpoon', 'cannon'], ['harpoon'], 'gunship', shot(0, 'stern', 0));
   assert.equal(g.combat.steam, 4);
-  assert.ok(g.fireInfo(g.left[0].uid).blocked);
-  assert.ok(g.fire(g.right[0].uid));
+  assert.ok(g.fireInfo(g.stern[0].uid).blocked);
+  assert.ok(g.fire(g.bow[0].uid));
   assert.equal(g.combat.steam, 3);
-  assert.equal(g.fireInfo(g.right[0].uid).blocked, 'Already fired');
+  assert.equal(g.fireInfo(g.bow[0].uid).blocked, 'Already fired');
   g.endTurn();
   assert.equal(g.combat.steam, 4);
 });
 
 test('Durability is health only: firing never costs Durability', () => {
-  const g = fight('battleship', [], ['harpoon'], 'gunship', shot(0, 'left', 0));
-  g.fire(g.right[0].uid);
-  assert.equal(g.right[0].hp, 3);
+  const g = fight('battleship', [], ['harpoon'], 'gunship', shot(0, 'stern', 0));
+  g.fire(g.bow[0].uid);
+  assert.equal(g.bow[0].hp, 3);
 });
 
 test('a Mortar fires from a buried layer, then reloads unless a Telescope is touching it', () => {
-  const g = fight('zeppelin', ['mortar', 'plating'], [], 'gunship', shot(0, 'left', 0));
-  assert.ok(g.fire(g.left[0].uid));
+  const g = fight('zeppelin', ['mortar', 'plating'], [], 'gunship', shot(0, 'stern', 0));
+  assert.ok(g.fire(g.stern[0].uid));
   g.endTurn();
-  g.combat.enemy.intent = shot(0, 'left', 0);
-  assert.equal(g.fireInfo(g.left[0].uid).blocked, 'Reloading');
-  const h = fight('zeppelin', ['telescope', 'mortar'], [], 'gunship', shot(0, 'left', 0));
-  h.fire(h.left[1].uid);
+  g.combat.enemy.intent = shot(0, 'stern', 0);
+  assert.equal(g.fireInfo(g.stern[0].uid).blocked, 'Reloading');
+  const h = fight('zeppelin', ['telescope', 'mortar'], [], 'gunship', shot(0, 'stern', 0));
+  h.fire(h.stern[1].uid);
   h.endTurn();
-  assert.equal(h.fireInfo(h.left[1].uid).blocked, null);
+  assert.equal(h.fireInfo(h.stern[1].uid).blocked, null);
 });
 
 test('Evade makes the telegraphed attack miss; the Battleship cannot evade', () => {
-  const g = fight('airship', ['propeller'], ['harpoon'], 'gunship', shot(3, 'right', 0));
+  const g = fight('airship', ['propeller'], ['harpoon'], 'gunship', shot(3, 'bow', 0));
   assert.equal(g.evadeCost(), 1);
   assert.ok(g.evade());
   g.endTurn();
-  assert.equal(g.right[0].hp, 3);
-  const b = fight('battleship', [], ['cannon'], 'gunship', shot(3, 'right', 0));
+  assert.equal(g.bow[0].hp, 3);
+  const b = fight('battleship', [], ['cannon'], 'gunship', shot(3, 'bow', 0));
   assert.equal(b.canEvade(), false);
 });
 
 test('back-to-back Evades get more expensive, and long fights Enrage the enemy', () => {
-  const g = fight('airship', ['propeller'], ['harpoon'], 'gunship', shot(1, 'right', 0));
+  const g = fight('airship', ['propeller'], ['harpoon'], 'gunship', shot(1, 'bow', 0));
   g.evade(); g.endTurn();
-  g.combat.enemy.intent = shot(1, 'right', 0);
+  g.combat.enemy.intent = shot(1, 'bow', 0);
   assert.equal(g.evadeCost(), 3);
   g.combat.round = 13;
-  assert.equal(g.intentDamage(shot(1, 'right', 0)), 4);
+  assert.equal(g.intentDamage(shot(1, 'bow', 0)), 4);
 });
 
 test('swapping adjacent modules costs Steam (Airship: first one free); glue pins a module', () => {
-  const g = fight('battleship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'left', 0));
-  assert.ok(g.swap(g.left[0].uid, g.left[1].uid));
-  assert.equal(g.left[0].id, 'plating');
+  const g = fight('battleship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'stern', 0));
+  assert.ok(g.swap(g.stern[0].uid, g.stern[1].uid));
+  assert.equal(g.stern[0].id, 'plating');
   assert.equal(g.combat.steam, 3);
-  const a = fight('airship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'left', 0));
-  a.swap(a.left[0].uid, a.left[1].uid);
+  const a = fight('airship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'stern', 0));
+  a.swap(a.stern[0].uid, a.stern[1].uid);
   assert.equal(a.combat.steam, 4);
-  a.left[0].tokens.glue = true;
-  assert.equal(a.canSwap(a.left[0].uid, a.left[1].uid), false);
+  a.stern[0].tokens.glue = true;
+  assert.equal(a.canSwap(a.stern[0].uid, a.stern[1].uid), false);
 });
 
 test('venting clears tokens for 2 Steam; gas makes a module cost 1 more', () => {
-  const g = fight('airship', [], ['harpoon'], 'gunship', shot(0, 'left', 0));
-  g.right[0].tokens.gas = true;
-  assert.equal(g.fireInfo(g.right[0].uid).cost, 2);
-  assert.ok(g.vent(g.right[0].uid));
-  assert.equal(g.right[0].tokens.gas, false);
+  const g = fight('airship', [], ['harpoon'], 'gunship', shot(0, 'stern', 0));
+  g.bow[0].tokens.gas = true;
+  assert.equal(g.fireInfo(g.bow[0].uid).cost, 2);
+  assert.ok(g.vent(g.bow[0].uid));
+  assert.equal(g.bow[0].tokens.gas, false);
   assert.equal(g.combat.steam, 2);
 });
 
 test('weight resists rams', () => {
   const g = fight('battleship', ['plating', 'plating'], ['cannon', 'plating'], 'cutter');
-  const ram = { kind: 'ram', name: 'Ram', dmg: 3, self: 2, side: 'right' };
+  const ram = { kind: 'ram', name: 'Ram', dmg: 3, self: 2, side: 'bow' };
   assert.equal(g.intentDamage(ram), 1); // weight 8 vs 2 → -3, Ironsides -2, min 1
   const z = fight('zeppelin', [], ['harpoon'], 'cutter');
   assert.equal(z.intentDamage(ram), 3);
 });
 
 test('the Zeppelin banks unspent Steam as Pressure and Bombards with it', () => {
-  const g = fight('zeppelin', [], ['harpoon'], 'gunship', shot(0, 'left', 0));
+  const g = fight('zeppelin', [], ['harpoon'], 'gunship', shot(0, 'stern', 0));
   g.endTurn();
   assert.equal(g.core.pressure, 3);
-  g.combat.enemy.intent = shot(0, 'left', 0);
+  g.combat.enemy.intent = shot(0, 'stern', 0);
   const hp = g.combat.enemy.hp;
   g.combat.enemy.block = 5;
   assert.ok(g.useCore());
@@ -153,18 +155,18 @@ test('the Zeppelin banks unspent Steam as Pressure and Bombards with it', () => 
 });
 
 test('an aimed Deck Cannon keeps the higher of two d6', () => {
-  const g = fight('battleship', [], ['cannon'], 'gunship', shot(0, 'left', 0));
+  const g = fight('battleship', [], ['cannon'], 'gunship', shot(0, 'stern', 0));
   const rolls = [2, 5];
   g.d6 = () => rolls.shift();
   const hp = g.combat.enemy.hp;
-  g.fire(g.right[0].uid, 'aimed');
+  g.fire(g.bow[0].uid, 'aimed');
   assert.equal(g.combat.enemy.hp, hp - 4);
 });
 
 test('Block absorbs damage; Choking adds 1 per hit; Burn ticks and fades', () => {
-  const g = fight('battleship', [], ['grenadiers'], 'gunship', shot(0, 'left', 0));
+  const g = fight('battleship', [], ['grenadiers'], 'gunship', shot(0, 'stern', 0));
   const en = g.combat.enemy;
-  g.fire(g.right[0].uid);
+  g.fire(g.bow[0].uid);
   assert.equal(en.vuln, 2);
   en.block = 1;
   g.damageEnemy(2);
@@ -230,36 +232,37 @@ test('the Trading Zeppelin sells parts and services for cogs', () => {
 });
 
 test('boss gimmicks: Leviathan hull, Storm Queen gale and lightning, Colossus mainspring', () => {
-  let g = fight('battleship', [], ['harpoon'], 'leviathan', shot(0, 'left', 0));
+  let g = fight('battleship', [], ['harpoon'], 'leviathan', shot(0, 'stern', 0));
   const hp = g.combat.enemy.hp;
-  g.fire(g.right[0].uid);
+  g.fire(g.bow[0].uid);
   assert.equal(g.combat.enemy.hp, hp - 1);
 
-  g = fight('battleship', ['harpoon', 'plating'], ['cannon'], 'stormqueen', { kind: 'shot', dmg: 2, side: 'left', layer: 0, lightning: true, name: 'Lightning' });
-  g.combat.galeSide = 'left';
+  g = fight('battleship', ['harpoon', 'plating'], ['cannon'], 'stormqueen', { kind: 'shot', dmg: 2, side: 'stern', layer: 0, lightning: true, name: 'Lightning' });
+  g.combat.galeSide = 'stern';
   g.endTurn();
-  assert.equal(g.left[1].id, 'harpoon', 'gale swapped the outer two');
-  assert.equal(g.left[1].hp, 1, 'lightning skipped the plating');
+  assert.equal(g.stern[1].id, 'harpoon', 'gale swapped the outer two');
+  assert.equal(g.stern[1].hp, 1, 'lightning skipped the plating');
 
-  g = fight('battleship', [], ['cannon'], 'colossus', shot(1, 'right', 0));
+  g = fight('battleship', [], ['cannon'], 'colossus', shot(1, 'bow', 0));
   g.endTurn();
   assert.equal(g.combat.enemy.wound, 1);
-  g.combat.enemy.intent = shot(1, 'right', 0);
+  g.combat.enemy.intent = shot(1, 'bow', 0);
   assert.equal(g.intentDamage(g.combat.enemy.intent), 2);
   g.damageEnemy(6);
   g.endTurn();
   assert.equal(g.combat.enemy.wound, 1, 'snapped to 0, then wound again');
-  assert.equal(g.right[0].hp, 3, 'stunned: no attack');
+  assert.equal(g.bow[0].hp, 3, 'stunned: no attack');
 });
 
 test('synergies explain adjacency links, and install previews predict the change', () => {
-  const g = fight('battleship', ['harpoon', 'cannon'], ['telescope', 'mortar'], 'gunship', shot(0, 'left', 0));
-  assert.match(g.synergies(g.left[0].uid)[0].text, /Chain Feed/);
-  assert.match(g.synergies(g.right[1].uid)[0].text, /never reloads/);
-  const pv = g.previewInstall('plating', 'left', 2);
+  const g = fight('battleship', ['telescope', 'mortar'], ['harpoon', 'cannon'], 'gunship', shot(0, 'stern', 0));
+  assert.match(g.synergies(g.bow[0].uid)[0].text, /Chain Feed/);
+  assert.match(g.synergies(g.stern[1].uid)[0].text, /never reloads/);
+  const pv = g.previewInstall('plating', 'bow', 2);
   assert.ok(pv.notes.some((n) => /can no longer fire/.test(n)));
   assert.ok(pv.links.some((n) => /Shields the Harpoon Gun/.test(n)));
-  assert.equal(g.left.length, 2, 'preview leaves the ship unchanged');
+  assert.equal(g.bow.length, 2, 'preview leaves the ship unchanged');
+  assert.ok(g.previewInstall('cannon', 'stern', 2).notes.some((n) => /faces away/.test(n)));
 });
 
 test('seed codes round-trip and any text works as a seed', () => {
@@ -268,6 +271,43 @@ test('seed codes round-trip and any text works as a seed', () => {
   const a = new Game({ seed: Game.seedFromCode('ABC') }); a.chooseCore('airship');
   const b = new Game({ seed: Game.seedFromCode('abc') }); b.chooseCore('airship');
   assert.deepEqual(a.map.nodes.map((n) => n.enc), b.map.nodes.map((n) => n.enc));
+});
+
+test('sections: guns fire from the prow and deck top; the stern only lets arcing weapons fire', () => {
+  const g = fight('battleship', ['cannon', 'mortar'], ['harpoon'], 'gunship', shot(0, 'bow', 0), 1, ['plating', 'sniper']);
+  assert.match(g.fireInfo(g.stern[0].uid).blocked, /Faces away/);
+  assert.equal(g.fireInfo(g.stern[1].uid).blocked, null, 'mortar arcs from the stern');
+  assert.equal(g.fireInfo(g.bow[0].uid).blocked, null, 'prow fires');
+  assert.equal(g.fireInfo(g.deck[1].uid).blocked, null, 'deck top fires');
+  assert.equal(g.canInstall('deck', 0), false, 'deck holds two');
+  assert.equal(g.canInstall('bow', 1), true);
+});
+
+test('direct fire aims at the bow or deck, plunging fire at the deck or stern', () => {
+  const lanes = { direct: new Set(), plunge: new Set() };
+  for (let seed = 1; seed < 300; seed++) {
+    const g = new Game({ seed });
+    for (const arc of ['direct', 'plunge']) lanes[arc].add(g.rollLane(arc));
+  }
+  assert.deepEqual([...lanes.direct].sort(), ['bow', 'deck']);
+  assert.deepEqual([...lanes.plunge].sort(), ['deck', 'stern']);
+});
+
+test('a shot at an empty section falls on the other one in its arc; only a bare arc exposes the Core', () => {
+  const g = fight('battleship', ['repair'], ['harpoon'], 'gunship', null);
+  const deckShot = { kind: 'shot', name: 'T', dmg: 2, side: 'deck', layer: 0, arc: 'direct' };
+  assert.equal(g.planHit('deck', 0, 2, false, 'direct')[0].uid, g.bow[0].uid);
+  assert.equal(g.planHit('deck', 0, 2, false, 'plunge')[0].uid, g.stern[0].uid);
+  g.bow = [];
+  assert.equal(g.planHit('bow', 0, 2, false, 'direct')[0].uid, 'core');
+  g.combat.enemy.intent = deckShot;
+  assert.equal(g.previewIntent().plan[0].uid, 'core');
+});
+
+test('a Lightning Rod on top of the deck drinks every bolt', () => {
+  const g = fight('battleship', ['repair'], ['plating'], 'stormqueen', null, 1, ['lightningrod']);
+  const plan = g.planHit('stern', 0, 3, true, 'plunge');
+  assert.ok(plan[0].rod);
 });
 
 test('a saved run resumes with identical dice', () => {
@@ -289,8 +329,8 @@ test('the bot plays 400 seeded runs without breaking an invariant', () => {
 });
 
 function invariants(g) {
-  for (const s of ['left', 'right']) {
-    assert.ok(g[s].length <= 3, 'side overflow');
+  for (const s of ['stern', 'deck', 'bow']) {
+    assert.ok(g[s].length <= (s === 'deck' ? 2 : 3), 'section overflow');
     for (const c of g[s]) {
       assert.ok(c.hp > 0, `dead module left on ship: ${c.id}`);
       assert.ok(c.hp <= g.maxHp(c), `over max: ${c.id}`);

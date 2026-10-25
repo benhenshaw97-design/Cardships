@@ -360,3 +360,7 @@ body.fx-busy .scene-wrap canvas { cursor: progress; }
 .seed-row { gap: 10px; }
 .seed-input { background: var(--panel); border: 1px solid var(--rule); color: var(--ink); font: 500 15px var(--f-mono); padding: 7px 10px; border-radius: 3px; width: 11em; text-transform: uppercase; }
 .seed-input:focus { outline: 2px solid var(--brass); outline-offset: 1px; }
+.ship { grid-template-rows: auto auto auto auto auto; }
+.insert-tab.at-bottom { top: auto; bottom: calc(-0.5 * var(--gap) - 11px); left: 50%; transform: translateX(-50%); width: 44px; height: 22px; }
+.deck-label { align-self: center; text-align: left; padding-left: 6px; text-transform: none; letter-spacing: 0.02em; font-size: 11px; }
+.deck-tag { align-self: center; text-align: right; padding-right: 4px; margin-top: 0; }

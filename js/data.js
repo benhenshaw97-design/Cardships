@@ -8,8 +8,8 @@
       style: 'Skirmisher',
       blurb: 'Light and slippery. Dodges telegraphed shots and reshuffles its modules on the fly.',
       passive: { name: 'Nimble', text: 'Your first Swap each turn is free. Evade costs 1 less Steam.' },
-      ability: { id: 'strafe', name: 'Strafing Run', cost: 2, text: 'Deal 1 damage for every weapon installed, at any layer.' },
-      start: { left: ['propeller'], right: ['harpoon'] },
+      ability: { id: 'strafe', name: 'Strafing Run', cost: 3, text: 'Deal 1 damage for every weapon installed, at any layer.' },
+      start: { stern: ['propeller'], deck: ['harpoon'], bow: [] },
     },
     battleship: {
       id: 'battleship', name: 'Battleship Core', weight: 4, hp: 15, steam: 4,
@@ -17,7 +17,7 @@
       blurb: 'A flying fortress. Never dodges; shrugs off rams and rams back harder the heavier it gets.',
       passive: { name: 'Ironsides', text: 'Rams against you deal 2 less damage. You cannot Evade.' },
       ability: { id: 'ram', name: 'Ram', cost: 2, text: 'Deal 2 damage plus half your ship\'s Weight. Your bow (outermost right module, or Core) takes 1.' },
-      start: { left: ['plating'], right: ['cannon'] },
+      start: { stern: [], deck: ['cannon'], bow: ['plating'] },
     },
     zeppelin: {
       id: 'zeppelin', name: 'Zeppelin Core', weight: -1, hp: 6, steam: 3,
@@ -25,15 +25,15 @@
       blurb: 'A fragile gasbag that banks pressure across turns for a devastating payload.',
       passive: { name: 'Pressure Vessel', text: 'Steam left over at the end of your turn is stored as Pressure (max 6).' },
       ability: { id: 'bombard', name: 'Bombard', cost: 1, text: 'Spend all Pressure: deal 1½ damage per Pressure (rounded down), ignoring Block.' },
-      start: { left: ['gasbag'], right: ['mortar'] },
+      start: { stern: ['mortar'], deck: ['gasbag'], bow: [] },
     },
     clockwork: {
-      id: 'clockwork', name: 'Clockwork Core', weight: 2, hp: 10, steam: 4,
+      id: 'clockwork', name: 'Clockwork Core', weight: 2, hp: 11, steam: 4,
       style: 'Engineer', locked: true,
       blurb: 'A self-winding engine that keeps its modules ticking and fires its guns twice.',
       passive: { name: 'Self-Winding', text: 'At the start of each turn, repair 1 on your most damaged module.' },
       ability: { id: 'overclock', name: 'Overclock', cost: 0, text: 'Once a turn: the next weapon you fire this turn fires twice.' },
-      start: { left: ['repair'], right: ['harpoon'] },
+      start: { stern: ['repair'], deck: [], bow: ['harpoon'] },
     },
   };
 
@@ -43,7 +43,7 @@
   const PARTS = {
     harpoon: {
       name: 'Harpoon Gun', abbr: 'HRP', type: 'weapon', rarity: 'common', weight: 1, hp: 3, cost: 1, dmg: 2,
-      rules: [['Fire · 1 Steam', 'Deal 2 damage.'], ['Buried · Chain Feed', 'The weapon directly outside it deals +1 damage.']],
+      rules: [['Fire · 1 Steam', 'Deal 2 damage.'], ['Buried · Chain Feed', 'The weapon directly outside it (in the same section) deals +1 damage.']],
     },
     cannon: {
       name: 'Deck Cannon', abbr: 'CAN', type: 'weapon', rarity: 'common', weight: 1, hp: 4, cost: 2,
@@ -52,7 +52,7 @@
     },
     mortar: {
       name: 'Mortar', abbr: 'MOR', type: 'weapon', rarity: 'uncommon', weight: 1, hp: 3, cost: 2, dmg: 3, arc: true,
-      rules: [['Fire · 2 Steam · Arcs', 'Deal 3 damage. Fires from any layer. Then reloads for a turn.'], ['Synergy', 'A Telescope touching it removes the reload.']],
+      rules: [['Fire · 2 Steam · Arcs', 'Deal 3 damage. Lobs shells from any slot, even the stern. Then reloads for a turn.'], ['Synergy', 'A Telescope touching it removes the reload.']],
     },
     flamethrower: {
       name: 'Flamethrower', abbr: 'FLM', type: 'weapon', rarity: 'common', weight: 1, hp: 3, cost: 1, dmg: 1, burn: 2,
@@ -72,19 +72,19 @@
     },
     tesla: {
       name: 'Tesla Coil', abbr: 'TES', type: 'weapon', rarity: 'rare', weight: 1, hp: 3, cost: 2, arc: true,
-      rules: [['Fire · 2 Steam · Arcs', 'Deal 1 damage plus 1 for every other weapon installed. Ignores Block.']],
+      rules: [['Fire · 2 Steam · Arcs', 'Deal 1 damage plus 1 for every other weapon installed. Ignores Block. Fires from any slot, even the stern.']],
     },
     plating: {
       name: 'Brass Plating', abbr: 'PLT', type: 'defense', rarity: 'common', weight: 1, hp: 4,
-      rules: [['Outside', 'Takes every hit aimed at its side.'], ['Buried · Bulkhead', 'Soaks 1 damage of any hit on a module touching it.']],
+      rules: [['Outermost', 'Takes every hit aimed at its section.'], ['Buried · Bulkhead', 'Soaks 1 damage of any hit on a module touching it.']],
     },
     bulwark: {
       name: 'Ironclad Bulwark', abbr: 'BLW', type: 'defense', rarity: 'rare', weight: 2, hp: 6,
-      rules: [['Outside', 'Takes every hit aimed at its side, 1 less damage each.'], ['Buried', 'Soaks 2 damage of any hit on a module touching it.']],
+      rules: [['Outermost', 'Takes every hit aimed at its section, 1 less damage each.'], ['Buried', 'Soaks 2 damage of any hit on a module touching it.']],
     },
     deflector: {
       name: 'Deflector Vane', abbr: 'DFL', type: 'defense', rarity: 'uncommon', weight: 1, hp: 3, cost: 1,
-      rules: [['Brace · 1 Steam', 'Negate the next hit on this side this round.']],
+      rules: [['Brace · 1 Steam', 'Negate the next hit on this section this round.']],
     },
     repair: {
       name: 'Repair Bay', abbr: 'REP', type: 'support', rarity: 'common', weight: 1, hp: 3, cost: 1, heal: 2,
@@ -108,7 +108,7 @@
     },
     telescope: {
       name: 'Telescope', abbr: 'TEL', type: 'utility', rarity: 'common', weight: 1, hp: 2,
-      rules: [['Outside', '+1 sight on the sky map, and reveals routes hidden by cloud.'], ['Spotter', 'A Mortar touching it never reloads; a Sniper touching it deals +1.']],
+      rules: [['Lookout · top of the deck or prow', '+1 sight on the sky map, and reveals routes hidden by cloud.'], ['Spotter', 'A Mortar touching it never reloads; a Sniper touching it deals +1.']],
     },
     gasbag: {
       name: 'Gasbag', abbr: 'BAG', type: 'utility', rarity: 'common', weight: -2, hp: 2,
@@ -116,11 +116,11 @@
     },
     propeller: {
       name: 'Propeller', abbr: 'PRP', type: 'utility', rarity: 'common', weight: 0, hp: 2,
-      rules: [['Outside', 'Evade costs 1 less Steam (minimum 1).']],
+      rules: [['Stern tail', 'At the very back of the stern: Evade costs 1 less Steam (minimum 1).']],
     },
     lightningrod: {
       name: 'Lightning Rod', abbr: 'ROD', type: 'utility', rarity: 'uncommon', weight: 1, hp: 3,
-      rules: [['Outside', 'Lightning on its side strikes it for no damage and charges your boilers: +1 Steam next turn.']],
+      rules: [['Top of the deck', 'Every lightning bolt strikes it for no damage and charges your boilers: +1 Steam next turn.']],
     },
     cargo: {
       name: 'Cargo Hold', abbr: 'CRG', type: 'utility', rarity: 'uncommon', weight: 1, hp: 3,
@@ -174,8 +174,11 @@
     block: (amount, name = 'Raise Plating') => ({ kind: 'block', amount, name }),
     repair: (amount, name = 'Patch Hull') => ({ kind: 'repair', amount, name }),
     charge: (amount, name = 'Stoke Boilers') => ({ kind: 'charge', amount, name }),
-    lightning: (dmg, name = 'Lightning Lance') => ({ kind: 'shot', dmg, name, lightning: true }),
+    lightning: (dmg, name = 'Lightning Lance') => ({ kind: 'shot', dmg, name, lightning: true, aim: 'plunge' }),
   };
+  // Bombs, lobbed shells, lightning and storms come down from above ("plunging fire"): they aim at the
+  // deck or the sheltered stern instead of the bow. Everything else is direct fire at the bow or deck.
+  const PLUNGING = new Set(['Firepot', 'Stink Bomb', 'Incendiary Drop', 'Carpet Bomb', 'Heavy Bomb', 'Toxic Shell', 'Flak Barrage', 'Tornado', 'Static Charge', 'Ball Lightning', 'Shrapnel Burst', 'Incendiary Round']);
 
   // Phase tables map d6 → intent, listed from full health down. `min` is the lowest Durability of the phase.
   const ENEMIES = {
@@ -230,7 +233,7 @@
     },
     stormqueen: {
       name: 'The Storm Queen', weight: 3, hp: 33, look: 'stormqueen', boss: true,
-      gimmick: 'Gale Force: after every move, her winds shove your two outside modules on one side past each other. Lightning ignores outside plating.',
+      gimmick: 'Gale Force: after every move, her winds shove the two outermost modules of one section past each other (bow, then stern, then deck). Her lightning plunges past plating.',
       phases: [
         { name: 'Gathering Clouds', min: 19, table: [I.lightning(2), I.lightning(2), I.rake(1, 'Tornado'), I.token('gas', 0, 'Static Charge'), I.block(5, 'Eye Wall'), I.charge(3, 'Build Charge')] },
         { name: 'Tempest', min: 10, table: [I.lightning(3), I.lightning(3), I.rake(2, 'Tornado'), I.broadside(2, 'Thunderclap'), I.token('fire', 1, 'Ball Lightning'), I.repair(3, 'Draw the Storm')] },
@@ -256,7 +259,10 @@
       ],
     },
   };
-  for (const [id, e] of Object.entries(ENEMIES)) e.id = id;
+  for (const [id, e] of Object.entries(ENEMIES)) {
+    e.id = id;
+    for (const p of e.phases) p.table = p.table.map((it) => (PLUNGING.has(it.name) ? { ...it, aim: 'plunge' } : it));
+  }
 
   // ---------- Encounters (sky map node types) ----------
   const ENCOUNTERS = {
@@ -265,7 +271,7 @@
     storm: {
       name: 'Storm Front', kind: 'Hazard', biome: 'storm',
       text: 'Fly through the squall. Roll a d6.',
-      table: ['Lightning: 2 damage to an outside module', 'Crosswind: 1 damage to both outside modules (Weight 6+ ignores it)', 'Downdraft: jettison an outside module or the Core takes 2', 'Eye of the storm: repair or scavenge', 'Drifting salvage: pick 1 of 2 parts', 'Tailwind: +1 sight and +2 Steam next fight'],
+      table: ['Lightning: 2 damage to the deck or stern', 'Crosswind: 1 damage to the prow and stern tail (Weight 6+ ignores it)', 'Downdraft: jettison an outside module or the Core takes 2', 'Eye of the storm: repair or scavenge', 'Drifting salvage: pick 1 of 2 parts', 'Tailwind: +1 sight and +2 Steam next fight'],
     },
     smog: {
       name: 'Smog Bank', kind: 'Hazard', biome: 'smog',
@@ -276,7 +282,7 @@
     beacon: {
       name: 'Distress Beacon', kind: 'Ambush',
       text: 'A wreck calls for help. Roll a d6, then pirates spring the trap.',
-      table: ['Debris: 2 damage to an outside module', 'Fire spreads to an outside module', 'Gas leaks into a weapon', 'Trap sprung: the pirates start with 4 Block', 'You spot the trap: +2 Steam on your first turn', 'Strip the wreck first: pick 1 of 2 parts'],
+      table: ['Debris rains on the deck or stern: 2 damage', 'Burning wreckage lands on the deck or stern', 'Gas leaks into a weapon', 'Trap sprung: the pirates start with 4 Block', 'You spot the trap: +2 Steam on your first turn', 'Strip the wreck first: pick 1 of 2 parts'],
     },
     guild: { name: 'Mercenary Island', kind: 'Quest', text: 'A guild outpost on a floating island. Roll two contracts and sign one.' },
     hangar: {
@@ -327,14 +333,19 @@
     gas: { name: 'Gas', text: 'Using this module costs 1 more Steam.' },
   };
 
-  // Targeting: side d6 (1-3 left, 4-6 right); layer d6 (1-2 → 1, 3-4 → 2, 5-6 → 3).
-  const LAYER_TABLE = [1, 1, 2, 2, 3, 3];
+  // Targeting. Section d6: direct fire 1-4 bow, 5-6 deck; plunging fire 1-3 deck, 4-6 stern.
+  // Layer d6 by section size: 3 layers 1-2 → 1, 3-4 → 2, 5-6 → 3; 2 layers 1-3 → 1, 4-6 → 2.
+  const LANE_TABLE = {
+    direct: ['bow', 'bow', 'bow', 'bow', 'deck', 'deck'],
+    plunge: ['deck', 'deck', 'deck', 'stern', 'stern', 'stern'],
+  };
+  const LAYER_TABLE = { 3: [1, 1, 2, 2, 3, 3], 2: [1, 1, 1, 2, 2, 2] };
 
   // Global difficulty knobs, tuned by simulation (see BALANCE_REPORT.md).
   const BALANCE = {
     hpPerColumn: 0.08,       // pirate Durability +8% per map column
     veteranColumns: [6, 11], // +1 damage per hit from each listed column onward
-    bossHp: 1.35,            // boss Durability multiplier
+    bossHp: 1.5,             // boss Durability multiplier
     startCogs: 20,
     bombardPerPressure: 1.5, // Zeppelin Bombard damage per point of Pressure (rounded down)
     maxPressure: 6,
@@ -344,7 +355,7 @@
     evadeFatigue: 2,         // extra Steam per consecutive Evade
   };
 
-  const data = { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE };
+  const data = { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE, LANE_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);

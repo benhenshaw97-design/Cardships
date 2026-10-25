@@ -12,6 +12,19 @@
   const H = 30; // hull band height
   const CORE_W = 70;
   const GAP = 4;
+  const DECK_STEP = H + 14; // deck modules stack upward from the Core, leaving room for their pips
+  // Where a slot sits relative to the Core: the stern runs back (left), the bow forward (right),
+  // and the deck tower stacks up on top of the Core.
+  function slotXY(side, idx) {
+    if (side === 'deck') return { x: 0, y: -(H + 8) - idx * DECK_STEP };
+    return { x: (side === 'stern' ? -1 : 1) * (CORE_W / 2 + GAP + M / 2 + idx * (M + GAP)), y: 0 };
+  }
+  // The point between slots where an install bolt goes (pos = index the new part would take).
+  function boltXY(side, pos, end) {
+    if (side === 'deck') return { x: 0, y: -(H / 2 + 4) - pos * DECK_STEP - (end ? DECK_STEP / 2 : 0) };
+    const dir = side === 'stern' ? -1 : 1;
+    return { x: dir * (CORE_W / 2 + GAP / 2 + pos * (M + GAP) + (end ? M / 2 : 0)), y: 0 };
+  }
   const TAU = Math.PI * 2;
 
   function hash(s) { let x = 2166136261; for (const ch of String(s)) x = Math.imul(x ^ ch.charCodeAt(0), 16777619); return (x >>> 0) / 4294967296; }
@@ -267,7 +280,7 @@
       this.coreHp = game.core.hp; this.coreMax = game.maxHp(game.core);
       this.coreTokens = { ...game.core.tokens };
       const seen = new Set();
-      for (const side of ['left', 'right']) {
+      for (const side of ['stern', 'deck', 'bow']) {
         game[side].forEach((card, idx) => {
           seen.add(card.uid);
           let m = this.mods.get(card.uid);
@@ -277,12 +290,13 @@
           }
           m.side = side; m.idx = idx; m.hp = card.hp; m.max = game.maxHp(card); m.tokens = { ...card.tokens };
           m.outer = idx === game[side].length - 1; m.reload = card.reload;
-          m.tx = (side === 'left' ? -1 : 1) * (CORE_W / 2 + GAP + M / 2 + idx * (M + GAP));
-          if (m.x == null) m.x = m.tx + (m.install < 1 ? (side === 'left' ? -40 : 40) : 0);
+          const at = slotXY(side, idx);
+          m.tx = at.x; m.ty = at.y;
+          if (m.x == null) { m.x = m.tx + (m.install < 1 && side !== 'deck' ? (side === 'stern' ? -40 : 40) : 0); m.y = m.ty; }
         });
       }
       for (const uid of [...this.mods.keys()]) if (!seen.has(uid)) this.mods.delete(uid);
-      this.leftN = game.left.length; this.rightN = game.right.length;
+      this.leftN = game.stern.length; this.rightN = game.bow.length; this.deckN = game.deck.length;
       this.ready = true;
     }
     // A destroyed module tears off and tumbles away.
@@ -291,33 +305,39 @@
       if (!m) return;
       this.mods.delete(uid);
       if (!violent) return;
-      const dir = m.side === 'left' ? -1 : 1;
-      this.debris.push({ m: { ...m }, x: m.x, y: 0, vx: dir * (60 + Math.random() * 60), vy: -90, r: 0, vr: dir * (2 + Math.random() * 3), life: 3 });
-      for (let i = 0; i < 10; i++) this.debris.push({ gear: true, x: m.x, y: 0, vx: (Math.random() - 0.5) * 220, vy: -60 - Math.random() * 160, r: 0, vr: (Math.random() - 0.5) * 12, size: 3 + Math.random() * 5, life: 2.5, color: Math.random() < 0.5 ? C.brass : C.iron });
+      const dir = m.side === 'stern' ? -1 : m.side === 'bow' ? 1 : Math.random() < 0.5 ? -1 : 1;
+      this.debris.push({ m: { ...m }, x: m.x, y: m.y, vx: dir * (60 + Math.random() * 60), vy: -90, r: 0, vr: dir * (2 + Math.random() * 3), life: 3 });
+      for (let i = 0; i < 10; i++) this.debris.push({ gear: true, x: m.x, y: m.y, vx: (Math.random() - 0.5) * 220, vy: -60 - Math.random() * 160, r: 0, vr: (Math.random() - 0.5) * 12, size: 3 + Math.random() * 5, life: 2.5, color: Math.random() < 0.5 ? C.brass : C.iron });
     }
     flash(uid) { if (uid === 'core') this.core.flash = 1; const m = this.mods.get(uid); if (m) m.flash = 1; }
     recoil(uid) { const m = this.mods.get(uid); if (m) m.recoil = 1; }
     // includeGhost=false gives the real ship, so a preview never re-centres or rescales it.
     extent(includeGhost = true) {
       const g = includeGhost ? this.ghost : null;
-      const l = (this.leftN || 0) + (g && g.side === 'left' ? 1 : 0), r = (this.rightN || 0) + (g && g.side === 'right' ? 1 : 0);
+      const l = (this.leftN || 0) + (g && g.side === 'stern' ? 1 : 0), r = (this.rightN || 0) + (g && g.side === 'bow' ? 1 : 0);
       return { left: CORE_W / 2 + l * (M + GAP) + 10, right: CORE_W / 2 + r * (M + GAP) + 10 };
     }
     width() { const e = this.extent(false); return e.left + e.right + 50; }
+    // Vertical reach above and below the Core (units), so layouts can fit the deck tower and envelope.
+    bounds() { const d = this.deckN || 0; return { top: 100 + d * 34 + (d ? 10 : 0), bottom: 34 }; }
     // World position of a module (or the Core) in canvas pixels, for effects and arrows.
     pointOf(uid) {
       if (uid === 'core') return { x: this.x, y: this.y, r: CORE_W * this.scale * 0.5 };
       const m = this.mods.get(uid);
       if (!m) return null;
-      return { x: this.x + (m.x + (m.shift || 0)) * this.scale * this.facing, y: this.y, r: M * this.scale * 0.5 };
+      return { x: this.x + (m.x + (m.shiftX || 0)) * this.scale * this.facing, y: this.y + (m.y + (m.shiftY || 0)) * this.scale, r: M * this.scale * 0.5 };
     }
     update(dt) {
       for (const m of this.mods.values()) {
         m.x += (m.tx - m.x) * Math.min(1, dt * 7);
+        m.y += (m.ty - m.y) * Math.min(1, dt * 7);
         // Make room for a previewed install: modules at or beyond the slot slide outward.
         const g = this.ghost;
-        const want = g && g.side === m.side && m.idx >= g.pos ? (m.side === 'left' ? -1 : 1) * (M + GAP) : 0;
-        m.shift = (m.shift || 0) + (want - (m.shift || 0)) * Math.min(1, dt * 9);
+        const room = g && g.side === m.side && m.idx >= g.pos;
+        const wantX = room && m.side !== 'deck' ? (m.side === 'stern' ? -1 : 1) * (M + GAP) : 0;
+        const wantY = room && m.side === 'deck' ? -DECK_STEP : 0;
+        m.shiftX = (m.shiftX || 0) + (wantX - (m.shiftX || 0)) * Math.min(1, dt * 9);
+        m.shiftY = (m.shiftY || 0) + (wantY - (m.shiftY || 0)) * Math.min(1, dt * 9);
         if (m.install < 1) {
           m.install = Math.min(1, m.install + dt * 2.2);
           if (m.install >= 1) { this.boltSparks(m); if (PlayerShip.onClank) PlayerShip.onClank(m); }
@@ -326,7 +346,7 @@
         m.recoil = Math.max(0, m.recoil - dt * 4);
         if (m.hp / m.max <= 0.34 || m.tokens.fire) {
           m.smokeT -= dt;
-          if (m.smokeT <= 0) { m.smokeT = m.tokens.fire ? 0.12 : 0.3; this.smoke.push({ x: m.x + (Math.random() - 0.5) * 20, y: -H / 2, vx: -10 - Math.random() * 20, vy: -25 - Math.random() * 20, r: 3 + Math.random() * 3, life: 1.6, max: 1.6, dark: !m.tokens.fire || Math.random() < 0.5 }); }
+          if (m.smokeT <= 0) { m.smokeT = m.tokens.fire ? 0.12 : 0.3; this.smoke.push({ x: m.x + (Math.random() - 0.5) * 20, y: m.y - H / 2, vx: -10 - Math.random() * 20, vy: -25 - Math.random() * 20, r: 3 + Math.random() * 3, life: 1.6, max: 1.6, dark: !m.tokens.fire || Math.random() < 0.5 }); }
         }
       }
       if (this.coreHp / this.coreMax <= 0.34) {
@@ -348,7 +368,7 @@
       this.sparks = this.sparks.filter((s) => s.life > 0);
     }
     boltSparks(m) {
-      for (let i = 0; i < 14; i++) this.sparks.push({ x: m.x + (m.side === 'left' ? M / 2 : -M / 2), y: (Math.random() - 0.5) * H, vx: (Math.random() - 0.5) * 160, vy: -Math.random() * 140, life: 0.5 + Math.random() * 0.3 });
+      for (let i = 0; i < 14; i++) this.sparks.push({ x: m.x + (m.side === 'stern' ? M / 2 : m.side === 'bow' ? -M / 2 : 0), y: m.y + (m.side === 'deck' ? H / 2 : (Math.random() - 0.5) * H), vx: (Math.random() - 0.5) * 160, vy: -Math.random() * 140, life: 0.5 + Math.random() * 0.3 });
     }
     // Draws the ship with its Core at (x, y). facing 1 = bow to the right.
     draw(g, x, y, scale, t, opts = {}) {
@@ -372,7 +392,8 @@
       const ecx = (left + right) / 2;
       const erx = Math.max(60, span * 0.44) * (this.coreId === 'zeppelin' ? 1.12 : 1);
       const ery = this.coreId === 'zeppelin' ? 30 : this.coreId === 'battleship' ? 22 : 26;
-      const ey = -H / 2 - 22 - ery;
+      // The envelope lifts to make room for the deck tower.
+      const ey = -H / 2 - 22 - ery - (this.deckN || 0) * 34;
       g.strokeStyle = C.out; g.lineWidth = 1.2;
       for (const px of [ecx - erx * 0.6, ecx - erx * 0.2, ecx + erx * 0.2, ecx + erx * 0.6]) { g.beginPath(); g.moveTo(px, ey + ery * 0.7); g.lineTo(px * 0.8, -H / 2); g.stroke(); }
       g.beginPath(); g.ellipse(ecx, ey, erx, ery, 0, 0, TAU); shape(g, ENVELOPES[this.coreId] || C.canvas, 2.5);
@@ -387,22 +408,24 @@
       // Keel struts joining every module.
       rr(g, left + 6, -3, span - 12, 6, 3); shape(g, C.brassD, 1.5);
       // Stern propeller on the hindmost element, unless a Propeller module already sits there.
-      const sternMod = [...this.mods.values()].find((m) => m.side === 'left' && m.outer);
+      const sternMod = [...this.mods.values()].find((m) => m.side === 'stern' && m.outer);
       if (!sternMod || sternMod.id !== 'propeller') prop(g, left - 4, 0, 18, t);
+      // The deck tower's brass mast, from the Core up to the topmost deck module.
+      const deckTop = [...this.mods.values()].filter((m) => m.side === 'deck').reduce((y, m) => Math.min(y, m.y), 0);
+      if (deckTop < 0) { rr(g, -5, deckTop, 10, -deckTop - H / 2 + 2, 2); shape(g, C.brassD, 1.5); rivets(g, -1, 1, deckTop + 6, 1, C.brassL); }
       this.drawCore(g, t);
-      for (const m of [...this.mods.values()].sort((a, b) => a.idx - b.idx)) this.drawModule(g, m, t, opts);
+      for (const m of [...this.mods.values()].sort((a, b) => (a.side === 'deck') - (b.side === 'deck') || a.idx - b.idx)) this.drawModule(g, m, t, opts);
       if (this.ghost) this.drawGhost(g, t);
       // Insertion bolts for installing a part.
       if (this.inserts.length) {
         for (const ins of this.inserts) {
-          const dir = ins.side === 'left' ? -1 : 1;
-          const lx = dir * (CORE_W / 2 + GAP / 2 + ins.pos * (M + GAP));
+          const b = boltXY(ins.side, ins.pos, ins.end);
           const pulse = 1 + Math.sin(t * 5) * 0.12;
-          g.save(); g.translate(lx + dir * (ins.end ? M / 2 : 0), 0); g.scale(pulse, pulse);
+          g.save(); g.translate(b.x, b.y); g.scale(pulse, pulse);
           circle(g, 0, 0, 9, ins.hover ? C.brassL : C.brass, 2);
           g.fillStyle = C.out; g.fillRect(-5, -1.5, 10, 3); g.fillRect(-1.5, -5, 3, 10);
           g.restore();
-          this.hits.push({ insert: ins, ...this.toWorld(lx + dir * (ins.end ? M / 2 : 0), 0, 14) });
+          this.hits.push({ insert: ins, ...this.toWorld(b.x, b.y, 14) });
         }
       }
       // Smoke, sparks and falling debris.
@@ -458,7 +481,8 @@
       if (this.highlight.has('core')) this.drawSelect(g, 0, CORE_W);
     }
     drawModuleBody(g, m, t, falling) {
-      const dir = m.side === 'left' ? -1 : 1;
+      // Stern modules face backward; bow and deck modules face the enemy.
+      const dir = m.side === 'stern' ? -1 : 1;
       g.save(); g.scale(dir, 1);
       (MODULES[m.id] || MODULES.plating)(g, m, t);
       // Wear: dents below two thirds, cracks below one third.
@@ -474,10 +498,9 @@
     // A see-through preview of a part about to be installed.
     drawGhost(g, t) {
       const gh = this.ghost;
-      const dir = gh.side === 'left' ? -1 : 1;
-      const x = dir * (CORE_W / 2 + GAP + M / 2 + gh.pos * (M + GAP));
+      const at = slotXY(gh.side, gh.pos);
       const m = { uid: 'ghost', id: gh.id, side: gh.side, idx: gh.pos, hp: 1, max: 1, tokens: {}, recoil: 0, outer: gh.outer };
-      g.save(); g.translate(x, -4 + Math.sin(t * 3) * 2); g.globalAlpha = 0.55;
+      g.save(); g.translate(at.x, at.y - 4 + Math.sin(t * 3) * 2); g.globalAlpha = 0.55;
       this.drawModuleBody(g, m, t, false);
       g.globalAlpha = 1; g.strokeStyle = '#f0cf84'; g.lineWidth = 2; g.setLineDash([5, 4]);
       rr(g, -M / 2 - 4, -H / 2 - 6, M + 8, H + 12, 6); g.stroke(); g.setLineDash([]);
@@ -487,7 +510,7 @@
       const ease = 1 - Math.pow(1 - m.install, 3);
       const drop = (1 - ease) * -70;
       g.save();
-      g.translate(m.x + (m.shift || 0), drop);
+      g.translate(m.x + (m.shiftX || 0), m.y + (m.shiftY || 0) + drop);
       g.globalAlpha = Math.min(1, 0.2 + ease);
       this.drawModuleBody(g, m, t, false);
       this.drawTokens(g, 0, m.tokens, t);
@@ -501,7 +524,7 @@
       if (this.highlight.has(m.uid)) this.drawSelect(g, 0, M);
       if (opts.synergy && opts.synergy.has(m.uid)) { g.strokeStyle = '#7ff0c0'; g.lineWidth = 2.5; g.setLineDash([5, 4]); rr(g, -M / 2 - 4, -H / 2 - 6, M + 8, H + 12, 6); g.stroke(); g.setLineDash([]); }
       g.restore();
-      this.hits.push({ uid: m.uid, ...this.toWorld(m.x + (m.shift || 0), 0, M * 0.55) });
+      this.hits.push({ uid: m.uid, ...this.toWorld(m.x + (m.shiftX || 0), m.y + (m.shiftY || 0), M * 0.55) });
     }
     drawSelect(g, x, w) { g.strokeStyle = '#f0cf84'; g.lineWidth = 2.5; rr(g, x - w / 2 - 5, -H / 2 - 8, w + 10, H + 22, 7); g.stroke(); }
     drawTargetRing(g, x, r, t, dmg) {

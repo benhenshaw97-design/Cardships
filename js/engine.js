@@ -7,9 +7,8 @@
   if (isNode) module.exports = api;
   else root.CardshipsEngine = api;
 })(this, function (D) {
-  const { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE } = D;
+  const { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, LAYER_TABLE, LANE_TABLE } = D;
 
-  const MAX_LAYERS = 3;
   const BOSS_COL = 12;
   const BASE_SIGHT = 2;
   const SNAP_DAMAGE = 6;
@@ -17,7 +16,14 @@
   const MAX_PRESSURE = BALANCE.maxPressure;
   const VENT_COST = 2;
   const ENRAGE_ROUND = BALANCE.enrageRound;
-  const SIDES = ['left', 'right'];
+  // The ship has three sections ("lanes"), each built outward from the Core:
+  // the stern behind it, a deck tower on top of it, and the bow in front, facing the enemy.
+  const SIDES = ['stern', 'deck', 'bow'];
+  const CAP = { stern: 3, deck: 2, bow: 3 };
+  const MAX_LAYERS = 3;
+  // Which sections each kind of fire can reach. A shot at an empty section falls on the other one.
+  const ARCS = { direct: ['bow', 'deck'], plunge: ['deck', 'stern'] };
+  const LANE_NAME = { stern: 'stern', deck: 'deck', bow: 'bow' };
   const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 } };
 
   function noTokens() { return { fire: false, glue: false, gas: false }; }
@@ -40,8 +46,9 @@
 
       this.phase = 'coreSelect';
       this.core = null;
-      this.left = [];
-      this.right = [];
+      this.stern = [];
+      this.deck = [];
+      this.bow = [];
       this.storage = [];
       this.depth = 0;
       this.map = null;
@@ -132,7 +139,7 @@
       return { uid: 'p' + this.nextUid++, id, hp: PARTS[id].hp, bonusMax: 0, tokens: noTokens(), fired: 0, reload: 0 };
     }
     def(card) { return PARTS[card.id]; }
-    cards() { return [...this.left, ...this.right]; }
+    cards() { return [...this.stern, ...this.deck, ...this.bow]; }
     has(id) { return this.cards().some((c) => c.id === id); }
     count(id) { return this.cards().filter((c) => c.id === id).length; }
     locate(uid) {
@@ -171,7 +178,14 @@
       for (const c of this.cards()) s += this.def(c).steam || 0;
       return s;
     }
-    telescopeOut() { return SIDES.some((s) => { const o = this.outer(s); return o && o.id === 'telescope'; }); }
+    // A Telescope works as a lookout from the top of the deck or the prow.
+    telescopeOut() { return ['deck', 'bow'].some((s) => { const o = this.outer(s); return o && o.id === 'telescope'; }); }
+    // Whether a weapon can fire from where it sits: the top of the deck or the prow, or anywhere if it arcs.
+    canFireFrom(card, side, idx) {
+      if (!this.isWeapon(card)) return false;
+      if (PARTS[card.id].arc) return true;
+      return side !== 'stern' && idx === this[side].length - 1;
+    }
     // How many columns ahead on the sky map you can identify.
     sight() { return BASE_SIGHT + (this.telescopeOut() ? 1 : 0) + (this.sightMoves > 0 ? 1 : 0); }
     gainCogs(n, why) { if (n <= 0) return; this.cogs += n; this.stats.cogs += n; this.emit('cogs', { amount: n }); this.say(`+${n} cogs${why ? ` (${why})` : ''}.`, 'good'); }
@@ -232,23 +246,24 @@
     // What installing a part at side/pos would change, without changing anything.
     previewInstall(id, side, pos) {
       if (!this.canInstall(side, pos)) return null;
-      const before = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), outer: { left: this.outer('left'), right: this.outer('right') }, sight: this.sight() };
+      const before = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), outer: { stern: this.outer('stern'), deck: this.outer('deck'), bow: this.outer('bow') }, sight: this.sight() };
       const card = this.makeCard(id);
       this.nextUid--;
       this[side].splice(pos, 0, card);
       const after = { weight: this.weight(), steam: this.steamCap(), evade: this.evadeCost(), sight: this.sight() };
       const links = this.synergies(card.uid).map((x) => x.text);
-      const fires = !this.isWeapon(card) || PARTS[id].arc || this.isOuter(side, pos);
-      const covered = this.outer(side) !== before.outer[side] && before.outer[side] ? this.def(before.outer[side]).name : null;
+      const fires = !this.isWeapon(card) || this.canFireFrom(card, side, pos);
+      const prev = before.outer[side];
+      const covered = prev && this.outer(side) !== prev ? prev : null;
       this[side].splice(pos, 1);
       const notes = [];
       notes.push(`Weight ${fmt(before.weight)} → ${fmt(after.weight)}`);
       if (after.steam !== before.steam) notes.push(`Steam ${before.steam} → ${after.steam}`);
       if (after.evade !== before.evade && after.evade != null) notes.push(`Evade cost ${before.evade} → ${after.evade}`);
       if (after.sight !== before.sight) notes.push(`Sight ${before.sight} → ${after.sight}`);
-      if (pos === this[side].length) notes.push(`Becomes the outside module on the ${side === 'left' ? 'stern' : 'bow'}`);
-      if (covered) notes.push(`The ${covered} is buried behind it${this.isWeapon(before.outer[side]) && !PARTS[before.outer[side].id].arc ? ' and can no longer fire' : ''}`);
-      if (!fires) notes.push('Buried: this weapon cannot fire here');
+      if (pos === this[side].length) notes.push({ bow: 'Becomes the prow: first in line for direct fire', deck: 'Tops the deck tower: exposed to plunging fire', stern: 'Becomes the stern tail: sheltered from direct fire' }[side]);
+      if (covered) notes.push(`The ${this.def(covered).name} is buried behind it${side !== 'stern' && this.isWeapon(covered) && !PARTS[covered.id].arc ? ' and can no longer fire' : ''}`);
+      if (!fires) notes.push(side === 'stern' ? 'The stern faces away from the enemy: this weapon cannot fire here' : 'Buried: this weapon cannot fire here');
       return { notes, links };
     }
 
@@ -257,9 +272,8 @@
       if (this.phase !== 'coreSelect') return;
       const c = CORES[id];
       this.core = { uid: 'core', id, name: c.name, weight: c.weight, hp: c.hp, baseMax: c.hp, bonusMax: 0, tokens: noTokens(), pressure: 0 };
-      this.left = c.start.left.map((p) => this.makeCard(p));
-      this.right = c.start.right.map((p) => this.makeCard(p));
-      this.say(`${c.name} selected. Starting modules: ${[...c.start.left, ...c.start.right].map((p) => PARTS[p].name).join(', ')}.`, 'sys');
+      for (const side of SIDES) this[side] = (c.start[side] || []).map((p) => this.makeCard(p));
+      this.say(`${c.name} selected. Starting modules: ${SIDES.flatMap((sd) => c.start[sd] || []).map((p) => PARTS[p].name).join(', ')}.`, 'sys');
       if (!this.bossId) this.bossId = this.pick(BOSSES);
       this.generateMap();
       this.say(`Your charts mark the final threat: ${ENEMIES[this.bossId].name}.`, 'warn');
@@ -295,7 +309,7 @@
       this.lootOffers.shift();
       return true;
     }
-    canInstall(side, pos) { return this[side].length < MAX_LAYERS && pos >= 0 && pos <= this[side].length; }
+    canInstall(side, pos) { return !!CAP[side] && this[side].length < CAP[side] && pos >= 0 && pos <= this[side].length; }
     installPending(side, pos) {
       if (!this.pendingLoot.length || !this.canInstall(side, pos)) return false;
       const id = this.pendingLoot.shift();
@@ -472,25 +486,31 @@
     }
     totalHp() { return this.core.hp + this.cards().reduce((s, c) => s + c.hp, 0); }
     setOptions(stage, options) { this.event.stage = stage; this.event.options = options; }
-    randomSide(label) { return this.d6(label || 'Side') <= 3 ? 'left' : 'right'; }
+    // Rolls which section an attack of a given arc aims at.
+    rollLane(arc = 'direct', label = 'Aim') { return LANE_TABLE[arc][this.d6(label) - 1]; }
+    // The section an attack actually lands on: the aimed one, or the other one in its arc if that's empty.
+    landLane(side, arc) {
+      if (this[side].length) return side;
+      return (ARCS[arc] || [side]).find((l) => this[l].length) || side;
+    }
 
     // ---------- events ----------
     runStorm() {
       const r = this.d6('Storm Front');
       this.event.rolls.push(r);
       if (r === 1) {
-        const side = this.randomSide();
-        this.say(`Rolled 1: lightning forks into your ${side} side!`, 'bad');
-        this.applyPlan(this.planHit(side, 'outer', 2), 'storm');
+        const side = this.rollLane('plunge');
+        this.say(`Rolled 1: lightning forks down into your ${side}!`, 'bad');
+        this.applyPlan(this.planHit(side, 'outer', 2, true, 'plunge'), 'storm');
       } else if (r === 2) {
         if (this.weight() >= 6) this.say(`Rolled 2: a crosswind howls, but your ${fmt(this.weight())}-Weight hull holds steady.`, 'good');
         else {
           this.say('Rolled 2: a crosswind batters both ends of the ship.', 'bad');
-          for (const side of SIDES) if (!this.coreDead()) this.applyPlan(this.planHit(side, 'outer', 1), 'storm');
+          for (const side of ['bow', 'stern']) if (!this.coreDead() && this[side].length) this.applyPlan(this.planHit(side, 'outer', 1), 'storm');
         }
       } else if (r === 3) {
         this.say('Rolled 3: a downdraft drags you toward the clouds below. Lighten the ship or brace.', 'warn');
-        const opts = SIDES.filter((s) => this.outer(s)).map((s) => ({ id: 'drop-' + s, label: `Jettison ${this.def(this.outer(s)).name}`, desc: `Lose your outermost ${s} module.` }));
+        const opts = SIDES.filter((s) => this.outer(s)).map((s) => ({ id: 'drop-' + s, label: `Jettison ${this.def(this.outer(s)).name}`, desc: `Lose the outermost module of your ${s}.` }));
         opts.push({ id: 'brace', label: 'Brace for it', desc: 'Your Core takes 2 damage.' });
         this.setOptions('downdraft', opts);
       } else if (r === 4) {
@@ -548,13 +568,13 @@
       this.event.next = node.enemy;
       this.event.mods = {};
       if (r === 1) {
-        const side = this.randomSide();
-        this.say(`Rolled 1: debris from the wreck slams your ${side} side.`, 'bad');
-        this.applyPlan(this.planHit(side, 'outer', 2), 'storm');
+        const side = this.rollLane('plunge');
+        this.say(`Rolled 1: debris from the wreck rains onto your ${side}.`, 'bad');
+        this.applyPlan(this.planHit(side, 'outer', 2, false, 'plunge'), 'storm');
       } else if (r === 2) {
-        const side = this.randomSide();
-        this.say(`Rolled 2: burning wreckage sets your ${side} side alight.`, 'bad');
-        this.placeToken('fire', side, 'outer');
+        const side = this.landLane(this.rollLane('plunge'), 'plunge');
+        this.say(`Rolled 2: burning wreckage sets your ${side} alight.`, 'bad');
+        this.placeToken('fire', side, 'outer', 'plunge');
       } else if (r === 3) {
         const weapons = this.cards().filter((c) => this.isWeapon(c));
         const target = weapons.length ? this.pick(weapons) : this.cards()[0];
@@ -832,17 +852,19 @@
 
     // Works out who takes how much from a hit, without changing anything. Used for both
     // resolving attacks and previewing the enemy's telegraphed intent.
-    planHit(side, layer, dmg, lightning = false) {
+    // arc ('direct' or 'plunge') lets a shot at an empty section fall on the other section it can reach.
+    planHit(side, layer, dmg, lightning = false, arc = null) {
+      if (arc) side = this.landLane(side, arc);
+      // A Lightning Rod on top of the deck drinks every bolt.
+      const rodTop = this.outer('deck');
+      if (lightning && rodTop && rodTop.id === 'lightningrod') return [{ uid: rodTop.uid, dmg: 0, rod: true }];
       const s = this[side];
       if (!s.length) return [{ uid: 'core', dmg, exposed: true }];
       const last = s.length - 1;
       const i = layer === 'outer' ? last : Math.min(layer, last);
       if (this.combat && this.combat.braced[side]) return [{ uid: s[last].uid, dmg: 0, braced: true }];
       const out = s[last];
-      if (lightning) {
-        if (out.id === 'lightningrod') return [{ uid: out.uid, dmg: 0, rod: true }];
-        return [{ uid: s[i].uid, dmg, lightning: true }];
-      }
+      if (lightning) return [{ uid: s[i].uid, dmg, lightning: true }];
       if (i !== last && ARMOR[out.id]) return [{ uid: out.uid, dmg: Math.max(0, dmg - ARMOR[out.id].reduce), intercept: true }];
       const target = s[i];
       if (i === last && ARMOR[target.id]) return [{ uid: target.uid, dmg: Math.max(0, dmg - ARMOR[target.id].reduce) }];
@@ -860,7 +882,7 @@
     applyPlan(plan, src) {
       for (const p of plan) {
         if (this.coreDead()) return;
-        if (p.braced) { this.say('The Deflector Vane turns the hit aside.', 'good'); this.emit('block', { uid: p.uid }); this.combat.braced = { left: false, right: false }; continue; }
+        if (p.braced) { this.say('The Deflector Vane turns the hit aside.', 'good'); this.emit('block', { uid: p.uid }); this.combat.braced = { stern: false, deck: false, bow: false }; continue; }
         if (p.rod) { this.say('The Lightning Rod drinks the bolt: +1 Steam next turn.', 'good'); this.emit('block', { uid: p.uid }); if (this.combat) this.combat.rodCharge += 1; continue; }
         if (p.lightning) this.say('Lightning arcs straight past the plating!', 'warn');
         if (p.intercept) this.say('Outside plating takes the hit.');
@@ -870,9 +892,9 @@
       }
     }
     // Where a token aimed at side/layer lands (outside armor catches it too).
-    tokenTarget(side, layer) {
-      const s = this[side];
-      if (!s.length) return 'core';
+    tokenTarget(side, layer, arc = null) {
+      if (arc) side = this.landLane(side, arc);
+      if (!this[side].length) return 'core';
       return this.planHit(side, layer, 1)[0].uid;
     }
     tokenImmune(card, token) {
@@ -883,8 +905,8 @@
       if (token === 'fire') return nbs.some((c) => c.id === 'sprinkler');
       return nbs.some((c) => c.id === 'scrubber');
     }
-    placeToken(token, side, layer) {
-      const uid = this.tokenTarget(side, layer);
+    placeToken(token, side, layer, arc = null) {
+      const uid = this.tokenTarget(side, layer, arc);
       const card = this.locate(uid).card;
       if (this.tokenImmune(card, token)) { this.say(`${this.nameOf(card)} is protected from ${TOKENS[token].name}.`, 'good'); return; }
       card.tokens[token] = true;
@@ -905,10 +927,10 @@
       this.combat = {
         enc: node.enc || 'patrol', enemyId, col,
         enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus: e.boss ? 0 : BALANCE.veteranColumns.filter((c) => col >= c).length, block: opts.block || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
-        galeSide: 'right', turnDamage: 0, rodCharge: 0,
+        galeSide: 'bow', turnDamage: 0, rodCharge: 0,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
-        braced: { left: false, right: false },
+        braced: { stern: false, deck: false, bow: false },
         fireAfflicted: this.cards().some((c) => c.tokens.fire) || this.core.tokens.fire,
         lastSource: null, loot: opts.loot || null,
       };
@@ -943,13 +965,15 @@
       const p = this.enemyDef().phases[pi];
       const r = this.d6(`${en.name}: ${p.name}`);
       const intent = { ...p.table[r - 1], roll: r };
+      // Direct fire aims at the bow or deck, plunging fire (bombs, lightning, lobbed shells) at the deck or stern.
+      intent.arc = intent.aim || 'direct';
       if (['shot', 'token'].includes(intent.kind)) {
-        const s = this.d6('Side');
-        const l = this.d6('Layer');
-        intent.side = s <= 3 ? 'left' : 'right';
-        intent.layer = LAYER_TABLE[l - 1] - 1;
-      } else if (['rake', 'ram'].includes(intent.kind)) {
-        intent.side = this.d6('Side') <= 3 ? 'left' : 'right';
+        intent.side = this.rollLane(intent.arc, 'Section');
+        intent.layer = LAYER_TABLE[CAP[intent.side]][this.d6('Layer') - 1] - 1;
+      } else if (intent.kind === 'rake') {
+        intent.side = this.rollLane(intent.arc, 'Section');
+      } else if (intent.kind === 'ram') {
+        intent.side = 'bow';
       }
       en.intent = intent;
       this.emit('intent', { intent });
@@ -977,13 +1001,19 @@
       const it = c.enemy.intent;
       const dmg = this.intentDamage(it);
       let plan = [];
-      if (it.kind === 'shot') plan = this.planHit(it.side, it.layer, dmg, !!it.lightning);
-      if (it.kind === 'ram') plan = this.planHit(it.side, 'outer', dmg);
-      if (it.kind === 'broadside') plan = [...this.planHit('left', 'outer', dmg), ...this.planHit('right', 'outer', dmg)];
-      if (it.kind === 'rake') plan = this.rakePlan(it.side, dmg);
-      if (it.kind === 'token') plan = [{ uid: this.tokenTarget(it.side, it.layer), dmg: dmg > 0 ? this.planHit(it.side, it.layer, dmg)[0].dmg : 0, token: it.token }];
+      if (it.kind === 'shot') plan = this.planHit(it.side, it.layer, dmg, !!it.lightning, it.arc);
+      if (it.kind === 'ram') plan = this.planHit('bow', 'outer', dmg, false, 'direct');
+      if (it.kind === 'broadside') plan = this.broadsidePlan(dmg);
+      if (it.kind === 'rake') plan = this.rakePlan(this.landLane(it.side, it.arc), dmg);
+      if (it.kind === 'token') plan = [{ uid: this.tokenTarget(it.side, it.layer, it.arc), dmg: dmg > 0 ? this.planHit(it.side, it.layer, dmg, false, it.arc)[0].dmg : 0, token: it.token }];
       if (c.evading && this.isAttack(it)) plan = plan.map((p) => ({ ...p, dmg: 0, evaded: true }));
       return { intent: it, dmg, plan };
+    }
+    // A broadside hits the outside module of the bow and of the deck (or the Core once if both are bare).
+    broadsidePlan(dmg) {
+      const lanes = ['bow', 'deck'].filter((l) => this[l].length);
+      if (!lanes.length) return [{ uid: 'core', dmg, exposed: true }];
+      return lanes.flatMap((l) => this.planHit(l, 'outer', dmg));
     }
     rakePlan(side, dmg) {
       const s = this[side];
@@ -1057,7 +1087,7 @@
       if (c.enemyId === 'colossus') { en.wound++; this.say(`The Mainspring tightens: +${en.wound} damage per hit.`, 'warn'); }
       if (en.weak > 0) en.weak--;
       if (en.vuln > 0) en.vuln--;
-      c.braced = { left: false, right: false };
+      c.braced = { stern: false, deck: false, bow: false };
       c.evadeStreak = c.evading ? c.evadeStreak + 1 : 0;
       c.evading = false;
       if (this.enrage() === 1) this.say(`${theName(en.name)} is Enraged: its hits grow stronger every round.`, 'warn');
@@ -1075,9 +1105,9 @@
     gale() {
       const c = this.combat;
       const side = c.galeSide;
-      c.galeSide = side === 'left' ? 'right' : 'left';
+      c.galeSide = { bow: 'stern', stern: 'deck', deck: 'bow' }[side];
       const pair = this.galeTargets(side);
-      if (!pair) { this.say(`The gale howls past your ${side === 'left' ? 'stern' : 'bow'}.`); return; }
+      if (!pair) { this.say(`The gale howls past your ${side}.`); return; }
       const s = this[side];
       [s[s.length - 1], s[s.length - 2]] = [s[s.length - 2], s[s.length - 1]];
       this.clampAll();
@@ -1103,22 +1133,22 @@
       if (it.kind === 'ram') {
         this.emit('ram', { side: it.side, enemy: true });
         this.say(`It rams your ${it.side} side and takes ${it.self} itself.`, 'warn');
-        this.applyPlan(this.planHit(it.side, 'outer', dmg), 'ram');
+        this.applyPlan(this.planHit('bow', 'outer', dmg, false, 'direct'), 'ram');
         if (this.coreDead()) return;
         this.damageEnemy(it.self, { pierce: true, source: 'recoil', noVuln: true });
       } else if (it.kind === 'shot') {
         this.emit('enemyShot', { side: it.side, layer: it.layer, dmg, lightning: !!it.lightning });
-        this.applyPlan(this.planHit(it.side, it.layer, dmg, !!it.lightning), 'attack');
+        this.applyPlan(this.planHit(it.side, it.layer, dmg, !!it.lightning, it.arc), 'attack');
       } else if (it.kind === 'broadside') {
         this.emit('enemyShot', { side: 'both', dmg });
-        for (const side of SIDES) if (!this.coreDead()) this.applyPlan(this.planHit(side, 'outer', dmg), 'attack');
+        this.applyPlan(this.broadsidePlan(dmg), 'attack');
       } else if (it.kind === 'rake') {
         this.emit('enemyShot', { side: it.side, rake: true, dmg });
-        this.applyPlan(this.rakePlan(it.side, dmg), 'attack');
+        this.applyPlan(this.rakePlan(this.landLane(it.side, it.arc), dmg), 'attack');
       } else if (it.kind === 'token') {
         this.emit('enemyShot', { side: it.side, layer: it.layer, dmg, token: it.token });
-        if (dmg > 0) this.applyPlan(this.planHit(it.side, it.layer, dmg), 'attack');
-        if (!this.coreDead()) this.placeToken(it.token, it.side, it.layer);
+        if (dmg > 0) this.applyPlan(this.planHit(it.side, it.layer, dmg, false, it.arc), 'attack');
+        if (!this.coreDead()) this.placeToken(it.token, it.side, it.layer, it.arc);
       }
       en.charge = 0;
     }
@@ -1207,7 +1237,7 @@
       const d = this.def(card);
       let cost = this.useCost(card) + (mode !== 'normal' ? 1 : 0);
       let blocked = null;
-      if (!d.arc && !this.isOuter(side, idx)) blocked = 'Buried: only outside weapons fire';
+      if (!this.canFireFrom(card, side, idx)) blocked = side === 'stern' ? 'Faces away: only arcing weapons fire from the stern' : 'Buried: only the prow or deck top fires';
       else if (card.reload > 0) blocked = 'Reloading';
       else if (card.fired >= this.shotsAllowed(card)) blocked = 'Already fired';
       else if (this.combat && this.combat.steam < cost) blocked = 'Not enough Steam';
@@ -1289,7 +1319,7 @@
         this.emit('ram', { player: true });
         this.damageEnemy(this.ramDamage(), { source: 'ram' });
         if (!this.combat.over) {
-          const bow = this.outer('right');
+          const bow = this.outer('bow');
           this.say('The impact jars your bow.', 'bad');
           this.damageModule(bow ? bow.uid : 'core', 1, 'recoil');
         }
@@ -1306,7 +1336,8 @@
       if (this.has('gyro') && this.combat && !this.combat.gyroUsed && !fatigue) return 0;
       let cost = Math.min(5, BALANCE.evadeBase + Math.floor(Math.max(0, this.weight()) / 3));
       if (this.core.id === 'airship') cost -= BALANCE.nimbleDiscount;
-      if (SIDES.some((s) => { const o = this.outer(s); return o && o.id === 'propeller'; })) cost -= 1;
+      const tail = this.outer('stern');
+      if (tail && tail.id === 'propeller') cost -= 1;
       return Math.max(1, cost) + fatigue * BALANCE.evadeFatigue;
     }
     canEvade() {
@@ -1400,5 +1431,5 @@
     }
   }
 
-  return { Game, fmt, cap, MAX_LAYERS, SIDES, VENT_COST, MAX_PRESSURE };
+  return { Game, fmt, cap, MAX_LAYERS, SIDES, CAP, ARCS, VENT_COST, MAX_PRESSURE };
 });

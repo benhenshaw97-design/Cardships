@@ -60,9 +60,9 @@
       this.insertFn = ui.insertFn || null;
       this.player.inserts = [];
       if (this.insertFn) {
-        for (const side of ['left', 'right']) {
+        for (const side of ['stern', 'deck', 'bow']) {
           const n = game[side].length;
-          if (n >= 3) continue;
+          if (!game.canInstall(side, n)) continue;
           for (let pos = 0; pos <= n; pos++) this.player.inserts.push({ side, pos, end: pos === n });
         }
       }
@@ -89,15 +89,19 @@
       const ext = this.player.width();
       if (this.phase === 'combat' || (this.enemy && this.enemy.sinking > 0 && this.enemy.sinking < 3)) {
         const room = phone ? v.w * 0.82 : v.w * 0.52;
-        const ps = Math.min(1.35, room / ext, v.h / 190);
+        const bd = this.player.bounds();
+        const ps = Math.min(1.35, room / ext, (v.h * 0.86) / (bd.top + bd.bottom));
         const px = phone ? v.w * 0.42 : v.w * 0.3;
-        const py = phone ? v.h * 0.74 : v.h * 0.64;
+        // Low enough that the deck tower and envelope stay on screen.
+        const py = Math.min(v.h - bd.bottom * ps - 6, Math.max(phone ? v.h * 0.74 : v.h * 0.64, bd.top * ps + 8));
         const half = this.enemy ? Math.max(60, this.enemy.halfW) : 80;
         const es = Math.min(phone ? 0.85 : 1.4, (phone ? v.w * 0.46 : v.w * 0.42) / (half * 2), v.h / (half * (phone ? 2.8 : 2.3)));
         return { player: { x: px, y: py, s: ps }, enemy: { x: phone ? v.w * 0.76 : v.w * 0.76, y: phone ? v.h * 0.34 : v.h * 0.5, s: es } };
       }
-      const s = Math.min(1.6, (v.w * 0.86) / ext, v.h / 165);
-      return { player: { x: v.w * 0.5, y: v.h * (this.phase === 'hangar' ? 0.66 : 0.64), s } };
+      const bd = this.player.bounds();
+      const s = Math.min(1.6, (v.w * 0.86) / ext, (v.h * 0.86) / (bd.top + bd.bottom));
+      const y = Math.min(v.h - bd.bottom * s - 6, Math.max(v.h * (this.phase === 'hangar' ? 0.66 : 0.64), bd.top * s + 8));
+      return { player: { x: v.w * 0.5, y, s } };
     },
 
     draw(g, v) {
