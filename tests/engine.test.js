@@ -2,279 +2,224 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Game } = require('../js/engine.js');
 
-// Starts a run with a fixed ship and drops straight into a fight.
-function fight(coreId, left, right, enemy = 'attackBoat', seed = 1) {
+// A run with a fixed ship, dropped straight into a fight. The rolled intent is replaced when given.
+function fight(coreId, left, right, enemy = 'gunship', intent = null, seed = 1) {
   const g = new Game({ seed });
   g.chooseCore(coreId);
-  g.lootOffer = null;
+  g.lootOffers = [];
   g.pendingLoot = [];
   g.left = left.map((id) => g.makeCard(id));
   g.right = right.map((id) => g.makeCard(id));
   g.enterMap();
   g.startCombat(enemy, { id: 'test' });
+  if (intent) g.combat.enemy.intent = intent;
+  g.combat.steam = g.steamCap(); // ignore first-turn bonuses
   return g;
 }
-// Replaces the dice with a fixed sequence of d4 rolls and coin flips (true = heads).
-function rig(g, d4s = [], coins = []) {
-  g.d4 = () => { assert.ok(d4s.length, 'ran out of rigged d4 rolls'); return d4s.shift(); };
-  g.coin = () => { assert.ok(coins.length, 'ran out of rigged coins'); return coins.shift(); };
-}
+const shot = (dmg, side, layer) => ({ kind: 'shot', name: 'Test Shot', dmg, side, layer });
 
-test('weight sets initiative, lowest acts first', () => {
-  const g = fight('zeppelin', ['harpoon'], ['armor']);
-  assert.equal(g.weight(), 0.5);
-  assert.equal(g.combat.playerFirst, true);
-  assert.equal(g.combat.active, 'player');
+test('an attack on an empty layer hits the next module inward', () => {
+  const g = fight('battleship', ['harpoon'], ['cannon'], 'gunship', shot(2, 'left', 2));
+  const plan = g.previewIntent().plan;
+  assert.equal(plan[0].uid, g.left[0].uid);
+  g.endTurn();
+  assert.equal(g.left[0].hp, 1);
+  assert.equal(g.core.hp, 12);
 });
 
-test('enemy rolls on an empty layer hit the Core directly', () => {
-  const g = fight('battleship', ['harpoon'], []);
-  rig(g, [1, 2], [true]); // Phase 1 roll 1 = Harpoon, coin Heads = left, layer 2 (empty)
-  g.enemyTurn();
-  assert.equal(g.core.dur, 4);
-  assert.equal(g.left[0].dur, 3);
+test('only a completely empty side exposes the Core', () => {
+  const g = fight('battleship', [], ['cannon'], 'gunship', shot(2, 'left', 0));
+  assert.equal(g.previewIntent().plan[0].uid, 'core');
+  g.endTurn();
+  assert.equal(g.core.hp, 10);
 });
 
-test('a d4 of 4 on targeting always misses', () => {
-  const g = fight('battleship', ['harpoon'], ['armor']);
-  rig(g, [1, 4], [false]);
-  g.enemyTurn();
-  assert.equal(g.core.dur, 5);
-  assert.equal(g.right[0].dur, 3);
+test('outside plating intercepts, buried plating soaks 1 for a neighbour', () => {
+  let g = fight('battleship', ['harpoon', 'plating'], ['cannon'], 'gunship', shot(3, 'left', 0));
+  g.endTurn();
+  assert.equal(g.left[0].hp, 3);
+  assert.equal(g.left[1].hp, 1);
+  g = fight('battleship', ['plating', 'harpoon', 'telescope'], ['cannon'], 'gunship', shot(3, 'left', 1));
+  g.endTurn();
+  assert.equal(g.left[0].hp, 3);
+  assert.equal(g.left[1].hp, 1);
 });
 
-test('outer Armor intercepts hits meant for cards behind it', () => {
-  const g = fight('battleship', ['harpoon', 'armor'], []);
-  rig(g, [1, 1], [true]); // harpoon at left layer 1
-  g.enemyTurn();
-  assert.equal(g.left[0].dur, 3);
-  assert.equal(g.left[1].dur, 2);
-});
-
-test('buried Armor soaks 1 damage for a neighbour', () => {
-  const g = fight('battleship', ['armor', 'harpoon', 'telescope'], []);
-  g.combat.enemy.dur = 4; // Phase 3: rolls 2-4 are Ram
-  rig(g, [2, 2], [true]); // Ram hits left layer 2 (harpoon) for 3
-  g.enemyTurn();
-  assert.equal(g.left[0].id, 'armor');
-  assert.equal(g.left[0].dur, 2);
-  assert.equal(g.left[1].dur, 1);
-  assert.equal(g.combat.enemy.dur, 1);
-});
-
-test('weapons fire only from the outside, and a Harpoon battery adds damage', () => {
-  const g = fight('zeppelin', ['harpoon', 'artillery'], ['harpoon']);
-  assert.equal(g.weaponInfo('left').card.id, 'artillery');
-  assert.equal(g.weaponInfo('left').battery, 1);
-  g.fire('left');
-  assert.equal(g.combat.enemy.dur, 9);
-  assert.equal(g.left[1].cd, 2);
-});
-
-test('artillery cools down for one turn unless a Telescope sits beneath it', () => {
-  const g = fight('battleship', ['telescope', 'artillery'], []);
-  g.combat.actions = 2;
-  assert.ok(g.fire('left'));
-  assert.ok(g.fire('left'));
-  assert.equal(g.combat.enemy.dur, 8);
-});
-
-test('Barracks gives an extra action and pays the Durability of the gun on top of it', () => {
-  const g = fight('battleship', ['barracks', 'cannon'], []);
-  assert.equal(g.combat.actions, 2);
-  rig(g, [], [true]);
-  g.fire('left');
-  assert.equal(g.combat.enemy.dur, 9);
-  assert.equal(g.left[1].dur, 3);
-  assert.equal(g.left[0].dur, 1);
-});
-
-test('strict mode makes every shot cost Durability', () => {
-  const g = new Game({ seed: 3, strict: true });
-  g.chooseCore('airship');
-  g.lootOffer = null; g.pendingLoot = [];
-  g.enterMap();
-  g.startCombat('scavengerSkiff', { id: 't' });
-  g.fire('left');
-  assert.equal(g.left[0].dur, 2);
-});
-
-test('enemy armor blocks the next hit, a sniper crit pierces it', () => {
-  const g = fight('battleship', ['sniper'], []);
-  g.combat.enemy.shield = true;
-  rig(g, [], [true]);
-  g.fire('left');
-  assert.equal(g.combat.enemy.dur, 10);
-});
-
-test('fire ticks at the start of the turn and an Extinguisher clears it', () => {
-  const g = fight('battleship', ['fireExtinguisher', 'harpoon'], []);
-  g.left[1].tokens.fire = true;
-  g.combat.active = 'enemy';
-  g.beginPlayerTurn();
-  assert.equal(g.left[1].dur, 2);
-  assert.ok(g.useSupport(g.left[0].uid, g.left[1].uid));
-  assert.equal(g.left[1].tokens.fire, false);
-  assert.equal(g.left[0].dur, 1);
-});
-
-test('Repair Bay can mend the Core only when attached to it', () => {
-  const g = fight('battleship', ['repairBay'], ['harpoon', 'repairBay']);
-  g.core.dur = 3;
-  assert.ok(g.supportTargets(g.left[0].uid).includes('core'));
-  assert.ok(!g.supportTargets(g.right[1].uid).includes('core'));
-});
-
-test('a Ram destroying a card next to a buried Cannon sets it off', () => {
-  const g = fight('battleship', ['cannon', 'telescope'], []);
-  g.combat.enemy.dur = 4;
-  rig(g, [2, 2], [true]); // Ram on left layer 2 (telescope)
-  g.enemyTurn();
-  g.checkEnd();
-  assert.equal(g.left.length, 1);
-  assert.equal(g.combat.enemy.dur, 0);
-  assert.equal(g.phase, 'loot');
-});
-
-test('Airship ram costs Core durability', () => {
-  const g = fight('airship', ['harpoon'], []);
-  g.useCore();
-  assert.equal(g.combat.enemy.dur, 9);
-  assert.equal(g.core.dur, 2);
-});
-
-test('enemy phases change with durability', () => {
-  const g = fight('battleship', [], []);
-  assert.equal(g.enemyPhase().name, 'Phase 1');
-  g.combat.enemy.dur = 8;
-  assert.equal(g.enemyPhase().name, 'Phase 2');
-  g.combat.enemy.dur = 4;
-  assert.equal(g.enemyPhase().name, 'Phase 3');
-});
-
-test('Supply Hatch offers 2 and keeps 1; with Storage Bay it keeps both', () => {
-  let g = fight('battleship', ['supplyHatch'], []);
-  g.combat.enemy.dur = 1;
-  g.fire('left'); // hatch is not a weapon
-  g.damageEnemy(1); g.checkEnd();
-  assert.equal(g.lootOffer.ids.length, 2);
-  assert.equal(g.lootOffer.keep, 1);
-  g = fight('battleship', ['supplyHatch'], ['storageBay']);
-  g.damageEnemy(12); g.checkEnd();
-  assert.equal(g.lootOffer, null);
-  assert.equal(g.pendingLoot.length, 2);
-});
-
-test('Hoarder contract pays out a Supply Hatch when a Storage Bay is installed', () => {
-  const g = fight('battleship', ['harpoon'], []);
-  g.damageEnemy(12); g.checkEnd();
-  g.lootOffer = null;
-  g.quest = 'hoarder';
-  g.pendingLoot = ['storageBay'];
-  g.installPending('right', 0);
-  assert.equal(g.quest, null);
-  assert.deepEqual(g.pendingLoot, ['supplyHatch']);
-});
-
-test('the boss is the last encounter and beating it wins the run', () => {
-  const g = new Game({ seed: 9, maxDepth: 2 });
-  g.chooseCore('battleship');
-  g.pickOffer(0);
-  g.jettisonPending();
-  g.finishLoot();
-  assert.notDeepEqual(g.choices, ['boss']);
-  g.depth = 1;
-  g.enterMap();
-  assert.deepEqual(g.choices, ['boss']);
-  g.chooseEncounter(0);
-  assert.equal(g.combat.enemy.max, 20);
-  g.combat.enemy.dur = 0;
-  g.checkEnd();
-  assert.equal(g.phase, 'victory');
-});
-
-// A simple bot plays many full runs. It is not trying to win, only to touch every rule path.
-function playRun(seed, strict) {
-  const g = new Game({ seed, strict });
-  const r = g.rng;
-  const pick = (n) => Math.floor(r() * n);
-  g.chooseCore(['airship', 'battleship', 'zeppelin'][seed % 3]);
-  for (let step = 0; step < 5000; step++) {
-    check(g);
-    if (g.phase === 'gameover' || g.phase === 'victory') return g;
-    if (g.pendingChoice) { g.resolveChoice(g.pendingChoice.eligible[0]); continue; }
-    switch (g.phase) {
-      case 'loot': {
-        if (g.lootOffer) { g.pickOffer(pick(g.lootOffer.ids.length)); break; }
-        if (g.swapAvailable && g.cards().length && r() < 0.5) {
-          const c = g.cards().find((x) => x.id !== 'storageBay');
-          if (c) g.quickSwap(c.uid, 0);
-          g.swapAvailable = false;
-          break;
-        }
-        if (g.pendingLoot.length) {
-          const side = r() < 0.5 ? 'left' : 'right';
-          if (g.canInstall(side, g[side].length)) g.installPending(side, pick(g[side].length + 1));
-          else if (!g.storePending()) {
-            if (r() < 0.3 && g.cards().length) g.scrap(g.cards()[0].uid);
-            else g.jettisonPending();
-          }
-          break;
-        }
-        assert.ok(g.finishLoot(), 'loot should finish');
-        break;
-      }
-      case 'map': {
-        const bay = g.cards().find((c) => c.id === 'repairBay');
-        if (bay && r() < 0.2) { const t = g.supportTargets(bay.uid); if (t.length) g.useSupport(bay.uid, t[0]); }
-        g.chooseEncounter(pick(g.choices.length));
-        break;
-      }
-      case 'event': g.continueEvent(); break;
-      case 'shipyard': {
-        if (g.cards().length && r() < 0.5) {
-          const c = g.cards()[pick(g.cards().length)];
-          g.detach(c.uid);
-          const side = r() < 0.5 ? 'left' : 'right';
-          g.attach(0, side, 0) || g.attach(0, side === 'left' ? 'right' : 'left', 0);
-        }
-        if (!g.shipyard.roll) g.salvage();
-        else assert.ok(g.leaveShipyard());
-        break;
-      }
-      case 'combat': {
-        if (!g.canAct()) { g.endTurn(); break; }
-        const opts = [];
-        for (const s of ['left', 'right']) { const w = g.weaponInfo(s); if (w && !w.blocked) opts.push(() => g.fire(s)); }
-        if (!g.coreAbilityInfo().blocked) opts.push(() => g.useCore());
-        for (const c of g.cards()) {
-          const t = g.supportTargets(c.uid);
-          if (g.canUseSupport(c.uid) && t.length) opts.push(() => g.useSupport(c.uid, t[0]));
-        }
-        opts.push(() => g.endTurn());
-        opts[pick(opts.length)]();
-        break;
-      }
-      default: assert.fail('unexpected phase ' + g.phase);
+test('the enemy intent is rolled before you act, and the preview matches what happens', () => {
+  for (let seed = 1; seed < 40; seed++) {
+    const g = fight('battleship', ['plating', 'harpoon'], ['repair', 'cannon'], 'gunship', null, seed);
+    const it = g.combat.enemy.intent;
+    assert.ok(it && it.name);
+    const preview = g.previewIntent();
+    const before = Object.fromEntries([g.core, ...g.cards()].map((c) => [c.uid, c.hp]));
+    g.combat.steam = 0;
+    g.endTurn();
+    if (!['shot', 'broadside', 'rake', 'ram'].includes(it.kind) || g.phase !== 'combat') continue;
+    for (const p of preview.plan) {
+      const c = g.locate(p.uid);
+      const after = c ? c.card.hp : 0;
+      assert.equal(Math.max(0, before[p.uid] - after) >= Math.min(p.dmg, before[p.uid]), true, `seed ${seed}`);
     }
   }
-  assert.fail(`run ${seed} did not finish`);
-}
-function check(g) {
+});
+
+test('Steam refills every turn and pays for actions; weapons fire once per turn from outside', () => {
+  const g = fight('battleship', ['harpoon', 'cannon'], ['harpoon'], 'gunship', shot(0, 'left', 0));
+  assert.equal(g.combat.steam, 3);
+  assert.ok(g.fireInfo(g.left[0].uid).blocked);
+  assert.ok(g.fire(g.right[0].uid));
+  assert.equal(g.combat.steam, 2);
+  assert.equal(g.fireInfo(g.right[0].uid).blocked, 'Already fired');
+  g.endTurn();
+  assert.equal(g.combat.steam, 3);
+});
+
+test('Durability is health only: firing never costs Durability', () => {
+  const g = fight('battleship', [], ['harpoon'], 'gunship', shot(0, 'left', 0));
+  g.fire(g.right[0].uid);
+  assert.equal(g.right[0].hp, 3);
+});
+
+test('a Mortar fires from a buried layer, then reloads unless a Telescope is touching it', () => {
+  const g = fight('zeppelin', ['mortar', 'plating'], [], 'gunship', shot(0, 'left', 0));
+  assert.ok(g.fire(g.left[0].uid));
+  g.endTurn();
+  g.combat.enemy.intent = shot(0, 'left', 0);
+  assert.equal(g.fireInfo(g.left[0].uid).blocked, 'Reloading');
+  const h = fight('zeppelin', ['telescope', 'mortar'], [], 'gunship', shot(0, 'left', 0));
+  h.fire(h.left[1].uid);
+  h.endTurn();
+  assert.equal(h.fireInfo(h.left[1].uid).blocked, null);
+});
+
+test('Evade makes the telegraphed attack miss; the Battleship cannot evade', () => {
+  const g = fight('airship', ['propeller'], ['harpoon'], 'gunship', shot(3, 'right', 0));
+  assert.equal(g.evadeCost(), 1);
+  assert.ok(g.evade());
+  g.endTurn();
+  assert.equal(g.right[0].hp, 3);
+  const b = fight('battleship', [], ['cannon'], 'gunship', shot(3, 'right', 0));
+  assert.equal(b.canEvade(), false);
+});
+
+test('back-to-back Evades get more expensive, and long fights Enrage the enemy', () => {
+  const g = fight('airship', ['propeller'], ['harpoon'], 'gunship', shot(1, 'right', 0));
+  g.evade(); g.endTurn();
+  g.combat.enemy.intent = shot(1, 'right', 0);
+  assert.equal(g.evadeCost(), 2);
+  g.combat.round = 13;
+  assert.equal(g.intentDamage(shot(1, 'right', 0)), 4);
+});
+
+test('swapping adjacent modules costs Steam (Airship: first one free); glue pins a module', () => {
+  const g = fight('battleship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'left', 0));
+  assert.ok(g.swap(g.left[0].uid, g.left[1].uid));
+  assert.equal(g.left[0].id, 'plating');
+  assert.equal(g.combat.steam, 2);
+  const a = fight('airship', ['harpoon', 'plating'], [], 'gunship', shot(0, 'left', 0));
+  a.swap(a.left[0].uid, a.left[1].uid);
+  assert.equal(a.combat.steam, 4);
+  a.left[0].tokens.glue = true;
+  assert.equal(a.canSwap(a.left[0].uid, a.left[1].uid), false);
+});
+
+test('venting clears tokens for 2 Steam; gas makes a module cost 1 more', () => {
+  const g = fight('airship', [], ['harpoon'], 'gunship', shot(0, 'left', 0));
+  g.right[0].tokens.gas = true;
+  assert.equal(g.fireInfo(g.right[0].uid).cost, 2);
+  assert.ok(g.vent(g.right[0].uid));
+  assert.equal(g.right[0].tokens.gas, false);
+  assert.equal(g.combat.steam, 2);
+});
+
+test('weight resists rams', () => {
+  const g = fight('battleship', ['plating', 'plating'], ['cannon', 'plating'], 'cutter');
+  const ram = { kind: 'ram', name: 'Ram', dmg: 3, self: 2, side: 'right' };
+  assert.equal(g.intentDamage(ram), 1); // weight 8 vs 2 → -3, Ironsides -2, min 1
+  const z = fight('zeppelin', [], ['harpoon'], 'cutter');
+  assert.equal(z.intentDamage(ram), 3);
+});
+
+test('the Zeppelin banks unspent Steam as Pressure and Bombards with it', () => {
+  const g = fight('zeppelin', [], ['harpoon'], 'gunship', shot(0, 'left', 0));
+  g.endTurn();
+  assert.equal(g.core.pressure, 3);
+  g.combat.enemy.intent = shot(0, 'left', 0);
+  const hp = g.combat.enemy.hp;
+  g.combat.enemy.block = 5;
+  assert.ok(g.useCore());
+  assert.equal(g.combat.enemy.hp, hp - 6);
+  assert.equal(g.core.pressure, 0);
+});
+
+test('an aimed Deck Cannon keeps the higher of two d6', () => {
+  const g = fight('battleship', [], ['cannon'], 'gunship', shot(0, 'left', 0));
+  const rolls = [2, 5];
+  g.d6 = () => rolls.shift();
+  const hp = g.combat.enemy.hp;
+  g.fire(g.right[0].uid, 'aimed');
+  assert.equal(g.combat.enemy.hp, hp - 4);
+});
+
+test('Block absorbs damage; Choking adds 1 per hit; Burn ticks and fades', () => {
+  const g = fight('battleship', [], ['grenadiers'], 'gunship', shot(0, 'left', 0));
+  const en = g.combat.enemy;
+  g.fire(g.right[0].uid);
+  assert.equal(en.vuln, 2);
+  en.block = 1;
+  g.damageEnemy(2);
+  assert.equal(en.block, 0);
+  en.burn = 2;
+  const hp = en.hp;
+  g.endTurn();
+  assert.equal(en.hp, hp - 2);
+  assert.equal(en.burn, 1);
+});
+
+test('storm results with a downside offer a choice instead of nothing happening', () => {
+  const g = new Game({ seed: 5 });
+  g.chooseCore('airship');
+  g.lootOffers = []; g.pendingLoot = [];
+  g.enterMap();
+  g.d6 = () => 3;
+  g.startEncounter('storm');
+  assert.equal(g.event.stage, 'downdraft');
+  assert.ok(g.event.options.some((o) => o.id === 'brace'));
+  g.chooseOption('brace');
+  assert.equal(g.core.hp, 6);
+  assert.ok(g.continueEvent());
+});
+
+test('a saved run resumes with identical dice', () => {
+  const a = fight('airship', ['plating'], ['harpoon'], 'gunship', null, 77);
+  const b = Game.fromJSON(JSON.parse(JSON.stringify(a)));
+  a.endTurn(); b.endTurn();
+  assert.deepEqual(a.combat.enemy.intent, b.combat.enemy.intent);
+  assert.equal(a.rngState, b.rngState);
+});
+
+test('the bot plays 400 seeded runs without breaking an invariant', () => {
+  const { playRun } = require('../js/bot.js');
+  const outcomes = { gameover: 0, victory: 0 };
+  for (let seed = 1; seed <= 400; seed++) {
+    const g = playRun(new Game({ seed }), ['airship', 'battleship', 'zeppelin', 'clockwork'][seed % 4], { check: invariants, random: seed % 3 === 0 });
+    outcomes[g.phase]++;
+  }
+  assert.equal(outcomes.gameover + outcomes.victory, 400);
+});
+
+function invariants(g) {
   for (const s of ['left', 'right']) {
     assert.ok(g[s].length <= 3, 'side overflow');
     for (const c of g[s]) {
-      assert.ok(c.dur > 0, `dead card left on ship: ${c.id}`);
-      assert.ok(c.dur <= g.maxDur(c), `over max: ${c.id}`);
+      assert.ok(c.hp > 0, `dead module left on ship: ${c.id}`);
+      assert.ok(c.hp <= g.maxHp(c), `over max: ${c.id}`);
     }
   }
   assert.ok(g.storage.length <= 2);
-  if (g.phase !== 'gameover') assert.ok(g.core.dur > 0 && g.core.dur <= g.core.max);
-  if (g.phase === 'combat') assert.ok(g.combat.enemy.dur > 0 && g.combat.enemy.dur <= g.combat.enemy.max);
+  if (g.phase !== 'gameover') assert.ok(g.core.hp > 0 && g.core.hp <= g.maxHp(g.core), 'core hp');
+  if (g.phase === 'combat') {
+    assert.ok(g.combat.enemy.hp > 0 && g.combat.enemy.hp <= g.combat.enemy.max, 'enemy hp');
+    assert.ok(g.combat.steam >= 0, 'steam');
+  }
 }
-
-test('bot plays 600 seeded runs without breaking an invariant', () => {
-  const outcomes = { gameover: 0, victory: 0 };
-  for (let seed = 1; seed <= 600; seed++) outcomes[playRun(seed, seed % 4 === 0).phase]++;
-  assert.equal(outcomes.gameover + outcomes.victory, 600);
-});

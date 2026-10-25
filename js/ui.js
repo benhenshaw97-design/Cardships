@@ -1,17 +1,11 @@
-// Cardships browser UI. Renders the engine state and turns clicks into engine calls.
+// Cardships browser UI. Renders the engine state as panels and the card view, and turns
+// clicks into engine calls.
 (function () {
   const D = window.CardshipsData;
-  const { Game, fmt, SIDES } = window.CardshipsEngine;
+  const { Game, fmt, SIDES, VENT_COST } = window.CardshipsEngine;
 
   let game = null;
   const ui = { selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0 };
-
-  const prefs = { strict: false };
-  try { prefs.strict = localStorage.getItem('cardships.strict') === '1'; } catch (e) { /* storage unavailable */ }
-  function saveStrict(v) {
-    prefs.strict = v;
-    try { localStorage.setItem('cardships.strict', v ? '1' : '0'); } catch (e) { /* storage unavailable */ }
-  }
 
   // ---------- tiny DOM helper ----------
   function h(tag, attrs, ...kids) {
@@ -20,7 +14,6 @@
       if (v == null || v === false) continue;
       if (k === 'class') el.className = v;
       else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-      else if (k === 'html') el.innerHTML = v;
       else el.setAttribute(k, v === true ? '' : v);
     }
     for (const kid of kids.flat(Infinity)) {
@@ -31,6 +24,7 @@
   }
   const $ = (id) => document.getElementById(id);
   const statline = (...items) => h('span', { class: 'statline' }, items.map((x) => (typeof x === 'string' ? h('span', {}, x) : x)));
+  const partName = (id) => D.PARTS[id].name;
 
   function act(fn) {
     return (ev) => {
@@ -38,7 +32,7 @@
       fn();
       ui.targeting = null;
       ui.confirmScrap = null;
-      if (ui.selected && game && !game.locate(ui.selected)) ui.selected = null;
+      if (ui.selected && game && !game.locate(ui.selected) && !game.storage.some((c) => c.uid === ui.selected)) ui.selected = null;
       render();
     };
   }
@@ -46,13 +40,10 @@
   // ---------- render root ----------
   function render() {
     renderHud();
-    const stage = $('stage');
-    stage.replaceChildren(...stageContent().filter(Boolean));
+    $('stage').replaceChildren(...stageContent().filter(Boolean));
     renderLog();
-    if (game) game.flashes.clear();
-    if (game && game.combat) game.combat.flashEnemy = false;
+    if (game) { game.flashes.clear(); game.events = []; }
   }
-
   function stageContent() {
     if (!game) return titleScreen();
     if (game.pendingChoice) {
@@ -63,7 +54,7 @@
       case 'loot': return lootScreen();
       case 'map': return mapScreen();
       case 'event': return eventScreen();
-      case 'shipyard': return shipyardScreen();
+      case 'hangar': return hangarScreen();
       case 'combat': return combatScreen();
       case 'gameover':
       case 'victory': return endScreen();
@@ -81,12 +72,13 @@
       route.append(h('i', { class: cls }));
     }
     const item = (label, value, title) => h('div', { class: 'hud-item', title }, h('span', { class: 'hud-label' }, label), h('span', { class: 'hud-value' }, value));
+    const quest = game.quest && D.QUESTS.find((q) => q.id === game.quest);
     hud.replaceChildren(...[
       item('Route', route),
-      item('Core', `${Math.max(0, game.core.dur)}/${game.core.max}`),
-      item('Weight', fmt(game.weight()), 'Lower weight acts first in combat'),
-      item('Actions', String(game.actionsPerTurn()), 'Actions per combat turn'),
-      game.quest ? item('Contract', D.QUESTS[game.quest].name, D.QUESTS[game.quest].goal) : null,
+      item('Core', `${Math.max(0, game.core.hp)}/${game.maxHp(game.core)}`),
+      item('Weight', fmt(game.weight()), 'Lighter ships outpace enemies and dodge cheaply; heavier ships shrug off rams and wind'),
+      item('Steam', String(game.steamCap()), 'Steam per turn'),
+      quest ? item('Contract', quest.name, quest.goal) : null,
     ].filter(Boolean));
   }
 
@@ -103,59 +95,62 @@
 
   // ---------- title ----------
   function titleScreen() {
-    const cores = Object.values(D.CORES).map((c) =>
-      h('button', { class: 'core-pick', onclick: () => { game = new Game({ strict: prefs.strict }); game.chooseCore(c.id); ui.selected = null; render(); } },
-        h('span', { class: 'eyebrow' }, 'Core'),
+    const cores = Object.values(D.CORES).filter((c) => !c.locked).map((c) =>
+      h('button', { class: 'core-pick', onclick: () => { game = new Game(); game.chooseCore(c.id); ui.selected = null; render(); } },
+        h('span', { class: 'eyebrow' }, c.style),
         h('span', { class: 'name' }, c.name.replace(' Core', '')),
-        statline(h('span', {}, 'Weight ', h('b', {}, fmt(c.weight))), h('span', {}, 'Durability ', h('b', {}, c.dur))),
-        h('span', {}, h('b', {}, c.ability.name + '. '), c.ability.text),
+        statline(`Weight ${fmt(c.weight)}`, `Durability ${c.hp}`, `Steam ${c.steam}`),
+        h('span', {}, h('b', {}, c.passive.name + '. '), c.passive.text),
+        h('span', {}, h('b', {}, `${c.ability.name} (${c.ability.cost} Steam). `), c.ability.text),
         h('span', { class: 'muted' }, c.blurb),
       ));
-    const strictBox = h('input', { type: 'checkbox', id: 'strict-toggle', checked: prefs.strict || null, onchange: (e) => saveStrict(e.target.checked) });
     return [
       h('div', { class: 'title-hero' },
-        h('span', { class: 'eyebrow' }, 'A roguelike of bolted-together sky ships'),
+        h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike'),
         h('h1', {}, 'Cardships'),
-        h('p', {}, 'Pick a Core, bolt parts to its left and right, and fly through ten encounters to face the Iron Leviathan. If your Core breaks, the run is over.'),
+        h('p', {}, 'Bolt modules onto a Core, read the enemy\'s next move, and fly the cloud routes to the boss. If your Core ruptures, the run is over.'),
       ),
       h('div', { class: 'cores' }, cores),
       h('div', { class: 'panel stack' },
-        h('h3', {}, 'How the ship works'),
+        h('h3', {}, 'How it flies'),
         h('div', { class: 'primer' },
-          h('div', {}, h('b', {}, 'Layers'), h('span', {}, 'Up to 3 cards per side. Layer 1 touches the Core. Only the outside card of a side can fire.')),
-          h('div', {}, h('b', {}, 'Enemy targeting'), h('span', {}, 'Enemies flip a coin for the side and roll a d4 for the layer. A 4 misses. An empty layer means a direct hit on your Core.')),
-          h('div', {}, h('b', {}, 'Weight'), h('span', {}, 'Core weight plus 1 per card. The lighter ship acts first each round.')),
-          h('div', {}, h('b', {}, 'Actions'), h('span', {}, '1 per turn, +1 per Barracks. Support cards spend their own Durability to work.')),
-          h('div', {}, h('b', {}, 'Paths'), h('span', {}, 'Each encounter says how many routes you choose from next, up to 3. An outside Telescope adds one.')),
-          h('div', {}, h('b', {}, 'Loot'), h('span', {}, 'Win a fight to draw a Part Card. Install it, stow it or jettison it.')),
+          h('div', {}, h('b', {}, 'Layers'), h('span', {}, 'Up to 3 modules per side. Layer 1 touches the Core. Most weapons fire only from the outside; Mortars and Tesla Coils arc over.')),
+          h('div', {}, h('b', {}, 'Intents'), h('span', {}, 'The enemy\'s next move and target are shown before you act. Answer it: swap modules, Evade, cleanse, or kill it first.')),
+          h('div', {}, h('b', {}, 'Steam'), h('span', {}, 'Refills every turn and pays for everything. Durability is only health.')),
+          h('div', {}, h('b', {}, 'Targeting'), h('span', {}, 'A hit on an empty layer strikes the next module inward. Only a bare side exposes the Core. Outside plating takes every hit on its side.')),
+          h('div', {}, h('b', {}, 'Weight'), h('span', {}, 'Lighter than the enemy: +1 Steam on turn one and cheap Evades. Heavier: rams and crosswinds hurt less.')),
+          h('div', {}, h('b', {}, 'Dice'), h('span', {}, 'Everything rolls a d6. Results with a downside give you a choice.')),
         ),
-        h('label', { class: 'toggle', for: 'strict-toggle' }, strictBox,
-          h('span', {}, h('b', {}, 'Strict durability. '), h('span', { class: 'muted' }, 'Every weapon spends 1 Durability per shot, as the rule sheet\'s action economy reads. Off: only the Cannon and Sniper do, as their card text says.'))),
       ),
     ];
   }
 
   // ---------- cards ----------
   function cardInfo(card) {
-    if (card === game.core) {
-      const c = D.CORES[card.id];
-      return { name: c.name, abbr: 'CORE', type: 'core', weight: c.weight, max: card.max };
-    }
+    if (card === game.core) return { name: D.CORES[card.id].name, abbr: 'CORE', type: 'core', weight: card.weight, max: game.maxHp(card), rarity: '' };
     const d = D.PARTS[card.id];
-    return { name: d.name, abbr: d.abbr, type: d.type, weight: d.weight, max: game.maxDur(card) };
+    return { name: d.name, abbr: d.abbr, type: d.type, weight: d.weight, max: game.maxHp(card), rarity: d.rarity };
   }
-  function cardEl(card) {
+  function predictedHits() {
+    const out = new Map();
+    if (game.phase !== 'combat' || !game.combat.enemy.intent) return out;
+    const p = game.previewIntent();
+    for (const hit of p.plan) out.set(hit.uid, (out.get(hit.uid) || 0) + hit.dmg);
+    return out;
+  }
+  function cardEl(card, hits) {
     const info = cardInfo(card);
     const t = ui.targeting;
     const eligible = t && t.eligible.includes(card.uid);
-    const cls = ['card', info.type, ui.selected === card.uid && !t ? 'selected' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', game.flashes.has(card.uid) ? 'hit' : ''].join(' ');
+    const incoming = hits && hits.has(card.uid) ? hits.get(card.uid) : null;
+    const cls = ['card', info.type, info.rarity, ui.selected === card.uid && !t ? 'selected' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', game.flashes.has(card.uid) ? 'hit' : '', incoming != null ? 'targeted' : ''].join(' ');
     const pips = h('div', { class: 'pips' });
-    for (let i = 0; i < info.max; i++) pips.append(h('i', { class: i < card.dur ? 'on' : '' }));
+    for (let i = 0; i < info.max; i++) pips.append(h('i', { class: i < card.hp ? 'on' : '' }));
     const toks = h('div', { class: 'tokens' });
     for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) toks.append(h('span', { class: `tok ${k}` }, k));
-    if (card.cd > 0) toks.append(h('span', { class: 'tok cd' }, 'cd'));
+    if (card.reload > 0) toks.append(h('span', { class: 'tok cd' }, 'rld'));
     return h('button', {
-      class: cls, 'aria-label': `${info.name}, ${card.dur} of ${info.max} durability`,
+      class: cls, 'aria-label': `${info.name}, ${card.hp} of ${info.max} durability`,
       onclick: (ev) => {
         ev.stopPropagation();
         if (t) { if (eligible) { t.onPick(card.uid); ui.targeting = null; } render(); return; }
@@ -167,19 +162,20 @@
     h('div', { class: 'card-body' },
       h('span', { class: 'card-name' }, info.name),
       h('span', { class: 'card-abbr' }, info.abbr),
-      h('span', { class: 'card-meta' }, h('span', { class: 'card-w' }, `W${fmt(info.weight)} · `), `${Math.max(0, card.dur)}/${info.max}`),
+      h('span', { class: 'card-meta' }, h('span', { class: 'card-w' }, `W${fmt(info.weight)} · `), `${Math.max(0, card.hp)}/${info.max}`),
       pips,
     ),
-    toks);
+    toks,
+    incoming != null ? h('span', { class: 'incoming' }, incoming > 0 ? `−${incoming}` : '0') : null);
   }
 
-  // insert: null or (side, pos) => void — shows install markers on the ship
   function shipView({ insert = null, title = 'Your ship' } = {}) {
+    const hits = predictedHits();
     const grid = h('div', { class: 'ship' });
     grid.append(
-      h('div', { class: 'side-label', style: 'grid-column: 1 / 4' }, '◂ Left'),
+      h('div', { class: 'side-label', style: 'grid-column: 1 / 4' }, '◂ Stern (left)'),
       h('div', { class: 'side-label', style: 'grid-column: 4' }, 'Core'),
-      h('div', { class: 'side-label', style: 'grid-column: 5 / 8' }, 'Right ▸'),
+      h('div', { class: 'side-label', style: 'grid-column: 5 / 8' }, 'Bow (right) ▸'),
     );
     for (const side of SIDES) {
       const s = game[side];
@@ -188,80 +184,96 @@
         const col = side === 'left' ? 3 - i : 5 + i;
         const slot = h('div', { class: 'slot', style: `grid-column: ${col}; grid-row: 2` });
         if (s[i]) {
-          slot.append(cardEl(s[i]));
-          if (insert && !full) {
-            slot.append(h('button', { class: `insert-tab ${side === 'left' ? 'at-right' : 'at-left'}`, title: `Insert at ${side} layer ${i + 1}`, 'aria-label': `Insert at ${side} layer ${i + 1}`, onclick: act(() => insert(side, i)) }, '+'));
-          }
+          slot.append(cardEl(s[i], hits));
+          if (insert && !full) slot.append(h('button', { class: `insert-tab ${side === 'left' ? 'at-right' : 'at-left'}`, title: `Insert at ${side} layer ${i + 1}`, 'aria-label': `Insert at ${side} layer ${i + 1}`, onclick: act(() => insert(side, i)) }, '+'));
         } else if (insert && i === s.length) {
           slot.append(h('button', { class: 'slot-attach', onclick: act(() => insert(side, i)) }, `Attach at layer ${i + 1}`));
         } else {
-          slot.append(h('div', { class: 'slot-empty' }, i === s.length ? 'Open: Core exposed' : 'Open'));
+          slot.append(h('div', { class: 'slot-empty' }, s.length === 0 && i === 0 ? 'Bare: Core exposed' : 'Open'));
         }
         grid.append(slot);
         grid.append(h('div', { class: 'layer-tag', style: `grid-column: ${col}; grid-row: 3` }, `L${i + 1}${s[i] && i === s.length - 1 ? ' · out' : ''}`));
       }
     }
-    grid.append(h('div', { class: 'slot', style: 'grid-column: 4; grid-row: 2' }, cardEl(game.core)));
+    grid.append(h('div', { class: 'slot', style: 'grid-column: 4; grid-row: 2' }, cardEl(game.core, hits)));
     grid.append(h('div', { class: 'layer-tag', style: 'grid-column: 4; grid-row: 3' }, D.CORES[game.core.id].name.split(' ')[0]));
 
-    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 parts`)), grid];
-    if (game.has('storageBay')) {
-      const store = h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Storage ${game.storage.length}/2`));
+    const parts = [h('div', { class: 'ship-head' }, h('h3', {}, title), h('span', { class: 'muted' }, `Weight ${fmt(game.weight())} · ${game.cards().length}/6 modules`)), grid];
+    if (game.has('cargo')) {
+      const store = h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, `Cargo ${game.storage.length}/2`));
       for (const c of game.storage) store.append(h('div', { class: 'slot' }, cardEl(c)));
       parts.push(store);
     }
     return h('section', { class: 'panel ship-wrap' }, parts, inspector());
   }
 
+  function rulesBlock(card) {
+    if (card === game.core) {
+      const c = D.CORES[card.id];
+      return h('div', { class: 'rules' },
+        h('div', {}, h('b', {}, `${c.passive.name}: `), c.passive.text),
+        h('div', {}, h('b', {}, `${c.ability.name} (${c.ability.cost} Steam): `), c.ability.text));
+    }
+    return h('div', { class: 'rules' }, D.PARTS[card.id].rules.map(([k, v]) => h('div', {}, h('b', {}, k + ': '), v)));
+  }
+
   function inspector() {
     const box = h('div', { class: 'inspector' });
     const uid = ui.selected;
-    const inStorage = uid && game.storage.find((c) => c.uid === uid);
-    const loc = uid && (game.locate(uid) || (inStorage && { card: inStorage, side: null, idx: -1, stored: true }));
+    const stored = uid && game.storage.find((c) => c.uid === uid);
+    const loc = uid && (game.locate(uid) || (stored && { card: stored, side: null, idx: -1, stored: true }));
     if (!loc || ui.targeting) {
-      box.append(h('p', { class: 'muted' }, ui.targeting ? '' : 'Tap any card to read its rules.'));
+      if (!ui.targeting) box.append(h('p', { class: 'muted' }, game.phase === 'combat' ? 'Tap a module to fire, swap or vent it.' : 'Tap any module to read its rules.'));
       return box;
     }
     const card = loc.card;
     const info = cardInfo(card);
-    const head = h('div', { class: 'row' }, h('span', { class: `type-chip ${info.type}` }, info.type), h('h3', {}, info.name), statline(`W${fmt(info.weight)}`, `Dur ${Math.max(0, card.dur)}/${info.max}`));
-    box.append(head);
-    if (card === game.core) {
-      const c = D.CORES[card.id];
-      box.append(h('div', { class: 'rules' }, h('div', {}, h('b', {}, c.ability.name + ': '), c.ability.text), h('div', { class: 'muted' }, c.blurb)));
-    } else {
-      const d = D.PARTS[card.id];
-      if (loc.stored) box.append(h('p', { class: 'muted' }, 'In storage.'));
-      else box.append(h('p', { class: 'muted' }, `${loc.side === 'left' ? 'Left' : 'Right'} side, layer ${loc.idx + 1}: ${game.isOuter(loc.side, loc.idx) ? 'outside' : 'buried'}.`));
-      box.append(h('div', { class: 'rules' }, d.rules.map(([k, v]) => h('div', {}, h('b', {}, k + ': '), v))));
-      if (card.bonusMax) box.append(h('p', { class: 'muted' }, `Reinforced: +${card.bonusMax} max Durability.`));
-    }
-    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ' token: '), D.TOKENS[k].text));
+    box.append(h('div', { class: 'row' },
+      h('span', { class: `type-chip ${info.type}` }, info.type),
+      info.rarity ? h('span', { class: `rarity-chip ${info.rarity}` }, info.rarity) : null,
+      h('h3', {}, info.name),
+      statline(`W${fmt(info.weight)}`, `Dur ${Math.max(0, card.hp)}/${info.max}`)));
+    if (card !== game.core) box.append(h('p', { class: 'muted' }, loc.stored ? 'In the Cargo Hold.' : `${loc.side === 'left' ? 'Stern' : 'Bow'} side, layer ${loc.idx + 1}: ${game.isOuter(loc.side, loc.idx) ? 'outside' : 'buried'}.`));
+    box.append(rulesBlock(card));
+    if (card.bonusMax) box.append(h('p', { class: 'muted' }, `Reinforced: +${card.bonusMax} max Durability.`));
+    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
 
     const buttons = h('div', { class: 'row' });
-    if (!loc.stored && card !== game.core) {
-      if (game.canUseSupport(uid)) {
-        const targets = game.supportTargets(uid);
-        buttons.append(h('button', { class: 'btn small', disabled: !targets.length || null, onclick: () => startSupport(uid) }, `Use ${D.PARTS[card.id].name}`, h('span', { class: 'sub' }, targets.length ? '−1 Dur' : 'no target')));
+    if (game.phase === 'combat' && !loc.stored) {
+      const fi = card !== game.core && game.fireInfo(uid);
+      if (fi) for (const mode of fi.modes) {
+        const w = game.fireInfo(uid, mode);
+        buttons.append(h('button', { class: 'btn small', disabled: w.blocked ? true : null, onclick: act(() => game.fire(uid, mode)) },
+          mode === 'aimed' ? 'Aimed shot' : mode === 'steady' ? 'Steady aim' : 'Fire', h('span', { class: 'sub' }, `${w.cost} Steam · ${w.blocked || w.summary}`)));
       }
-      if (game.phase === 'shipyard') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.detach(uid); ui.selected = null; }) }, 'Detach'));
-      if (game.phase === 'loot' || game.phase === 'map') {
+      if (card !== game.core && game.canUseSupport(uid) && game.supportTargets(uid).length) {
+        buttons.append(h('button', { class: 'btn small', onclick: () => startSupport(uid) }, `Use ${partName(card.id)}`, h('span', { class: 'sub' }, `${game.useCost(card)} Steam`)));
+      }
+      for (const other of game.swapTargets(uid)) {
+        const ol = game.locate(other);
+        buttons.append(h('button', { class: 'btn small', onclick: act(() => game.swap(uid, other)) }, `Swap ${ol.idx > loc.idx ? 'outward' : 'inward'}`, h('span', { class: 'sub' }, `${game.swapCost()} Steam · with ${partName(ol.card.id)}`)));
+      }
+      if (game.ventTargets().includes(uid)) buttons.append(h('button', { class: 'btn small', disabled: !game.spendable(VENT_COST) || null, onclick: act(() => game.vent(uid)) }, 'Vent tokens', h('span', { class: 'sub' }, `${VENT_COST} Steam`)));
+    }
+    if (!loc.stored && card !== game.core) {
+      if (game.phase === 'hangar') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.detach(uid); ui.selected = null; }) }, 'Detach'));
+      if (game.phase === 'loot' || game.phase === 'hangar') {
         if (ui.confirmScrap === uid) buttons.append(h('button', { class: 'btn small primary', onclick: act(() => { game.scrap(uid); ui.selected = null; }) }, 'Confirm: scrap it'));
         else buttons.append(h('button', { class: 'btn small', onclick: () => { ui.confirmScrap = uid; render(); } }, 'Scrap'));
       }
     }
-    if (loc.stored && game.phase === 'loot') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.discardStored(game.storage.indexOf(card)); ui.selected = null; }) }, 'Dump from storage'));
+    if (loc.stored && game.phase === 'loot') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.discardStored(game.storage.indexOf(card)); ui.selected = null; }) }, 'Dump from hold'));
     if (buttons.childNodes.length) box.append(buttons);
     return box;
   }
 
   function startSupport(uid) {
-    const name = D.PARTS[game.locate(uid).card.id].name;
+    const card = game.locate(uid).card;
+    const targets = game.supportTargets(uid);
+    if (targets.length === 1) { game.useSupport(uid, targets[0]); render(); return; }
     ui.targeting = {
-      prompt: game.locate(uid).card.id === 'repairBay' ? `${name}: choose a damaged card to repair` : `${name}: choose a card to clear`,
-      eligible: game.supportTargets(uid),
-      onPick: (t) => game.useSupport(uid, t),
-      cancelable: true,
+      prompt: card.id === 'repair' ? 'Repair Bay: choose a damaged module touching it' : `${partName(card.id)}: choose a module to clear`,
+      eligible: targets, onPick: (t) => game.useSupport(uid, t), cancelable: true,
     };
     render();
   }
@@ -274,10 +286,10 @@
 
   function partSheet(id, extra) {
     const d = D.PARTS[id];
-    return h('div', { class: 'enc' },
-      h('span', { class: `type-chip ${d.type}`, style: 'align-self:flex-start' }, d.type),
+    return h('div', { class: `enc part ${d.rarity}` },
+      h('div', { class: 'row' }, h('span', { class: `type-chip ${d.type}` }, d.type), h('span', { class: `rarity-chip ${d.rarity}` }, d.rarity)),
       h('h3', {}, d.name),
-      statline(`Weight ${fmt(d.weight)}`, `Durability ${d.dur}`),
+      statline(`Weight ${fmt(d.weight)}`, `Durability ${d.hp}`, d.cost != null ? `${d.cost} Steam` : 'Passive'),
       h('div', { class: 'rules stack' }, d.rules.map(([k, v]) => h('div', {}, h('b', {}, k + ': '), v))),
       extra ? h('div', { class: 'enc-foot' }, extra) : null,
     );
@@ -285,44 +297,43 @@
 
   // ---------- loot ----------
   function lootScreen() {
-    const out = [];
     const panel = h('section', { class: 'panel stack' }, h('span', { class: 'eyebrow' }, game.lootTitle));
     let insert = null;
     if (game.lootOffer) {
       const o = game.lootOffer;
       panel.append(h('h2', {}, o.keep > 1 ? `Keep ${o.keep}` : 'Choose a part'),
-        h('p', { class: 'muted' }, o.ids.length > 1 ? 'Take one. The rest are discarded.' : 'Take it.'),
-        h('div', { class: 'choices' }, o.ids.map((id, i) => partSheet(id, h('button', { class: 'btn primary', onclick: act(() => game.pickOffer(i)) }, 'Take')))));
+        h('p', { class: 'muted' }, 'Take one, or leave them all if none fit your ship.'),
+        h('div', { class: 'choices' }, o.ids.map((id, i) => partSheet(id, h('button', { class: 'btn primary', onclick: act(() => game.pickOffer(i)) }, 'Take')))),
+        h('div', { class: 'row' }, h('button', { class: 'btn', onclick: act(() => game.skipOffer()) }, 'Take nothing')));
     } else if (game.pendingLoot.length) {
       const id = game.pendingLoot[0];
       const full = game.left.length >= 3 && game.right.length >= 3;
       const canStore = game.storage.length < game.storageCap();
       insert = (side, pos) => game.installPending(side, pos);
       panel.append(
-        h('h2', {}, `Place: ${D.PARTS[id].name}`),
-        h('p', {}, full ? 'Both sides are full. Scrap an installed part to make room (tap it, then Scrap), stow it or jettison it.' : 'Use an orange marker on your ship below to install it. A + tab inserts it at that layer and pushes the outer cards out.'),
-        game.pendingLoot.length > 1 ? h('p', { class: 'muted' }, `${game.pendingLoot.length - 1} more part${game.pendingLoot.length > 2 ? 's' : ''} waiting after this one.`) : null,
+        h('h2', {}, `Install: ${partName(id)}`),
+        h('p', {}, full ? 'Both sides are full. Scrap a module to make room (tap it, then Scrap), stow it or jettison it.' : 'Use an orange marker on your ship to bolt it on. A + tab inserts it at that layer and pushes outer modules out.'),
+        game.pendingLoot.length > 1 ? h('p', { class: 'muted' }, `${game.pendingLoot.length - 1} more part${game.pendingLoot.length > 2 ? 's' : ''} waiting.`) : null,
         h('div', { class: 'choices' }, partSheet(id, h('div', { class: 'row' },
-          game.has('storageBay') ? h('button', { class: 'btn', disabled: !canStore || null, onclick: act(() => game.storePending()) }, 'Stow', h('span', { class: 'sub' }, `${game.storage.length}/2`)) : null,
+          game.has('cargo') ? h('button', { class: 'btn', disabled: !canStore || null, onclick: act(() => game.storePending()) }, 'Stow', h('span', { class: 'sub' }, `${game.storage.length}/2`)) : null,
           h('button', { class: 'btn', onclick: act(() => game.jettisonPending()) }, 'Jettison')))),
       );
     } else if (game.swapAvailable) {
       panel.append(h('h2', {}, 'Quick Swap'),
-        h('p', {}, ui.swapSel == null ? 'You may swap one installed part with one in storage. Choose the stored part first.' : 'Now tap the installed part to swap out.'),
+        h('p', {}, 'You may swap one installed module with one in the Cargo Hold. Choose the stored part first.'),
         h('div', { class: 'row' },
-          game.storage.map((c, i) => h('button', { class: `btn ${ui.swapSel === i ? 'primary' : ''}`, onclick: () => { ui.swapSel = i; startSwap(i); } }, D.PARTS[c.id].name)),
+          game.storage.map((c, i) => h('button', { class: `btn ${ui.swapSel === i ? 'primary' : ''}`, onclick: () => { ui.swapSel = i; startSwap(i); } }, partName(c.id))),
           h('button', { class: 'btn', onclick: act(() => { game.swapAvailable = false; ui.swapSel = null; }) }, 'Skip swap')));
     } else {
       panel.append(h('h2', {}, 'Ready to sail'), h('p', { class: 'muted' }, 'Check your layout, then chart the next leg.'),
         h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: game.pendingChoice ? true : null, onclick: act(() => game.finishLoot()) }, 'Chart a course')));
     }
-    out.push(targetBanner(), panel, shipView({ insert }));
-    return out;
+    return [targetBanner(), panel, shipView({ insert })];
   }
   function startSwap(i) {
     ui.targeting = {
-      prompt: `Swap ${D.PARTS[game.storage[i].id].name} in for which installed part?`,
-      eligible: game.cards().filter((c) => !(c.id === 'storageBay' && game.count('storageBay') === 1)).map((c) => c.uid),
+      prompt: `Swap ${partName(game.storage[i].id)} in for which module?`,
+      eligible: game.cards().filter((c) => !(c.id === 'cargo' && game.count('cargo') === 1)).map((c) => c.uid),
       onPick: (uid) => { game.quickSwap(uid, i); ui.swapSel = null; },
       cancelable: true,
     };
@@ -330,28 +341,27 @@
   }
 
   // ---------- map ----------
-  function d4List(table, rolled = []) {
-    return h('ol', { class: 'd4' }, table.map((t, i) => h('li', { class: rolled.includes(i + 1) ? 'rolled' : '' }, h('span', {}, i + 1), h('span', {}, t))));
+  function d6List(table, rolled = []) {
+    return h('ol', { class: 'd6' }, table.map((t, i) => h('li', { class: rolled.includes(i + 1) ? 'rolled' : '' }, h('span', {}, i + 1), h('span', {}, t))));
   }
   function encCard(id, button) {
     const e = D.ENCOUNTERS[id];
     const enemy = e.enemy && D.ENEMIES[e.enemy];
     return h('div', { class: 'enc' },
-      h('span', { class: `kind ${e.kind}` }, e.kind),
+      h('span', { class: `kind k-${e.kind.replace(' ', '')}` }, e.kind),
       h('h3', {}, e.name),
       h('p', {}, e.text),
-      enemy ? statline(`Weight ${enemy.weight}`, `Durability ${enemy.dur}`) : null,
-      e.table ? d4List(e.table) : null,
-      h('div', { class: 'enc-foot' }, h('span', { class: 'muted' }, e.paths ? `Then ${e.paths} path${e.paths > 1 ? 's' : ''}` : 'Final battle'), button),
+      enemy ? statline(`Weight ${enemy.weight}`, `Durability ${enemy.hp}`) : null,
+      e.table ? d6List(e.table) : null,
+      h('div', { class: 'enc-foot' }, h('span', { class: 'muted' }, e.paths ? `Then ${e.paths} route${e.paths > 1 ? 's' : ''}` : 'Final battle'), button),
     );
   }
   function mapScreen() {
-    const tele = game.telescopeBonus();
     const n = game.choices.length;
     const panel = h('section', { class: 'panel stack' },
       h('span', { class: 'eyebrow' }, `Encounter ${game.depth + 1} of ${game.maxDepth}`),
-      h('h2', {}, n === 1 && game.choices[0] === 'boss' ? 'The last leg' : 'Chart a course'),
-      h('p', { class: 'muted' }, game.choices[0] === 'boss' ? 'Only one way forward now.' : `${n} route${n > 1 ? 's' : ''} ahead${tele ? ', including +1 from your Telescope' : ''}. You only take one.`),
+      h('h2', {}, game.choices[0] === 'boss' ? 'The last leg' : 'Chart a course'),
+      h('p', { class: 'muted' }, game.choices[0] === 'boss' ? 'Only one way forward now.' : `${n} route${n > 1 ? 's' : ''} ahead. You only take one.`),
       h('div', { class: 'choices' }, game.choices.map((id, i) => encCard(id, h('button', { class: 'btn primary', onclick: act(() => game.chooseEncounter(i)) }, 'Set course')))),
     );
     return [targetBanner(), panel, shipView()];
@@ -360,96 +370,124 @@
   // ---------- event ----------
   function eventScreen() {
     const ev = game.event;
-    const e = ev.enc;
+    const e = D.ENCOUNTERS[ev.enc];
     const lines = game.log.filter((l) => l.id > ev.logStart);
     const panel = h('section', { class: 'panel stack' },
-      h('span', { class: `kind ${e.kind}`, style: 'align-self:flex-start' }, e.kind),
+      h('span', { class: `kind k-${e.kind.replace(' ', '')}`, style: 'align-self:flex-start' }, e.kind),
       h('h2', {}, e.name),
       h('p', {}, e.text),
-      e.table ? d4List(e.table, ev.rolls) : null,
-      h('ol', { class: 'log', style: 'padding:0' }, lines.map((l) => h('li', { class: l.cls }, l.text))),
-      h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: game.pendingChoice ? true : null, onclick: act(() => game.continueEvent()) }, ev.next ? 'Battle stations' : 'Continue')),
+      e.table ? d6List(e.table, ev.rolls) : null,
+      h('ol', { class: 'log inline' }, lines.map((l) => h('li', { class: l.cls }, l.text))),
     );
-    return [panel, shipView()];
+    if (ev.options) {
+      panel.append(h('div', { class: 'options' }, ev.options.map((o) => h('button', { class: 'option', onclick: act(() => game.chooseOption(o.id)) }, h('b', {}, o.label), h('span', {}, o.desc)))));
+    } else {
+      panel.append(h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: game.pendingChoice ? true : null, onclick: act(() => game.continueEvent()) }, ev.next ? 'Battle stations' : ev.loot ? 'Collect' : 'Continue')));
+    }
+    return [targetBanner(), panel, shipView()];
   }
 
-  // ---------- shipyard ----------
-  function shipyardScreen() {
-    const y = game.shipyard;
+  // ---------- Sky Dock ----------
+  function hangarScreen() {
+    const y = game.hangar;
+    const e = D.ENCOUNTERS[y.enc];
     const insert = ui.dockSel != null && y.dock[ui.dockSel] ? (side, pos) => { game.attach(ui.dockSel, side, pos); ui.dockSel = null; } : null;
     const dock = h('div', { class: 'storage' }, h('span', { class: 'eyebrow', style: 'align-self:center' }, 'Dock'),
-      y.dock.length ? y.dock.map((c, i) => h('button', { class: `btn ${ui.dockSel === i ? 'primary' : ''}`, onclick: () => { ui.dockSel = ui.dockSel === i ? null : i; render(); } }, D.PARTS[c.id].name, h('span', { class: 'sub' }, `${c.dur}/${D.PARTS[c.id].dur + c.bonusMax}`)))
-        : h('span', { class: 'muted' }, 'Tap an installed part, then Detach, to lift it onto the dock.'));
+      y.dock.length ? y.dock.map((c, i) => h('button', { class: `btn ${ui.dockSel === i ? 'primary' : ''}`, onclick: () => { ui.dockSel = ui.dockSel === i ? null : i; render(); } }, partName(c.id), h('span', { class: 'sub' }, `${c.hp}/${D.PARTS[c.id].hp + c.bonusMax}`)))
+        : h('span', { class: 'muted' }, 'Tap a module, then Detach, to lift it onto the dock.'));
     const panel = h('section', { class: 'panel stack' },
-      h('span', { class: `kind ${y.enc.kind}`, style: 'align-self:flex-start' }, y.enc.kind),
-      h('h2', {}, y.enc.name),
-      h('p', {}, 'Full Reassembly: detach any parts and reattach them anywhere. Choose a docked part, then an orange marker on your ship.'),
+      h('span', { class: 'kind k-SkyDock', style: 'align-self:flex-start' }, e.kind),
+      h('h2', {}, e.name),
+      h('p', {}, 'Full reassembly: detach any modules and reattach them anywhere. Choose a docked part, then an orange marker on your ship.'),
       dock,
-      h('h3', {}, 'Salvage'),
-      d4List(y.enc.table, y.roll ? [y.roll] : []),
+      h('h3', {}, 'Mechanics'),
+      d6List(e.table, y.roll ? [y.roll] : []),
       h('div', { class: 'row' },
-        h('button', { class: 'btn', disabled: y.roll ? true : null, onclick: act(() => game.salvage()) }, 'Roll salvage'),
-        h('button', { class: 'btn primary', disabled: !y.roll || game.pendingChoice ? true : null, onclick: act(() => { game.leaveShipyard(); ui.dockSel = null; }) }, 'Leave shipyard')),
-      y.dock.length ? h('p', { class: 'muted' }, 'Parts still on the dock when you leave go into storage if there is room, otherwise they stay behind.') : null,
+        h('button', { class: 'btn', disabled: y.roll ? true : null, onclick: act(() => game.salvage()) }, 'Roll for the mechanics'),
+        h('button', { class: 'btn primary', disabled: !y.roll || game.pendingChoice ? true : null, onclick: act(() => { game.leaveHangar(); ui.dockSel = null; }) }, 'Cast off')),
+      y.dock.length ? h('p', { class: 'muted' }, 'Parts left on the dock go into the Cargo Hold if there is room, otherwise they stay behind.') : null,
     );
     return [targetBanner(), panel, shipView({ insert })];
   }
 
   // ---------- combat ----------
+  function intentText(it) {
+    if (!it) return '';
+    const where = it.side ? `${it.side === 'left' ? 'stern' : 'bow'}${it.layer != null ? ` layer ${it.layer + 1}` : ''}` : '';
+    switch (it.kind) {
+      case 'shot': return `${game.intentDamage(it)} damage → ${where}`;
+      case 'rake': return `${game.intentDamage(it)} to every module on the ${where}`;
+      case 'broadside': return `${game.intentDamage(it)} to the outside module on both sides`;
+      case 'ram': return `Ram for ${game.intentDamage(it)} → outside of the ${where}`;
+      case 'token': return `${D.TOKENS[it.token].name}${it.dmg ? ` + ${game.intentDamage(it)} damage` : ''} → ${where}`;
+      case 'block': return `Gains ${it.amount} Block`;
+      case 'repair': return `Repairs ${it.amount}`;
+      case 'charge': return `Next attack +${it.amount}`;
+      default: return '';
+    }
+  }
   function combatScreen() {
     const c = game.combat;
     const en = c.enemy;
-    const cur = game.enemyPhase();
-    const bar = h('div', { class: 'durbar', 'aria-label': `${en.dur} of ${en.max} durability` });
-    const marks = c.def.phases.map((p) => p.min).filter((m) => m > 1);
-    for (let i = 1; i <= en.max; i++) bar.append(h('i', { class: `${i <= en.dur ? 'on' : ''} ${marks.includes(i + 1) ? 'mark' : ''}` }));
+    const def = D.ENEMIES[c.enemyId];
+    const bar = h('div', { class: 'durbar', 'aria-label': `${en.hp} of ${en.max} durability` });
+    const marks = def.phases.map((p) => p.min).filter((m) => m > 1);
+    for (let i = 1; i <= en.max; i++) bar.append(h('i', { class: `${i <= en.hp ? 'on' : ''} ${marks.includes(i + 1) ? 'mark' : ''}` }));
     const chips = h('div', { class: 'chips' },
-      en.shield ? h('span', { class: 'chip shield' }, 'Armor up') : null,
-      ['fire', 'glue', 'gas'].map((k) => (en.tokens[k] ? h('span', { class: `chip ${k}`, title: D.TOKENS[k].text }, k) : null)));
-    const enemy = h('section', { class: `panel enemy ${c.flashEnemy ? 'hit' : ''}` },
+      en.block ? h('span', { class: 'chip shield' }, `Block ${en.block}`) : null,
+      en.burn ? h('span', { class: 'chip fire' }, `Burn ${en.burn}`) : null,
+      en.weak ? h('span', { class: 'chip glue' }, `Gummed ${en.weak}`) : null,
+      en.vuln ? h('span', { class: 'chip gas' }, `Choking ${en.vuln}`) : null,
+      en.charge ? h('span', { class: 'chip fire' }, `Charged +${en.charge}`) : null,
+      game.enrage() ? h('span', { class: 'chip fire' }, `Enraged +${game.enrage()}`) : null);
+    const preview = game.previewIntent();
+    const it = en.intent;
+    const intentBox = h('div', { class: `intent ${game.isAttack(it) ? 'attack' : ''} ${c.evading ? 'evaded' : ''}` },
+      h('span', { class: 'eyebrow' }, `Next move · rolled ${it.roll}`),
+      h('b', {}, it.name),
+      h('span', {}, intentText(it)),
+      preview && preview.plan.length ? h('span', { class: 'muted' }, c.evading ? 'You will evade it.' : 'Hits: ' + preview.plan.map((p) => `${p.uid === 'core' ? 'Core' : partName(game.locate(p.uid).card.id)} ${p.braced ? 'braced' : p.dmg > 0 ? '−' + p.dmg : p.token ? '+' + p.token : '0'}`).join(', ')) : null);
+    const enemy = h('section', { class: 'panel enemy' },
       h('div', { class: 'enemy-head' },
-        h('div', { class: 'stack', style: 'gap:4px' }, h('span', { class: `kind ${c.enc.kind || 'Combat'}`, style: 'align-self:flex-start' }, c.def.boss ? 'Boss' : 'Enemy'), h('h2', {}, en.name)),
-        statline(`Weight ${fmt(en.weight)}`, h('span', {}, 'Dur ', h('b', {}, `${Math.max(0, en.dur)}/${en.max}`)))),
-      bar, chips,
-      h('div', { class: 'phases' }, c.def.phases.map((p, pi) => {
-        const top = pi === 0 ? en.max : c.def.phases[pi - 1].min - 1;
-        const rolled = c.lastAbility && c.lastAbility.phase === p.name ? [c.lastAbility.roll] : [];
-        return h('div', { class: `phase ${p === cur ? 'current' : ''}` },
-          h('span', { class: 'eyebrow' }, p.name, ' ', h('span', {}, `${top}–${p.min}`)),
-          d4List(p.table.map((a) => a.name), rolled));
-      })),
+        h('div', { class: 'stack', style: 'gap:4px' }, h('span', { class: `kind k-${def.boss ? 'Boss' : 'Combat'}`, style: 'align-self:flex-start' }, def.boss ? 'Boss' : 'Enemy'), h('h2', {}, en.name)),
+        statline(`Weight ${fmt(en.weight)}`, h('span', {}, 'Dur ', h('b', {}, `${Math.max(0, en.hp)}/${en.max}`)))),
+      bar, chips, intentBox,
+      h('details', { class: 'phases-wrap' }, h('summary', {}, 'Tactics table'),
+        h('div', { class: 'phases' }, def.phases.map((p, pi) => {
+          const top = pi === 0 ? en.max : def.phases[pi - 1].min - 1;
+          return h('div', { class: `phase ${pi === en.phase ? 'current' : ''}` },
+            h('span', { class: 'eyebrow' }, p.name, ' ', h('span', {}, `${top}–${p.min}`)),
+            d6List(p.table.map((a) => a.name), pi === en.phase ? [it.roll] : []));
+        }))),
     );
 
-    const turn = h('section', { class: 'panel stack' });
-    const diamonds = h('div', { class: 'actions-left', 'aria-label': `${c.actions} actions left` });
-    for (let i = 0; i < game.actionsPerTurn(); i++) diamonds.append(h('i', { class: i < c.actions ? 'on' : '' }));
-    turn.append(h('div', { class: 'turnbar' },
-      h('span', { class: 'turn-state' }, `Round ${c.round} · Your turn`),
-      h('div', { class: 'row' }, h('span', { class: 'hud-label' }, 'Actions'), diamonds)));
-
+    const steam = h('div', { class: 'steam', 'aria-label': `${c.steam} steam` });
+    for (let i = 0; i < Math.max(c.steam, game.steamCap()); i++) steam.append(h('i', { class: i < c.steam ? 'on' : '' }));
+    const turn = h('section', { class: 'panel stack' },
+      h('div', { class: 'turnbar' },
+        h('span', { class: 'turn-state' }, `Round ${c.round}`),
+        h('div', { class: 'row' }, h('span', { class: 'hud-label' }, 'Steam'), steam,
+          game.core.id === 'zeppelin' ? h('span', { class: 'hud-label' }, `Pressure ${game.core.pressure}`) : null)));
     const bar2 = h('div', { class: 'actionbar' });
-    for (const side of SIDES) {
-      const w = game.weaponInfo(side);
-      if (!w) continue;
-      const notes = [w.summary];
-      if (w.payer) notes.push(w.payer === w.card ? '−1 Dur' : '−1 Barracks');
-      if (w.gassed) notes.push('gas: coin');
-      if (w.blocked) notes.push(w.blocked);
-      bar2.append(h('button', { class: 'btn', disabled: !game.canAct() || w.blocked ? true : null, onclick: act(() => game.fire(side)) },
-        `Fire ${side} ${D.PARTS[w.card.id].name}`, h('span', { class: 'sub' }, notes.join(' · '))));
+    for (const card of game.cards()) {
+      const fi = game.fireInfo(card.uid);
+      if (!fi || fi.blocked === 'Buried: only outside weapons fire') continue;
+      for (const mode of fi.modes) {
+        const w = game.fireInfo(card.uid, mode);
+        bar2.append(h('button', { class: 'btn', disabled: w.blocked ? true : null, onclick: act(() => game.fire(card.uid, mode)) },
+          `${mode === 'aimed' ? 'Aim' : mode === 'steady' ? 'Steady' : 'Fire'} ${partName(card.id)}`, h('span', { class: 'sub' }, `${w.cost}⚙ · ${w.blocked || w.summary}`)));
+      }
     }
     const core = game.coreAbilityInfo();
-    bar2.append(h('button', { class: 'btn', disabled: !game.canAct() || core.blocked ? true : null, onclick: act(() => game.useCore()) },
-      core.ability.name, h('span', { class: 'sub' }, core.blocked || (core.ability.id === 'ram' ? '3 dmg · −1 Core' : `${core.ability.id === 'bomber' ? 5 : 3} dmg`))));
+    bar2.append(h('button', { class: 'btn', disabled: core.blocked ? true : null, onclick: act(() => game.useCore()) }, core.ability.name, h('span', { class: 'sub' }, `${core.cost}⚙ · ${core.blocked || core.summary}`)));
+    const ec = game.evadeCost();
+    if (ec != null) bar2.append(h('button', { class: 'btn', disabled: !game.canEvade() || null, onclick: act(() => game.evade()) }, 'Evade', h('span', { class: 'sub' }, `${ec}⚙ · ${c.evading ? 'ready' : game.isAttack(it) ? 'dodge the attack' : 'nothing to dodge'}`)));
     for (const card of game.cards()) {
-      if (!game.canUseSupport(card.uid)) continue;
-      const targets = game.supportTargets(card.uid);
-      if (!targets.length) continue;
-      bar2.append(h('button', { class: 'btn', onclick: () => startSupport(card.uid) }, `Use ${D.PARTS[card.id].name}`, h('span', { class: 'sub' }, '−1 Dur')));
+      if (!game.canUseSupport(card.uid) || !game.supportTargets(card.uid).length) continue;
+      bar2.append(h('button', { class: 'btn', onclick: () => startSupport(card.uid) }, `Use ${partName(card.id)}`, h('span', { class: 'sub' }, `${game.useCost(card)}⚙`)));
     }
-    bar2.append(h('button', { class: `btn ${game.canAct() ? '' : 'primary'}`, onclick: act(() => game.endTurn()) }, 'End turn'));
-    if (!game.weaponInfo('left') && !game.weaponInfo('right')) turn.append(h('p', { class: 'muted' }, 'No weapon on the outside of either side. Only outside weapons can fire.'));
-    turn.append(bar2);
+    bar2.append(h('button', { class: `btn ${c.steam > 0 ? '' : 'primary'}`, onclick: act(() => game.endTurn()) }, 'End turn'));
+    turn.append(bar2, h('p', { class: 'muted' }, 'Tap a module to swap it with a neighbour (1⚙) or vent its tokens (2⚙).'));
     return [enemy, targetBanner(), turn, shipView()];
   }
 
@@ -461,9 +499,9 @@
     return [
       h('section', { class: 'panel stack' },
         h('span', { class: 'eyebrow' }, won ? 'Victory' : 'Run over'),
-        h('h2', { style: 'font-size: clamp(40px, 9vw, 72px)' }, won ? 'Leviathan sunk' : 'Core lost'),
-        h('p', {}, won ? `Your ${D.CORES[game.core.id].name} brought down the Iron Leviathan.` : `Your ${D.CORES[game.core.id].name} broke apart on encounter ${game.depth} of ${game.maxDepth}.`),
-        h('div', { class: 'stats' }, stat('Encounters', s.encounters), stat('Enemies sunk', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Parts installed', s.parts), stat('Contracts', s.quests)),
+        h('h2', { style: 'font-size: clamp(40px, 9vw, 72px)' }, won ? 'Leviathan sunk' : 'Core ruptured'),
+        h('p', {}, won ? `Your ${D.CORES[game.core.id].name} brought down the Iron Leviathan.` : `Your ${D.CORES[game.core.id].name} went down on encounter ${game.depth} of ${game.maxDepth}.`),
+        h('div', { class: 'stats' }, stat('Encounters', s.encounters), stat('Enemies downed', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Parts installed', s.parts), stat('Contracts', s.quests)),
         h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; render(); } }, 'New run')),
       ),
       shipView({ title: 'Final ship' }),
@@ -473,6 +511,5 @@
   $('brand').addEventListener('click', () => { if (!game || ['gameover', 'victory'].includes(game.phase)) { game = null; render(); } });
   render();
 
-  // Exposed for debugging in the console.
   window.cardships = { get game() { return game; } };
 })();
