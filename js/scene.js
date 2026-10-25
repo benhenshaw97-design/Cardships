@@ -181,6 +181,18 @@
     makeCloud(layer, x) {
       const def = this.def;
       const front = layer === 'cloudFront';
+      // In clear and sunset skies, the far bank mixes in the painted clouds from the sprite sheet.
+      const SP = window.CardshipsSprites;
+      if (!front && (this.name === 'clear' || this.name === 'sunset') && SP && SP.ready() && Math.random() < 0.6) {
+        const name = ['cloud_big', 'cloud_puff', 'cloud_small'][Math.floor(Math.random() * 3)];
+        const f = SP.FRAMES[name];
+        const k = rand(1.6, 2.6) * Math.min(1.2, this.h / 320);
+        const c = canvas(f[2] * k, f[3] * k);
+        const cg = c.getContext('2d');
+        cg.drawImage(SP.image, f[0], f[1], f[2], f[3], 0, 0, c.width, c.height);
+        if (this.name === 'sunset') { cg.globalCompositeOperation = 'source-atop'; cg.fillStyle = 'rgba(255,170,120,0.35)'; cg.fillRect(0, 0, c.width, c.height); }
+        return { layer, sprite: c, x, y: rand(this.h * 0.05, this.h * 0.5), alpha: 0.85 };
+      }
       const cw = (front ? rand(130, 240) : rand(90, 200)) * Math.min(1.2, this.h / 320);
       const ch = cw * rand(0.32, 0.45);
       return { layer, sprite: cloudSprite(cw, ch, def.cloud), x, y: front ? rand(this.h * 0.88, this.h * 1.02) - ch * 0.3 : rand(this.h * 0.05, this.h * 0.5), alpha: front ? 0.82 : 0.6 };

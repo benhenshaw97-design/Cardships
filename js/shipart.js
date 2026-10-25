@@ -8,6 +8,7 @@
     iron: '#666b70', ironD: '#43474c', ironL: '#8d9399', wood: '#8a5a35', woodD: '#5e3b22', canvas: '#eadfc4', canvasD: '#c3b08b',
     glass: '#ffe7a6', red: '#b8402c', redD: '#7c2619', green: '#62ad74', teal: '#4f9a8f', blue: '#5d8fb8', violet: '#8c6bb5', soot: '#2c241f',
   };
+  const SPR = () => window.CardshipsSprites;
   const M = 46; // module width (units)
   const H = 30; // hull band height
   const CORE_W = 70;
@@ -258,7 +259,35 @@
     },
   };
 
+  // Modules drawn with the provided sprites, over a small deck mount. Sprites face left in the sheet,
+  // so they are flipped to face outward (+x).
+  const mount = (g, fill = C.wood, dark = C.woodD) => panel(g, -M / 2, -2, M, H / 2 + 2, fill, dark, 3);
+  const MODULE_SPRITES = {
+    cannon(g, m) { mount(g); return SPR().draw(g, 'cannon_a', 6 - m.recoil * 8, -8, 42, null, true); },
+    mortar(g, m) { mount(g, C.iron, C.ironD); return SPR().draw(g, 'turret_c', 0, -10 + m.recoil * 3, 36, null, true); },
+    harpoon(g, m) { mount(g); SPR().draw(g, 'turret_e', -10, -8, 26, null, true); return SPR().draw(g, 'harpoon', 12 - m.recoil * 8, -12, 44, null, true); },
+    boiler(g) { mount(g, C.iron, C.ironD); return SPR().draw(g, 'engine_small', 0, -14, 36); },
+    overpressure(g) { mount(g, C.copper, C.copperD); return SPR().draw(g, 'engine_box', 0, -16, 36); },
+    autoloader(g) { mount(g, C.iron, C.ironD); return SPR().draw(g, 'engine_turbine', 0, -10, 46, null, true); },
+    quarters(g) { mount(g); return SPR().draw(g, 'cabin_small', 0, -14, 30); },
+    cargo(g) { mount(g); return SPR().draw(g, 'cabin_big', 0, -14, 38); },
+    gasbag(g, m, t) {
+      mount(g);
+      g.strokeStyle = C.out; g.lineWidth = 1; g.beginPath(); g.moveTo(-12, 0); g.lineTo(-14, -20); g.moveTo(12, 0); g.lineTo(14, -20); g.stroke();
+      return SPR().draw(g, 'balloon_red', 0, -32 + Math.sin(t * 1.3 + hash(m.uid) * 6) * 1.5, 52);
+    },
+    propeller(g, m, t) {
+      mount(g, C.iron, C.ironD);
+      g.save(); g.translate(M / 2 + 2, 2); g.scale(0.35, 1); g.rotate(t * 18);
+      const ok = SPR().draw(g, 'prop_a', 0, 0, 34);
+      g.restore();
+      return ok;
+    },
+  };
+
   // ---------- the player's ship ----------
+  const CORE_BALLOON = { airship: 'balloon_green', battleship: 'balloon_stripe_red', zeppelin: 'balloon_blue', clockwork: 'balloon_net' };
+  const CORE_HULL = { airship: 'hull_wood', battleship: 'hull_iron', zeppelin: 'hull_trim', clockwork: 'hull_trim' };
   const ENVELOPES = { airship: '#eadfc4', battleship: '#b8ab92', zeppelin: '#c9cfd4', clockwork: '#d49a63' };
   class PlayerShip {
     constructor() {
@@ -319,7 +348,7 @@
     }
     width() { const e = this.extent(false); return e.left + e.right + 50; }
     // Vertical reach above and below the Core (units), so layouts can fit the deck tower and envelope.
-    bounds() { const d = this.deckN || 0; return { top: 100 + d * 34 + (d ? 10 : 0), bottom: 34 }; }
+    bounds() { const d = this.deckN || 0; return { top: (this.envelopeTop || 150) + 12, bottom: 64 + d * 0 }; }
     // World position of a module (or the Core) in canvas pixels, for effects and arrows.
     pointOf(uid) {
       if (uid === 'core') return { x: this.x, y: this.y, r: CORE_W * this.scale * 0.5 };
@@ -390,23 +419,25 @@
       const left = -ext.left, right = ext.right;
       const span = right - left;
       const ecx = (left + right) / 2;
-      const erx = Math.max(60, span * 0.44) * (this.coreId === 'zeppelin' ? 1.12 : 1);
-      const ery = this.coreId === 'zeppelin' ? 30 : this.coreId === 'battleship' ? 22 : 26;
-      // The envelope lifts to make room for the deck tower.
-      const ey = -H / 2 - 22 - ery - (this.deckN || 0) * 34;
-      g.strokeStyle = C.out; g.lineWidth = 1.2;
-      for (const px of [ecx - erx * 0.6, ecx - erx * 0.2, ecx + erx * 0.2, ecx + erx * 0.6]) { g.beginPath(); g.moveTo(px, ey + ery * 0.7); g.lineTo(px * 0.8, -H / 2); g.stroke(); }
-      g.beginPath(); g.ellipse(ecx, ey, erx, ery, 0, 0, TAU); shape(g, ENVELOPES[this.coreId] || C.canvas, 2.5);
-      g.save(); g.beginPath(); g.ellipse(ecx, ey, erx, ery, 0, 0, TAU); g.clip();
-      g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(ecx - erx, ey + ery * 0.35, erx * 2, ery);
-      g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1.2;
-      for (let i = -3; i <= 3; i++) { g.beginPath(); g.ellipse(ecx + i * erx * 0.28, ey, erx * 0.12, ery, 0, 0, TAU); g.stroke(); }
-      g.fillStyle = 'rgba(255,255,255,0.3)'; g.beginPath(); g.ellipse(ecx - erx * 0.25, ey - ery * 0.45, erx * 0.45, ery * 0.18, 0, 0, TAU); g.fill();
-      g.restore();
-      // Tail fins at the stern.
-      g.beginPath(); g.moveTo(ecx - erx * 0.92, ey); g.lineTo(ecx - erx - 18, ey - ery - 6); g.lineTo(ecx - erx - 10, ey); g.lineTo(ecx - erx - 18, ey + ery + 6); g.closePath(); shape(g, C.red);
-      // Keel struts joining every module.
-      rr(g, left + 6, -3, span - 12, 6, 3); shape(g, C.brassD, 1.5);
+      const spr = SPR();
+      // Gasbags: longer ships fly more balloons side by side, each at its natural shape.
+      const count = Math.max(1, Math.round(span / 150));
+      const bw = Math.min(135, Math.max(105, span / count + (count > 1 ? 10 : 0)));
+      const bh = bw * spr.aspect(CORE_BALLOON[this.coreId] || 'balloon_green');
+      const ey = -H / 2 - 20 - bh / 2 - (this.deckN || 0) * 34;
+      const step = count > 1 ? (span - bw * 0.7) / (count - 1) : 0;
+      const xs = Array.from({ length: count }, (_, i) => (count > 1 ? left + bw * 0.35 + i * step : ecx));
+      g.strokeStyle = 'rgba(36,23,15,0.85)'; g.lineWidth = 1.3;
+      for (const x of xs) for (const dx of [-0.3, 0.3]) { g.beginPath(); g.moveTo(x + dx * bw, ey + bh * 0.3); g.lineTo(x + dx * bw * 0.8, 6); g.stroke(); }
+      let drew = false;
+      for (const x of xs) drew = spr.draw(g, CORE_BALLOON[this.coreId] || 'balloon_green', x, ey, bw, null, true) || drew;
+      if (!drew) { const erx = Math.max(60, span * 0.44), ery = 26; g.beginPath(); g.ellipse(ecx, ey, erx, ery, 0, 0, TAU); shape(g, ENVELOPES[this.coreId] || C.canvas, 2.5); }
+      spr.draw(g, 'flag_cross', xs[0] - bw / 2 - 4, ey - bh * 0.3, 26, null, true);
+      this.envelopeTop = -ey + bh / 2;
+      // The hull: a sprite stretched under every module, bow to the right.
+      if (!spr.drawStretched(g, CORE_HULL[this.coreId] || 'hull_wood', (left + right) / 2, 30, span + 24, 66, true, 0.26)) {
+        rr(g, left + 6, -3, span - 12, 6, 3); shape(g, C.brassD, 1.5);
+      }
       // Stern propeller on the hindmost element, unless a Propeller module already sits there.
       const sternMod = [...this.mods.values()].find((m) => m.side === 'stern' && m.outer);
       if (!sternMod || sternMod.id !== 'propeller') prop(g, left - 4, 0, 18, t);
@@ -484,7 +515,8 @@
       // Stern modules face backward; bow and deck modules face the enemy.
       const dir = m.side === 'stern' ? -1 : 1;
       g.save(); g.scale(dir, 1);
-      (MODULES[m.id] || MODULES.plating)(g, m, t);
+      const sprite = MODULE_SPRITES[m.id];
+      if (!(sprite && SPR().ready() && sprite(g, m, t))) (MODULES[m.id] || MODULES.plating)(g, m, t);
       // Wear: dents below two thirds, cracks below one third.
       const frac = m.hp / m.max;
       if (frac <= 0.67 || falling) {
@@ -721,6 +753,69 @@
     },
   };
 
+  // Enemy ships drawn with the provided sprite sheet. Full ships are used as they are; the rest are
+  // assembled from its hulls, balloons, turrets and flags. Each returns its half-width, or 0 while
+  // the sheet is still loading (the vector look is used then).
+  function rigging(g, pts) { g.strokeStyle = 'rgba(36,23,15,0.85)'; g.lineWidth = 1.4; for (const [a, b, c, d] of pts) { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); } }
+  const SPRITE_LOOKS = {
+    cutter(g) { return SPR().draw(g, 'ship_pirate', 0, -34, 150) ? 75 : 0; },
+    monitor(g) { return SPR().draw(g, 'ship_ironclad', 0, -30, 210) ? 105 : 0; },
+    flagship(g) {
+      if (!SPR().draw(g, 'ship_galleon', 0, -44, 230)) return 0;
+      SPR().draw(g, 'flag_jolly', 16, -150, 34);
+      return 115;
+    },
+    leviathan(g, e, t) {
+      if (!SPR().draw(g, 'ship_dreadnought', 0, -64, 350)) return 0;
+      SPR().draw(g, e.phase >= 2 ? 'flag_red' : 'flag_star', 112, -196, 34);
+      // It burns harder with each phase.
+      if (e.phase >= 1) for (const [x, y] of [[-60, 20], [40, 30], [100, -20]].slice(0, e.phase + 1)) { g.fillStyle = `rgba(255,${e.phase >= 2 ? 70 : 150},40,${0.55 + Math.sin(t * 10 + x) * 0.2})`; g.beginPath(); g.ellipse(x, y, 9, 14 + Math.sin(t * 14 + x) * 3, 0, 0, TAU); g.fill(); }
+      if (e.phase >= 2) { g.fillStyle = `rgba(255,40,30,${0.25 + Math.sin(t * 8) * 0.15})`; g.beginPath(); g.ellipse(0, 20, 170, 40, 0, 0, TAU); g.fill(); }
+      return 175;
+    },
+    gunship(g, e) {
+      if (!SPR().ready()) return 0;
+      rigging(g, [[-40, -48, -38, -2], [0, -44, 0, -2], [40, -48, 38, -2]]);
+      SPR().drawStretched(g, 'balloon_stripe_red', 0, -76, 170, 74);
+      SPR().draw(g, 'hull_iron', 0, 18, 160);
+      SPR().draw(g, 'turret_a', -34 - e.recoil * 4, -16, 34);
+      SPR().draw(g, 'turret_e', 10 - e.recoil * 4, -16, 34);
+      SPR().draw(g, 'flag_jolly', 60, -18, 30);
+      return 85;
+    },
+    skiff(g, e) {
+      if (!SPR().ready()) return 0;
+      rigging(g, [[-24, -40, -22, -4], [24, -40, 22, -4]]);
+      SPR().draw(g, 'balloon_net', 0, -60, 110);
+      SPR().draw(g, 'hull_wood', 0, 12, 120);
+      SPR().draw(g, 'cannon_b', -36 - e.recoil * 4, -6, 32);
+      SPR().draw(g, 'flag_jolly', 42, -12, 26);
+      return 60;
+    },
+    bomber(g, e) {
+      if (!SPR().ready()) return 0;
+      rigging(g, [[-40, -40, -30, 2], [40, -40, 30, 2]]);
+      SPR().drawStretched(g, 'balloon_red', 0, -62, 220, 76);
+      SPR().draw(g, 'hull_trim', 0, 18, 110);
+      for (let i = 0; i < 4; i++) { rr(g, -24 + i * 14, 40, 8, 13, 4); shape(g, C.ironD, 1.5); }
+      return 110;
+    },
+    stormqueen(g, e, t) {
+      if (!SPR().ready()) return 0;
+      const ph = e.phase;
+      for (let i = 0; i < 9; i++) { const a = t * (0.8 + ph * 0.4) + i * 0.7; g.fillStyle = `rgba(${70 + i * 6},${80 + i * 5},${110 + i * 4},0.6)`; g.beginPath(); g.ellipse(Math.cos(a) * 70, 40 + Math.sin(a) * 10, 34, 14, 0, 0, TAU); g.fill(); }
+      const spires = 2 + ph;
+      for (let i = 0; i < spires; i++) { const x = -60 + (120 * i) / Math.max(1, spires - 1); rr(g, x - 3, -150, 6, 30, 2); shape(g, C.copper, 1.5); circle(g, x, -154, 5, '#cfe8ff', 1.5); }
+      if (Math.sin(t * (6 + ph * 3)) > 0.2) { g.save(); g.strokeStyle = '#d6ecff'; g.lineWidth = 2; g.shadowColor = '#8fc8ff'; g.shadowBlur = 12; g.beginPath(); g.moveTo(-60, -154); for (let i = 1; i <= 8; i++) g.lineTo(-60 + i * 15, -154 + (Math.random() - 0.5) * 14); g.stroke(); g.restore(); }
+      rigging(g, [[-50, -52, -40, -4], [50, -52, 40, -4]]);
+      SPR().drawStretched(g, 'balloon_blue', 0, -84, 250, 104);
+      SPR().draw(g, 'hull_iron', 0, 18, 150);
+      SPR().draw(g, 'flag_blue', 62, -18, 30);
+      g.fillStyle = ph >= 2 ? '#ff6ad5' : '#9fe0ff'; g.beginPath(); g.ellipse(-50, 10, 8 + Math.sin(t * 5) * 1.5, 5, 0, 0, TAU); g.fill();
+      return 128;
+    },
+  };
+
   class EnemyShip {
     constructor(look) {
       this.look = look; this.flash = 0; this.recoil = 0; this.phase = 0; this.phaseFlash = 0; this.smoke = []; this.wound = 0;
@@ -751,7 +846,8 @@
       b.setTransform(dpr * scale, 0, 0, dpr * scale, size / 2, size / 2);
       b.rotate(Math.sin(t * 0.8 + 1) * 0.02);
       if (this.phaseFlash > 0) { b.fillStyle = `rgba(255,80,40,${this.phaseFlash * 0.35})`; b.beginPath(); b.arc(0, -20, this.halfW * 1.3, 0, TAU); b.fill(); }
-      this.halfW = (ENEMY_LOOKS[this.look] || ENEMY_LOOKS.cutter)(b, this, t);
+      const sprite = SPRITE_LOOKS[this.look];
+      this.halfW = (sprite && sprite(b, this, t)) || (ENEMY_LOOKS[this.look] || ENEMY_LOOKS.cutter)(b, this, t);
       if (this.flash > 0) {
         b.globalCompositeOperation = 'source-atop';
         b.fillStyle = `rgba(255,255,255,${this.flash * 0.85})`; b.fillRect(-this.halfW * 2, -this.halfW * 2, this.halfW * 4, this.halfW * 4);

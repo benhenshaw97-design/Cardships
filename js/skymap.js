@@ -144,7 +144,17 @@
     ship.className = 'map-ship';
     const cp = pos(cur);
     ship.style.transform = `translate(${cp.x}px, ${cp.y}px)`;
-    ship.append(shipIcon());
+    // The marker is the little striped airship from the sprite sheet (vector fallback until it loads).
+    const F = window.CardshipsSprites && window.CardshipsSprites.FRAMES.balloon_stripe_blue;
+    if (F) {
+      const k = 0.5;
+      const bobber = document.createElement('div');
+      bobber.className = 'map-ship-sprite';
+      const icon = document.createElement('div');
+      icon.style.cssText = `width:${F[2] * k}px;height:${F[3] * k}px;background:url(assets/art/ship-parts.png) -${F[0] * k}px -${F[1] * k}px / ${1024 * k}px auto no-repeat;transform:scaleX(-1)`;
+      bobber.append(icon);
+      ship.append(bobber);
+    } else ship.append(shipIcon());
     inner.append(ship);
     inner.append(near);
     wrap.append(inner);

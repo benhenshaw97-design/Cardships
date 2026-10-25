@@ -199,3 +199,23 @@ The first layout mirrored two identical sides around the Core. In the side-on vi
 - **The card view mirrors the ship:** the deck column stacks above the Core, the stern runs left and the bow right, with each section's role labelled. *Reason: the toggle view should match the picture.*
 - **Saves from the old layout are not loaded** (new save key). *Reason: old saves use the two-sided layout.*
 - **Re-tuned for the new layout** (details in `BALANCE_REPORT.md`): boss Durability ×1.5 (was ×1.35), Clockwork 11 Durability (was 10), Strafing Run 3 Steam (was 2). *Reason: the sheltered stern made ships sturdier.*
+
+## Your ship-parts sprite sheet
+
+- **The sheet is cut into 62 named sprites** (ships, hulls, balloons, propellers, engines, cannons and turrets, harpoon, cabins, flags, clouds, smoke and flame trails), with the Pixelcut watermark stripped, and packed into `assets/art/ship-parts.png`. `python3 tools/build_sprites.py` rebuilds the atlas from `assets/art/source/ship-parts-sheet.png`. *Reason: use the provided art, and keep it easy to extend.*
+- **Enemies use the four finished ships as they are:**
+  - pirate sailing ship → Pirate Cutter
+  - galleon under a balloon → Dread Corsair Flagship
+  - armoured ironclad → Armored Monitor
+  - turreted dreadnought → Iron Leviathan, which burns harder and switches flags as its phases change
+  *Reason: the sheet's ships already face left, toward the player.*
+- **Other enemies are assembled from the parts:**
+  - Corsair Gunship: iron hull, striped balloon, two turrets, a Jolly Roger.
+  - Scavenger Skiff: wooden hull, net balloon, a cannon.
+  - Bomber Dirigible: long red balloon over a trimmed hull with a bomb rack.
+  - Storm Queen: blue emblem balloon over an iron hull, keeping her tesla spires and storm skirt.
+  The two clockwork machines (Sentinel and Colossus) keep their drawn art. *Reason: one consistent look for the pirates.*
+- **Your ship flies real balloons over a real hull.** Each Core has its own balloon (green-banded Airship, red-striped Battleship, blue emblem Zeppelin, net-wrapped Clockwork) and hull (wooden, iron, trimmed). Longer ships fly more balloons side by side, at their natural shape. The hull stretches under every module, and a flag flies from the tail. *Reason: the assembled ship should match the enemies and the sheet.*
+- **Module sprites:** Deck Cannon, Mortar, Harpoon Gun, Auxiliary Boiler, Overpressure Valve, Autoloader, Crew Quarters, Cargo Hold, Gasbag and Propeller now use the sheet's cannons, turrets, harpoon, engines, cabins, balloon and propeller (which spins). The other modules keep their drawn art. *Reason: use the parts that match a module; draw the rest.*
+- **The sky map marker is the little striped airship.** Your painted clouds drift in the far cloud bank of clear and sunset skies, and the smoke-trail sprite streams behind the ship while travelling. *Reason: carry the sheet's style through the whole game.*
+- **On phones, combat keeps your ship to the lower 60% of the view and the enemy flies above it,** so the bigger balloons don't overlap. *Reason: readability at phone width.*

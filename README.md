@@ -43,6 +43,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `js/ui.js` | Panels, input, settings, autosave |
 | `js/skymap.js` | The scrolling, parallax sky map |
 | `js/scene.js` | Parallax flight scene and biomes |
+| `js/sprites.js` | Sprite atlas frames and drawing helpers |
 | `js/shipart.js` | Side-on ship, module and enemy art |
 | `js/actors.js` | Places the ships, intent plate, arrows, synergy links, taps |
 | `js/fx.js` | Event playback, particles, dice, effect settings |
@@ -57,6 +58,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/canyon-foundry.jpg` | Far layer of the industrial smog biome |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |
+| `assets/art/ship-parts.png` | Sprite atlas cut from `assets/art/source/ship-parts-sheet.png` (rebuild with `python3 tools/build_sprites.py`): enemy ships, your ship's balloons, hull, flag and module parts, map marker, clouds, smoke trail |
 | `assets/music/pirate-battle-1` | Title, sky map, docks, victory, defeat |
 | `assets/music/pirate-battle-2` | Standard combat |
 | `assets/music/pirate-battle-3` | Boss (stepping up per phase) and hazards |

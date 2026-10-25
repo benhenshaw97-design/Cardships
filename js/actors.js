@@ -90,13 +90,14 @@
       if (this.phase === 'combat' || (this.enemy && this.enemy.sinking > 0 && this.enemy.sinking < 3)) {
         const room = phone ? v.w * 0.82 : v.w * 0.52;
         const bd = this.player.bounds();
-        const ps = Math.min(1.35, room / ext, (v.h * 0.86) / (bd.top + bd.bottom));
+        // On phones the enemy flies in the upper band, so the ship keeps to the lower 60%.
+        const ps = Math.min(1.35, room / ext, (v.h * (phone ? 0.6 : 0.86)) / (bd.top + bd.bottom));
         const px = phone ? v.w * 0.42 : v.w * 0.3;
         // Low enough that the deck tower and envelope stay on screen.
-        const py = Math.min(v.h - bd.bottom * ps - 6, Math.max(phone ? v.h * 0.74 : v.h * 0.64, bd.top * ps + 8));
+        const py = phone ? v.h - bd.bottom * ps - 20 : Math.min(v.h - bd.bottom * ps - 6, Math.max(v.h * 0.64, bd.top * ps + 8));
         const half = this.enemy ? Math.max(60, this.enemy.halfW) : 80;
-        const es = Math.min(phone ? 0.85 : 1.4, (phone ? v.w * 0.46 : v.w * 0.42) / (half * 2), v.h / (half * (phone ? 2.8 : 2.3)));
-        return { player: { x: px, y: py, s: ps }, enemy: { x: phone ? v.w * 0.76 : v.w * 0.76, y: phone ? v.h * 0.34 : v.h * 0.5, s: es } };
+        const es = Math.min(phone ? 0.75 : 1.4, (phone ? v.w * 0.44 : v.w * 0.42) / (half * 2), v.h / (half * (phone ? 3.4 : 2.3)));
+        return { player: { x: px, y: py, s: ps }, enemy: { x: v.w * 0.76, y: phone ? v.h * 0.27 : v.h * 0.5, s: es } };
       }
       const bd = this.player.bounds();
       const s = Math.min(1.6, (v.w * 0.86) / ext, (v.h * 0.86) / (bd.top + bd.bottom));
@@ -113,6 +114,13 @@
       // Centre the whole ship, not just the Core, when it's alone on screen.
       const e = this.player.extent(false);
       const shift = L.enemy ? 0 : ((e.left - e.right) / 2) * L.player.s;
+      // A smoke trail streams behind the ship while it travels between nodes.
+      if (v.mode === 'travel' && window.CardshipsSprites.ready()) {
+        const tw = 260 * L.player.s;
+        g.save(); g.globalAlpha = Math.min(0.85, v.speed / 600);
+        window.CardshipsSprites.draw(g, 'trail_smoke', L.player.x + shift - (e.left * L.player.s) - tw / 2 + 10, L.player.y + 4 + bob, tw, null, true);
+        g.restore();
+      }
       if (this.phase !== 'gameover' || this.player.dying > 0) this.player.draw(g, L.player.x + shift, L.player.y + bob, L.player.s, v.t, { synergy: this.synergy });
       for (const ins of this.player.inserts) ins.hover = this.previewKey === `${ins.side}:${ins.pos}`;
       if (L.enemy && this.enemy) this.enemy.draw(g, L.enemy.x, L.enemy.y - bob * 0.8, L.enemy.s, v.t);
