@@ -541,3 +541,18 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
 - **Targeting** works on the buttons too. Using the Repair Bay highlights the modules it can reach, and a banner at the top offers Cancel.
 - **Phones:** menus open as a panel just above the bar, and your ship is drawn larger so its buttons are easy to hit.
 - **Settings → Battle layout** switches back to the old panels below the flight view.
+
+## Single screen for the whole run
+
+*Reason: the pop-up battle layout worked, so every other step now plays the same way, without scrolling.*
+
+- **The page never scrolls during a run.** The flight view fills the window under the top bar.
+- **Every step's panels float over the flight view** in a window: part picks and installs, the sky route, events, the Sky Dock, the Trading Zeppelin, and the end of the run.
+  - The window keeps to the lower part of the view, and your ship is drawn in the space above it.
+  - **Hide** folds the window down to its title bar so you can watch the scene. It opens again at each new step.
+- **Top-bar buttons**, with icons from the second UI kit:
+  - **Map** opens the sky route at any time. You can read every node but not set a course. On the route step itself it just reopens the window.
+  - **Ship** opens the full Shipyard grid. Where the window already holds the Shipyard (picks, events, docks, trading), it scrolls to it instead.
+  - **Log** opens the ship's log. A red count shows how many new lines there are since you last looked.
+- **The log panel beside the view is gone** in this layout. On phones the top bar shrinks to a brand row with icon buttons and a row of stats.
+- **Settings → Screen layout → Classic (scrolling)** brings back the old page.

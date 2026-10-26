@@ -75,8 +75,8 @@
     // art pixel, in half steps so pixels stay even). Ships are anchored at the bottom of the hull.
     layout(v) {
       const phone = v.w < 560;
-      // Room kept clear along the bottom for the pop-up layout's action bar.
-      if (this.reserve && this.phase === 'combat') v = { ...v, h: v.h - this.reserve };
+      // Room kept clear along the bottom: the battle bar, or the single-screen window.
+      if (this.reserve) v = { ...v, h: v.h - this.reserve };
       const snap = (k) => Math.max(1, Math.floor(k * 2) / 2);
       const pw = this.player.width();
       const bd = this.player.bounds();

@@ -511,3 +511,44 @@ body.fx-busy .battle-ui .mod-mark, body.fx-busy .battle-ui .pop, body.fx-busy .b
   .bb-acts { margin-left: 0; width: 100%; }
   .bb-acts .btn { flex: 1; justify-content: center; padding: 4px 6px; }
 }
+
+/* ---------- single screen ---------- */
+/* During a run the page never scrolls: the flight view fills the window under the top bar, the
+   phase's panels float over it in a window, and the map, Shipyard and log open as sheets. */
+body.single { overflow: hidden; }
+body.single .app { height: 100vh; height: 100svh; padding-block: 0 8px; gap: 8px; max-width: none; }
+body.single .layout { flex: 1; min-height: 0; display: flex; align-items: stretch; }
+body.single .main-col { flex: 1; min-height: 0; position: relative; gap: 0; }
+body.single .scene-wrap, body.single .scene-wrap.battle { height: auto; flex: 1; min-height: 0; }
+body.single .logpanel, body.single .scene-dock { display: none; }
+body.single .stage { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 6; width: min(1040px, calc(100% - 16px)); max-height: 66%;
+  overflow: auto; overscroll-behavior: contain; padding: 0 12px 12px; gap: 12px;
+  background: rgba(24, 18, 13, 0.96); border: 1.5px solid var(--brass-2); border-radius: 8px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6); }
+body.single .stage:empty { display: none; }
+body.single .stage.collapsed { overflow: hidden; padding-bottom: 0; }
+body.single .stage.collapsed > :not(.win-head) { display: none; }
+body.single .stage .panel { box-shadow: none; }
+.win-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 -12px; padding: 8px 12px;
+  background: rgba(24, 18, 13, 0.98); border-bottom: 1px solid var(--rule); }
+.win-title { font: 400 20px/1 var(--f-display); color: var(--brass); }
+/* Top-bar tools: Map, Ship, Log. */
+.tools { display: flex; gap: 6px; margin-left: auto; }
+.tools:empty { display: none; }
+.tool, #settings-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.tool img { width: 22px; height: 22px; }
+.tool-badge { position: absolute; top: -6px; right: -6px; min-width: 18px; padding: 2px 4px; border-radius: 9px; background: var(--ember); color: #1b130d; font: 700 10px/14px var(--f-mono); text-align: center; }
+.sheet-log { max-height: 70vh; overflow: auto; }
+.sheet.sheet-log, .sheet.sheet-map { max-width: 1040px; }
+@media (max-width: 640px) {
+  body.single .topbar { gap: 4px 8px; padding: 6px 10px; margin: 0 -16px; }
+  body.single .brand { font-size: 21px; }
+  body.single .hud { order: 3; width: 100%; gap: 4px 12px; font-size: 13px; }
+  body.single .hud-label { display: none; }
+  body.single .hud .meter { width: 64px; }
+  body.single .tool-txt { display: none; }
+  body.single .tools { gap: 4px; }
+  body.single .tool, body.single #settings-btn { padding: 3px 6px; }
+  body.single .stage { width: calc(100% - 8px); bottom: 4px; max-height: 74%; padding: 0 8px 10px; }
+  body.single .win-head { margin: 0 -8px; padding: 6px 8px; }
+  body.single .scene-wrap { border-radius: 4px; }
+}

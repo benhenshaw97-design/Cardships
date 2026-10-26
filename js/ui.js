@@ -78,6 +78,7 @@
     game = Game.fromJSON(saved);
     Actors.reset();
     ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
+    ui.logSeen = game.log.length; ui.sheet = null; ui.stageKey = null;
     render();
   }
   function newRun(coreId, shipId) {
@@ -88,6 +89,7 @@
     ui.pickCore = null; ui.pickShip = null;
     game.events = [];
     ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
+    ui.logSeen = game.log.length; ui.sheet = null; ui.stageKey = null;
     render();
   }
 
@@ -180,7 +182,19 @@
     renderHud();
     ui.insertFn = null;
     ui.previewId = null;
-    $('stage').replaceChildren(...stageContent().filter(Boolean));
+    document.body.classList.toggle('single', single());
+    const content = stageContent().filter(Boolean);
+    const stage = $('stage');
+    if (single() && content.length) {
+      // The phase's panels float in a window over the flight view; Hide folds it to its title.
+      const key = game.phase + ':' + game.depth;
+      if (ui.stageKey !== key) { ui.stageKey = key; ui.stageHidden = false; stage.scrollTop = 0; }
+      stage.replaceChildren(h('div', { class: 'win-head' },
+        h('span', { class: 'win-title' }, windowTitle()),
+        h('button', { class: 'btn small', 'aria-expanded': String(!ui.stageHidden), onclick: () => { ui.stageHidden = !ui.stageHidden; render(); } }, ui.stageHidden ? 'Show ▴' : 'Hide ▾')), ...content);
+    } else stage.replaceChildren(...content);
+    stage.classList.toggle('collapsed', single() && !!ui.stageHidden);
+    renderTools();
     renderLog();
     if (game) {
       for (const ev of game.events) {
@@ -193,6 +207,7 @@
     ui.intentSummary = game && game.phase === 'combat' && game.combat.enemy.intent ? intentText(game.combat.enemy.intent) : '';
     Actors.sync(game, ui);
     renderBattle();
+    renderSheet();
     autosave();
     const lh = $('log-head');
     if (lh) lh.textContent = game && game.phase === 'combat' ? `Combat log · round ${game.combat.round}` : "Ship's log";
@@ -466,7 +481,7 @@
     for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
 
     const buttons = h('div', { class: 'row' });
-    if (game.phase === 'combat' && !loc.stored) buttons.append(...combatButtons(uid, loc, ui.inSheet ? () => { $('sheet').hidden = true; ui.selected = null; } : undefined));
+    if (game.phase === 'combat' && !loc.stored) buttons.append(...combatButtons(uid, loc, ui.inSheet ? () => { ui.sheet = null; ui.selected = null; } : undefined));
     if (!loc.stored && card !== game.core) {
       if (game.phase === 'shop') buttons.append(h('button', { class: 'btn small', disabled: game.shop.sold >= 2 || null, onclick: act(() => { game.sell(uid); ui.selected = null; }) }, `Sell for ${game.sellValue(card)} cogs`));
       if (game.phase === 'hangar') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.detach(uid); ui.selected = null; }) }, 'Detach'));
@@ -626,15 +641,21 @@
     return { kind: enc.kind, name: enemy && n.enc !== 'beacon' ? `${enc.name}: ${enemy.name}` : enc.name, text: enc.text, enemy, table: enc.table };
   }
   function mapScreen() {
+    const panel = mapPanel();
+    return single() ? [targetBanner(), panel] : [targetBanner(), panel, shipView()];
+  }
+  // The sky route. readOnly: looked at from the Map button mid-run, with no course to set.
+  function mapPanel({ readOnly = false } = {}) {
     const cur = game.currentNode();
-    const choices = game.mapChoices();
-    if (!ui.mapSel || !choices.some((n) => n.id === ui.mapSel)) ui.mapSel = choices.length === 1 ? choices[0].id : ui.mapSel && game.node(ui.mapSel) ? ui.mapSel : null;
+    const choices = readOnly ? [] : game.mapChoices();
+    const key = readOnly ? 'mapPeek' : 'mapSel';
+    if (!readOnly && (!ui.mapSel || !choices.some((n) => n.id === ui.mapSel))) ui.mapSel = choices.length === 1 ? choices[0].id : ui.mapSel && game.node(ui.mapSel) ? ui.mapSel : null;
     const mapEl = SkyMap.render(game, {
-      selected: ui.mapSel,
-      onSelect: (id) => { if (ui.flying) return; ui.mapSel = id; render(); },
+      selected: ui[key],
+      onSelect: (id) => { if (ui.flying) return; ui[key] = id; render(); },
     });
-    const sel = ui.mapSel && game.node(ui.mapSel);
-    const reachable = sel && cur.edges.includes(sel.id);
+    const sel = ui[key] && game.node(ui[key]);
+    const reachable = !readOnly && sel && cur.edges.includes(sel.id);
     let detail;
     if (sel) {
       const info = nodeInfo(sel);
@@ -645,10 +666,10 @@
         info.enemy ? statline(`Weight ${info.enemy.weight}`, `Durability ~${Math.round(info.enemy.hp * (info.enemy.boss ? D.BALANCE.bossHp : 1 + D.BALANCE.hpPerColumn * (sel.col - 1)))}`) : null,
         info.table ? d6List(info.table) : null,
         h('div', { class: 'enc-foot' },
-          h('span', { class: 'muted' }, reachable ? 'Reachable from here.' : sel.id === cur.id ? 'You are here.' : 'Not reachable from here yet.'),
+          h('span', { class: 'muted' }, reachable ? 'Reachable from here.' : sel.id === cur.id ? 'You are here.' : readOnly && cur.edges.includes(sel.id) ? 'Reachable after this encounter.' : 'Not reachable from here yet.'),
           reachable ? h('button', { class: 'btn primary', disabled: ui.flying ? true : null, onclick: () => travel(sel.id, mapEl) }, 'Set course') : null));
     } else {
-      detail = h('p', { class: 'muted' }, 'Tap a glowing node to plot your next leg.');
+      detail = h('p', { class: 'muted' }, readOnly ? 'Tap a node to read about it.' : 'Tap a glowing node to plot your next leg.');
     }
     const legend = h('div', { class: 'legend' }, ['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar', 'derelict', 'rift'].map((id) =>
       h('span', { class: `k-${D.ENCOUNTERS[id].kind.replace(' ', '')}` }, SkyMap.icon(id, 16), D.ENCOUNTERS[id].name)));
@@ -657,7 +678,7 @@
         h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, `Column ${game.depth} of ${game.maxDepth} · sight ${game.sight()} · seed ${Game.seedCode(game.seed)}`), h('h2', {}, 'Sky route')),
         h('span', { class: 'muted' }, `Ahead: ${D.ENEMIES[game.bossId].name}`)),
       mapEl, detail, legend);
-    return [targetBanner(), panel, shipView()];
+    return panel;
   }
   function travel(id, mapEl) {
     ui.flying = true;
@@ -838,6 +859,39 @@
     return [targetBanner(), turn, enemy, shipView()];
   }
 
+  // ---------- single screen ----------
+  // With the pop-up layout on, a run never scrolls the page: the flight view fills the window, the
+  // phase's panels float over it, and the map, Shipyard and log open from buttons in the top bar.
+  const single = () => !!game && FX.prefs.battle !== 'classic';
+  function windowTitle() {
+    switch (game.phase) {
+      case 'loot': return game.lootTitle || 'Spoils';
+      case 'map': return 'Sky route';
+      case 'event': return game.event ? D.ENCOUNTERS[game.event.enc].name : 'Encounter';
+      case 'hangar': return 'Sky Dock';
+      case 'shop': return 'Trading Zeppelin';
+      case 'victory': return 'Victory';
+      case 'gameover': return 'Defeat';
+      default: return '';
+    }
+  }
+  function renderTools() {
+    const tools = $('tools');
+    if (!single()) { tools.replaceChildren(); return; }
+    const fresh = Math.max(0, game.log.length - (ui.logSeen || 0));
+    const tool = (icon, label, onclick, extra) => h('button', { class: 'icon-btn tool', onclick, 'aria-label': label }, h('img', { src: `assets/art/ui/${icon}.png`, alt: '' }), h('span', { class: 'tool-txt' }, label), extra || null);
+    // Where the open window already shows the Shipyard, Ship scrolls to it instead of opening a sheet.
+    const shipInWindow = ['loot', 'event', 'hangar', 'shop'].includes(game.phase);
+    tools.replaceChildren(
+      tool('compass', 'Map', () => { if (game.phase === 'map') { ui.stageHidden = false; render(); } else openSheet('map'); }),
+      tool('btn-hammer', 'Ship', () => {
+        if (!shipInWindow) { openSheet('ship'); return; }
+        ui.stageHidden = false; render();
+        requestAnimationFrame(() => { const el = $('stage').querySelector('.ship-wrap'); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
+      }),
+      tool('btn-flag', 'Log', () => openSheet('log'), fresh && ui.sheet !== 'log' ? h('span', { class: 'tool-badge' }, fresh > 99 ? '99+' : String(fresh)) : null));
+  }
+
   // ---------- pop-up battle layout ----------
   // The flight view becomes the board: a button sits on every module of your ship, and tapping
   // one (or the ship, or the enemy) opens a small menu right there. A bar along the bottom holds
@@ -848,7 +902,7 @@
 
   function renderBattle() {
     const root = $('battle-ui');
-    if (!inBattle()) { root.replaceChildren(); ui.pop = null; $('sheet').hidden = true; Actors.reserve = 0; return; }
+    if (!inBattle()) { root.replaceChildren(); ui.pop = null; return; }
     const c = game.combat;
     const hits = predictedHits();
     const t = ui.targeting;
@@ -891,7 +945,7 @@
       h('div', { class: 'bb-acts' },
         h('button', { class: 'btn small', disabled: core.blocked ? true : null, title: core.blocked || core.summary, onclick: act(() => { close(); game.useCore(); }) }, core.ability.name, h('span', { class: 'sub' }, ` ${core.cost}⚙`)),
         ec != null ? h('button', { class: 'btn small', disabled: !game.canEvade() || null, onclick: act(() => { close(); game.evade(); }) }, c.evading ? 'Evading' : 'Evade', h('span', { class: 'sub' }, ` ${ec}⚙`)) : null,
-        h('button', { class: 'btn small', onclick: () => { close(); openSheet(); } }, 'Ship'),
+        h('button', { class: 'btn small', onclick: () => { close(); openSheet('ship'); } }, 'Ship'),
         h('button', { class: `btn small ${c.steam > 0 ? '' : 'primary'}`, onclick: act(() => { close(); game.endTurn(); }) }, 'End turn')));
     // The enemy's durability, top right, under its move plate.
     const en = c.enemy;
@@ -903,10 +957,6 @@
       t ? h('div', { class: 'battle-banner' }, h('span', {}, t.prompt), t.cancelable ? h('button', { class: 'btn small', onclick: () => { ui.targeting = null; render(); } }, 'Cancel') : null) : null,
       ui.pop ? popupEl() : null].filter(Boolean));
     placeBattle();
-    if ($('sheet').hidden === false) openSheet();
-    // Phones: bring the whole battle view on screen when a fight starts.
-    if (ui.battleKey !== c && window.matchMedia('(max-width: 640px)').matches) $('scene-wrap').scrollIntoView({ block: 'start' });
-    ui.battleKey = c;
   }
   // The menu for whatever was tapped: a module, the Core, or the enemy.
   function popupEl() {
@@ -941,20 +991,35 @@
     else box.append(h('p', { class: 'muted' }, 'Nothing to do with it this turn.'));
     return box;
   }
-  // The full Shipyard grid, over the page.
-  function openSheet() {
+  // Sheets over the page: the full Shipyard grid, the sky map, the ship's log.
+  function openSheet(kind) { ui.sheet = kind; if (kind === 'log') ui.logSeen = game.log.length; render(); }
+  function closeSheet() { ui.sheet = null; ui.selected = null; render(); }
+  function renderSheet() {
     const sheet = $('sheet');
-    ui.inSheet = true; // actions taken in the sheet close it, so the shot plays in view
-    sheet.replaceChildren(h('div', { class: 'sheet', onclick: (ev) => ev.stopPropagation() },
-      h('button', { class: 'btn small sheet-close', onclick: () => { sheet.hidden = true; ui.selected = null; render(); } }, 'Back to battle'),
-      shipView()));
-    ui.inSheet = false;
+    if (!game || !ui.sheet) { sheet.hidden = true; sheet.replaceChildren(); ui.sheet = null; return; }
+    const back = game.phase === 'combat' ? 'Back to battle' : 'Close';
+    let body;
+    if (ui.sheet === 'ship') {
+      ui.inSheet = true; // actions taken in the sheet close it, so the shot plays in view
+      body = shipView();
+      ui.inSheet = false;
+    } else if (ui.sheet === 'map') {
+      body = mapPanel({ readOnly: true });
+    } else {
+      ui.logSeen = game.log.length;
+      const list = h('ol', { class: 'log sheet-log' }, game.log.slice(-200).map((e) => h('li', { class: e.cls }, e.text)));
+      body = h('section', { class: 'panel stack' }, h('h3', {}, game.phase === 'combat' ? `Combat log · round ${game.combat.round}` : "Ship's log"), list);
+      requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+    }
+    sheet.replaceChildren(h('div', { class: `sheet sheet-${ui.sheet}`, onclick: (ev) => ev.stopPropagation() },
+      h('button', { class: 'btn small sheet-close', onclick: closeSheet }, back), body));
     sheet.hidden = false;
   }
-  $('sheet').addEventListener('click', () => { $('sheet').hidden = true; ui.selected = null; render(); });
+  $('sheet').addEventListener('click', closeSheet);
   document.addEventListener('keydown', (ev) => {
-    if (ev.key !== 'Escape' || !inBattle()) return;
-    if (!$('sheet').hidden) $('sheet').hidden = true;
+    if (ev.key !== 'Escape' || !game) return;
+    if (ui.sheet) ui.sheet = null;
+    else if (!inBattle()) return;
     else if (ui.targeting && ui.targeting.cancelable) ui.targeting = null;
     else if (ui.pop) close();
     else return;
@@ -964,7 +1029,12 @@
   // Keeps the module buttons and the open menu on the ship as it bobs and the view resizes.
   function placeBattle() {
     const root = $('battle-ui');
-    if (!inBattle()) return;
+    if (!inBattle()) {
+      // Single screen: draw the ship above the open window rather than behind it.
+      const st = $('stage');
+      Actors.reserve = single() && st.childElementCount ? Math.min(st.offsetHeight + 12, root.clientHeight * 0.62) : 0;
+      return;
+    }
     const W = root.clientWidth, H = root.clientHeight;
     const P = Actors.player;
     const bar = root.querySelector('.battle-bar');
@@ -1032,7 +1102,7 @@
       slider('music', 'Music volume'),
       slider('sfx', 'Sound effects volume'),
       radio('mute', 'Sound', [[false, 'On'], [true, 'Muted']]),
-      radio('battle', 'Battle layout', [['popup', 'Pop-up menus'], ['classic', 'Panels below']]),
+      radio('battle', 'Screen layout', [['popup', 'Single screen'], ['classic', 'Classic (scrolling)']]),
       h('p', { class: 'muted' }, 'Tap the flight view during an animation to skip ahead.'));
   }
   function applyPrefs() { if (window.CardshipsAudio) window.CardshipsAudio.applyPrefs(FX.prefs); }

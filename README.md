@@ -15,9 +15,11 @@ Opening `index.html` straight from disk also works, but browsers block WebAudio 
 
 **Controls:** build and act in the **Shipyard** panel, a card grid laid out like the ship. Tap a card to see its rules and actions (fire, aimed shot, swap, vent tokens, use); cards linked to it by a synergy get a green outline. When installing a part, hover a slot (or tap it once) to preview it, then click (or tap again) to install. The **flight view** shows the ships and effects; tap during an animation to skip.
 
-**In battle** (pop-up layout, the default) the flight view is the board. Every module on your ship has a round button: tap it for a menu of what it can do this turn (fire, aimed shot, use, swap, vent). Usable modules glow gold, and modules the enemy will hit have a red ring. Tap your ship's hull for the Core's ability and Evade, or tap the enemy (or its tag) for its move, statuses and tactics table. The bar along the bottom holds your Core's durability, Steam, the Core ability, **Ship** (the full Shipyard grid) and **End turn**.
+**Single screen** (the default layout): during a run the page never scrolls. The flight view fills the window, and each step's panel (part picks, the sky route, events, the Sky Dock, the Trading Zeppelin) floats over it in a window you can fold away with **Hide**. The top bar has **Map** (the sky route, any time), **Ship** (the full Shipyard grid) and **Log** (the ship's log, with a count of new lines).
 
-**Settings** has screen shake, flashing, dice speed, music and sound volume, mute, and **Battle layout** (pop-up menus, or the older panels below the flight view).
+**In battle** the flight view is the board. Every module on your ship has a round button: tap it for a menu of what it can do this turn (fire, aimed shot, use, swap, vent). Usable modules glow gold, and modules the enemy will hit have a red ring. Tap your ship's hull for the Core's ability and Evade, or tap the enemy (or its tag) for its move, statuses and tactics table. The bar along the bottom holds your Core's durability, Steam, the Core ability, **Ship** (the full Shipyard grid) and **End turn**.
+
+**Settings** has screen shake, flashing, dice speed, music and sound volume, mute, and **Screen layout** (single screen, or the classic scrolling page with panels below the flight view and the log beside it).
 
 ## How it plays
 
