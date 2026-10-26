@@ -153,7 +153,7 @@
   const BOLTS = ['bolt_forked', 'bolt_jagged', 'bolt_chain'];
   const FLAMES = ['fire_1', 'fire_2', 'fire_3'];
   const BIG_FLAMES = ['fire_big_1', 'fire_big_2', 'fire_big_1', 'fire_big_2', 'fire_big_3'];
-  const WEAPON_SHOT = { harpoon: ['harpoon', 0.3, 0], grapnel: ['harpoon', 0.3, 0], rockets: ['rocket', 0.4, 30], flak: ['shell', 0.45, 70], cannon: ['ball', 0.32, 18], mortar: ['shell', 0.55, 90], flamethrower: ['flame', 0.35, 0], gatling: ['goo', 0.3, 0], grenadiers: ['rocket', 0.45, 40], sniper: ['tracer', 0.14, 0], tesla: ['lightning', 0.18, 0] };
+  const WEAPON_SHOT = { harpoon: ['harpoon', 0.3, 0], grapnel: ['harpoon', 0.3, 0], rockets: ['rocket', 0.4, 30], flak: ['shell', 0.45, 70], cannon: ['ball', 0.32, 18], dreadnought: ['ball', 0.26, 8], titanfist: ['ball', 0.22, 0], mortar: ['shell', 0.55, 90], flamethrower: ['flame', 0.35, 0], gatling: ['goo', 0.3, 0], grenadiers: ['rocket', 0.45, 40], sniper: ['tracer', 0.14, 0], tesla: ['lightning', 0.18, 0] };
 
   // ---------- ambient effects ----------
   function ambient(dt, t) {
@@ -403,6 +403,27 @@
       return 760;
     },
     // Tempest: the stored charge leaps from the Core to the enemy as a painted bolt.
+    // Leviathan Plating: a golden flare at the bow, then the blocked force flung back.
+    reflect(ev) {
+      const from = playerPt(A().player.mods.size ? [...A().player.mods.values()].find((m) => m.legendary)?.uid : 'core'), to = enemyPt();
+      ring(from.x, from.y, 'rgba(255,214,110,0.95)', 8, 60, 0.45, 6);
+      shoot({ x: from.x, y: from.y }, { x: to.x, y: to.y }, 'tracer', 0.18);
+      sfx('clang');
+      return 220;
+    },
+    // Storm Heart: a bolt from the clouds onto the enemy.
+    stormheart() {
+      const to = enemyPt();
+      shoot({ x: to.x + rand(-40, 40), y: -10 }, { x: to.x + rand(-16, 16), y: to.y }, 'lightning', 0.16);
+      lastFire = 'tesla';
+      flash(0.15);
+      sfx('zap');
+      return 260;
+    },
+    galeShift() { const to = enemyPt(); sprite(to.x + rand(-20, 20), to.y + rand(-14, 14), ['zap_crack', 'zap_blue'], 46, 0.3, { add: true }); lastFire = 'tesla'; sfx('zap'); return 120; },
+    // A Ward shatters in a ring of light; a prism shot breaks every layer at once.
+    wardPop() { const p = enemyPt(); ring(p.x, p.y, 'rgba(170,255,230,0.95)', p.r * 0.5, p.r * 1.3, 0.45, 5); burst(p.x, p.y, 18, 'spark', { min: 120, max: 320, life: 0.5 }); numberAt(p.x, p.y - p.r * 0.7, 'Ward!', '#aef7e4', 18); sfx('clang'); return 260; },
+    enemyLayers() { const p = enemyPt(); for (let i = 0; i < 3; i++) ring(p.x, p.y, ['rgba(255,120,120,0.9)', 'rgba(140,255,170,0.9)', 'rgba(150,180,255,0.9)'][i], p.r * 0.4, p.r * (1.1 + i * 0.25), 0.5, 4); sfx('zap'); return 280; },
     discharge(ev) {
       const c = playerPt('core'), to = enemyPt();
       for (let i = 0; i < 1 + Math.min(3, Math.floor(ev.charge / 2)); i++) setTimeout(() => shoot({ x: c.x, y: c.y - 10 }, { x: to.x + rand(-20, 20), y: to.y + rand(-14, 14) }, 'lightning', 0.2), i * 80);

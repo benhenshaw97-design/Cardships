@@ -203,11 +203,45 @@
       rules: [['Passive', '+2 Steam every turn.'], ['Strain', 'If you end a turn with Steam unspent, this module takes 1 damage.']],
     },
   };
+  // ---------- Legendaries ----------
+  // Build-defining parts from the bosses. Beating a boss offers a choice of the two in its pool;
+  // beating it for the first time also unlocks them as very rare loot in later runs.
+  // pierceLayers: skips that many of the enemy's defence layers (Wards, Block, Armor, outermost first).
+  // cooldown: turns it must wait after firing.
+  Object.assign(PARTS, {
+    leviplating: {
+      name: 'Leviathan Plating', abbr: 'LVP', type: 'defense', rarity: 'legendary', boss: 'leviathan', weight: 2, hp: 7,
+      rules: [['Armored', 'Every hit on it deals 2 less. At the front of a deck it catches every direct shot along it; buried, it soaks 2 of hits on its neighbours.'], ['Retribution', 'Half of all the damage your ship blocks in an enemy attack (armor and Deflector braces) is flung back at the attacker, ignoring Block.']],
+    },
+    dreadnought: {
+      name: 'Dreadnought Cannon', abbr: 'DRD', type: 'weapon', rarity: 'legendary', boss: 'leviathan', weight: 2, hp: 5, cost: 2, dmg: 5, pierceLayers: 2, cooldown: 2,
+      rules: [['Fire · 2 Steam', 'Deal 5 damage that pierces 2 of the enemy\'s defence layers (Wards, Block, Armor, outermost first).'], ['Cooldown', 'Then cools for 2 turns before it can fire again.']],
+    },
+    galeengine: {
+      name: 'Gale Engine', abbr: 'GAL', type: 'utility', rarity: 'legendary', boss: 'stormqueen', weight: 1, hp: 4,
+      rules: [['Passive · Tailwinds', 'Your first 3 Swaps each turn cost 0 Steam.'], ['Static Shift', 'Every Swap crackles at the enemy: 1 damage that ignores Block.']],
+    },
+    stormheart: {
+      name: 'Storm Heart', abbr: 'STH', type: 'support', rarity: 'legendary', boss: 'stormqueen', weight: 1, hp: 4, steam: 1,
+      rules: [['Passive', '+1 Steam every turn.'], ['Caged Storm', 'At the end of every enemy turn, lightning strikes the enemy for 2 damage that ignores Block.']],
+    },
+    mainspring: {
+      name: 'Grand Mainspring', abbr: 'MSP', type: 'utility', rarity: 'legendary', boss: 'colossus', weight: 2, hp: 5,
+      rules: [['Wind-Up', 'Every round of a fight, your weapons deal +1 damage (up to +4).'], ['Unwind', 'A round in which no weapon fires lets the spring run down to +0.']],
+    },
+    titanfist: {
+      name: "Titan's Fist", abbr: 'TTN', type: 'weapon', rarity: 'legendary', boss: 'colossus', weight: 3, hp: 6, cost: 2,
+      rules: [['Fire · 2 Steam', 'Deal damage equal to your ship\'s Weight (at least 3).'], ['Braced Frame', 'Rams against you deal 2 less.']],
+    },
+  });
   for (const [id, p] of Object.entries(PARTS)) p.id = id;
+  // Each boss's legendaries.
+  const LEGENDARY_POOLS = { leviathan: ['leviplating', 'dreadnought'], stormqueen: ['galeengine', 'stormheart'], colossus: ['mainspring', 'titanfist'] };
 
+  // Rarity odds for rolled parts. Legendaries only roll once unlocked (see Game.available).
   const RARITY_ODDS = {
-    normal: { common: 62, uncommon: 30, rare: 8 },
-    elite: { common: 25, uncommon: 50, rare: 25 },
+    normal: { common: 62, uncommon: 30, rare: 8, legendary: 0.6 },
+    elite: { common: 25, uncommon: 50, rare: 25, legendary: 3 },
   };
 
   // ---------- Enemies ----------
@@ -306,7 +340,7 @@
       ],
     },
     leviathan: {
-      name: 'The Iron Leviathan', weight: 10, hp: 26, look: 'leviathan', boss: true,
+      name: 'The Iron Leviathan', weight: 10, hp: 26, look: 'leviathan', boss: true, armor: 1,
       gimmick: 'Ironclad Hull: every hit deals 1 less unless it pierces (Tesla, Steady Aim, Bombard, Burn). Rearms at each phase.',
       phases: [
         { name: 'Artillery & Disruption', min: 21, table: [I.shot(3, 'Heavy Cannon'), I.shot(3, 'Heavy Cannon'), I.token('gas', 1, 'Toxic Shell'), I.block(6, 'Armor Plating'), I.broadside(2), I.charge(3, 'Load Main Battery')] },
@@ -454,7 +488,7 @@
     bossCogs: 30,            // cogs for beating an area's boss (before its portal)
   };
 
-  const data = { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
+  const data = { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);

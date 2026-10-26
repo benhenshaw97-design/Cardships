@@ -83,7 +83,7 @@
   }
   function newRun(coreId, shipId) {
     const seed = Game.seedFromCode(ui.seedCode);
-    game = new Game({ unlocked: meta.unlocked, seed: seed == null ? undefined : seed });
+    game = new Game({ unlocked: meta.unlocked, legendaries: meta.legendaries, seed: seed == null ? undefined : seed });
     Actors.reset();
     game.chooseCore(coreId, shipId);
     ui.pickCore = null; ui.pickShip = null;
@@ -232,6 +232,10 @@
       default: return titleScreen();
     }
   }
+
+  // A part's card picture: painted art where it exists, otherwise an illustration drawn in code.
+  const ArtGen = window.CardshipsArtGen;
+  const cardSrc = (id) => (ArtGen && ArtGen.has(id) ? ArtGen.cardArt(id) : `assets/art/cards/${id}.jpg`);
 
   // ---------- painted icons ----------
   // Status and stat icons (assets/art/status), event banners (assets/art/scenes), unlock badges.
@@ -384,7 +388,7 @@
         render();
       },
     },
-    h('img', { class: 'card-art', src: card === game.core ? `assets/art/cores/${card.id}.jpg` : `assets/art/cards/${card.id}.jpg`, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }),
+    h('img', { class: 'card-art', src: card === game.core ? `assets/art/cores/${card.id}.jpg` : cardSrc(card.id), alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }),
     h('div', { class: 'card-body' },
       h('span', { class: 'card-name' }, info.name),
       h('span', { class: 'card-abbr' }, info.abbr),
@@ -541,7 +545,7 @@
 
   // Offers fly two flags: a pennant for the part's type and a banner in its rarity's colour.
   const TYPE_PENNANT = { weapon: 'rocket', defense: 'tower', support: 'wrench', utility: 'gear' };
-  const RARITY_BANNER = { common: 'grey', uncommon: 'blue', rare: 'red' };
+  const RARITY_BANNER = { common: 'grey', uncommon: 'blue', rare: 'red', legendary: 'gold' };
   function partSheet(id, extra) {
     const d = D.PARTS[id];
     return h('div', { class: `enc part ${d.rarity}` },
@@ -549,7 +553,7 @@
         h('img', { src: `assets/art/ui/pennant-${TYPE_PENNANT[d.type]}.png`, alt: '' }),
         h('img', { src: `assets/art/ui/banner-${RARITY_BANNER[d.rarity]}.png`, alt: '' })),
       h('div', { class: 'row' }, h('span', { class: `type-chip ${d.type}` }, d.type), h('span', { class: `rarity-chip ${d.rarity}` }, d.rarity)),
-      h('div', { class: 'part-head' }, h('img', { class: 'part-art', src: `assets/art/cards/${id}.jpg`, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }), h('h3', {}, d.name)),
+      h('div', { class: 'part-head' }, h('img', { class: 'part-art', src: cardSrc(id), alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }), h('h3', {}, d.name)),
       statline(`Weight ${fmt(d.weight)}`, `Durability ${d.hp}`, d.cost != null ? `${d.cost} Steam` : 'Passive'),
       h('div', { class: 'rules stack' }, d.rules.map(([k, v]) => h('div', {}, h('b', {}, k + ': '), v))),
       extra ? h('div', { class: 'enc-foot' }, extra) : null,
@@ -563,8 +567,8 @@
     let previewFor = null;
     if (game.lootOffer) {
       const o = game.lootOffer;
-      appendAll(panel, h('h2', {}, o.keep > 1 ? `Keep ${o.keep}` : 'Choose a part'),
-        h('p', { class: 'muted' }, 'Take one, or leave them all if none fit your ship.'),
+      appendAll(panel, h('h2', {}, o.legendary ? 'Choose a legendary' : o.keep > 1 ? `Keep ${o.keep}` : 'Choose a part'),
+        h('p', { class: 'muted' }, o.legendary ? 'Torn from the boss\'s wreck. Each one can define a build: take one, or leave both.' : 'Take one, or leave them all if none fit your ship.'),
         h('div', { class: 'choices' }, o.ids.map((id, i) => partSheet(id, h('button', { class: 'btn primary', onclick: act(() => game.pickOffer(i)) }, 'Take')))),
         h('div', { class: 'row' }, h('button', { class: 'btn', onclick: act(() => game.skipOffer()) }, 'Take nothing')));
     } else if (game.pendingLoot.length) {
@@ -918,7 +922,7 @@
       const fi = game.fireInfo(uid);
       const ready = !t && ((fi && !fi.blocked) || (game.canUseSupport(uid) && game.supportTargets(uid).length > 0));
       const eligible = t && t.eligible.includes(uid);
-      const cls = ['mod-mark', info.type, ready ? 'ready' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', ui.pop && ui.pop.uid === uid ? 'open' : '', hits.has(uid) ? 'targeted' : ''].join(' ');
+      const cls = ['mod-mark', info.type, info.rarity === 'legendary' ? 'legendary' : '', ready ? 'ready' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', ui.pop && ui.pop.uid === uid ? 'open' : '', hits.has(uid) ? 'targeted' : ''].join(' ');
       const toks = ['fire', 'glue', 'gas'].filter((k) => card.tokens[k]);
       marks.push(h('button', {
         class: cls, 'data-uid': uid, 'aria-label': `${info.name}, ${card.hp} of ${info.max} durability`,
@@ -931,7 +935,7 @@
         },
       },
       h('span', { class: 'mod-abbr' }, info.abbr), // shows if the part has no picture
-      h('img', { src: `assets/art/cards/${card.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
+      h('img', { src: cardSrc(card.id), alt: '', onerror: (e) => e.target.remove() }),
       h('span', { class: 'mod-hp' }, `${Math.max(0, card.hp)}/${info.max}`),
       toks.length ? h('span', { class: 'mod-toks' }, toks.map((k) => ico(k, 'tok-ico'))) : null));
     }
@@ -978,7 +982,7 @@
     const info = cardInfo(card);
     box.append(x,
       h('div', { class: 'pop-head' },
-        h('img', { src: card === game.core ? `assets/art/cores/${card.id}.jpg` : `assets/art/cards/${card.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
+        h('img', { src: card === game.core ? `assets/art/cores/${card.id}.jpg` : cardSrc(card.id), alt: '', onerror: (e) => e.target.remove() }),
         h('div', { class: 'stack', style: 'gap:2px' },
           h('b', {}, info.name),
           h('span', { class: 'muted' }, `${info.type === 'core' ? 'Core' : info.type} · Dur ${Math.max(0, card.hp)}/${info.max}${card !== game.core ? ` · ${game.placeName(loc)}` : ''}`))),

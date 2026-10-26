@@ -187,7 +187,7 @@
         const loc = game.locate(card.uid);
         seen.add(card.uid);
         const m = this.mods.get(card.uid) || { uid: card.uid, flash: 0, smokeT: Math.random() };
-        Object.assign(m, { id: card.id, row: loc.row, col: loc.col, hp: card.hp, max: game.maxHp(card), tokens: { ...card.tokens }, fire: card.tokens.fire });
+        Object.assign(m, { id: card.id, row: loc.row, col: loc.col, hp: card.hp, max: game.maxHp(card), tokens: { ...card.tokens }, fire: card.tokens.fire, legendary: (window.CardshipsData.PARTS[card.id] || {}).rarity === 'legendary' });
         this.mods.set(card.uid, m);
       }
       for (const uid of [...this.mods.keys()]) if (!seen.has(uid)) this.mods.delete(uid);
@@ -269,6 +269,8 @@
       blit(g, this.art, x - (W / 2) * P, y - (H - 10) * P, P);
       g.restore();
       this.hits = [{ uid: 'core', x, y: y - (this.size.h / 2) * P, r: (this.size.w / 2) * P }];
+      // Legendaries glow where they sit: a breathing golden aura with motes circling it.
+      for (const m of this.mods.values()) if (m.legendary) { const p = this.pointOf(m.uid); if (p) legendGlow(g, p.x, p.y, 15 * P, t, m.uid); }
       // Targets the telegraphed intent will hit: pulsing brackets with the damage.
       for (const [uid, dmg] of this.targets) {
         const p = this.pointOf(uid);
@@ -283,6 +285,22 @@
       const h = this.hits[0];
       return h && Math.hypot(px0 - h.x, py0 - h.y) < h.r ? { uid: 'core' } : null;
     }
+  }
+  function legendGlow(g, x, y, r, t, seed) {
+    const k = 0.75 + Math.sin(t * 2.4) * 0.25;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    const rg = g.createRadialGradient(x, y, 0, x, y, r * 1.6);
+    rg.addColorStop(0, `rgba(255,214,110,${0.55 * k})`); rg.addColorStop(0.5, `rgba(255,170,50,${0.22 * k})`); rg.addColorStop(1, 'rgba(255,150,40,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(x, y, r * 1.6, 0, TAU); g.fill();
+    const off = seed ? seed.length * 1.7 : 0;
+    for (let i = 0; i < 4; i++) {
+      const a = t * 1.8 + off + (i * TAU) / 4;
+      const sx = x + Math.cos(a) * r * 1.15, sy = y + Math.sin(a) * r * 0.55;
+      g.fillStyle = `rgba(255,236,170,${0.6 + 0.4 * Math.sin(t * 5 + i)})`;
+      g.fillRect(Math.round(sx) - 2, Math.round(sy) - 2, 4, 4);
+    }
+    g.restore();
   }
   function drawTarget(g, x, y, r, t, dmg) {
     const p = r + 2 + Math.sin(t * 6) * 2;

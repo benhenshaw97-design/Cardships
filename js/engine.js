@@ -7,7 +7,7 @@
   if (isNode) module.exports = api;
   else root.CardshipsEngine = api;
 })(this, function (D) {
-  const { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
+  const { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RARITY_ODDS, ENEMIES, ENCOUNTERS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
 
   const BASE_SIGHT = 2;
   const SNAP_DAMAGE = 6;
@@ -26,7 +26,7 @@
   const ix = (col) => col + SIDE_COLS;
   const ROW_NAME = ['hull', 'upper deck'];
   const BRACE = 3; // damage a braced Deflector Vane turns aside
-  const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 } };
+  const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 }, leviplating: { soak: 2, reduce: 2 } };
 
   function noTokens() { return { fire: false, glue: false, gas: false }; }
   function cap(s) { return s[0].toUpperCase() + s.slice(1); }
@@ -41,6 +41,7 @@
       this.area = 0; // which of the three areas the run is in (AREAS)
       this.maxDepth = AREAS[0].cols;
       this.unlocked = opts.unlocked || null; // ids unlocked by meta-progression; null = everything
+      this.legendaries = opts.legendaries || []; // legendaries unlocked by beating their boss before: very rare loot
       this.nextUid = 1;
       this.log = [];
       this.logId = 0;
@@ -124,12 +125,19 @@
     hit(uid) { this.flashes.add(uid); }
 
     // ---------- parts & ship queries ----------
-    available(id) { return !this.unlocked || this.unlocked.includes(id) || !UNLOCKS.some((u) => u.id === id); }
+    available(id) {
+      if (PARTS[id].rarity === 'legendary') return this.legendaries.includes(id);
+      return !this.unlocked || this.unlocked.includes(id) || !UNLOCKS.some((u) => u.id === id);
+    }
     randomPart(tier = 'normal', filter = null) {
-      const rarity = this.weighted(RARITY_ODDS[tier]);
-      let pool = Object.keys(PARTS).filter((id) => PARTS[id].rarity === rarity && this.available(id) && (!filter || filter(PARTS[id])));
-      if (!pool.length) pool = Object.keys(PARTS).filter((id) => this.available(id) && (!filter || filter(PARTS[id])));
-      return this.pick(pool);
+      const ok = (id) => this.available(id) && (!filter || filter(PARTS[id]));
+      const pools = {};
+      for (const id of Object.keys(PARTS)) if (ok(id)) (pools[PARTS[id].rarity] = pools[PARTS[id].rarity] || []).push(id);
+      // Only rarities that have something to give are rolled.
+      const odds = {};
+      for (const [r, w] of Object.entries(RARITY_ODDS[tier])) if (pools[r]) odds[r] = w;
+      if (!Object.keys(odds).length) return this.pick(Object.keys(PARTS).filter((id) => PARTS[id].rarity === 'common'));
+      return this.pick(pools[this.weighted(odds)]);
     }
     partOffer(n, tier = 'normal', filter = null) {
       const ids = [];
@@ -1134,11 +1142,17 @@
     // and a braced Deflector Vane turns it aside.
     planOn(target, dmg, extra = {}) {
       if (target === this.core || target === 'core') return [{ uid: 'core', dmg, exposed: true, ...extra }];
+      let prevented = 0;
       if (this.combat && this.combat.braced && this.combat.braced.includes(target.uid)) {
         extra = { ...extra, braced: true };
+        prevented += Math.min(dmg, BRACE);
         dmg = Math.max(0, dmg - BRACE);
       }
-      if (ARMOR[target.id]) return [{ uid: target.uid, dmg: Math.max(0, dmg - ARMOR[target.id].reduce), ...extra }];
+      if (ARMOR[target.id]) {
+        const cut = Math.min(dmg, ARMOR[target.id].reduce);
+        return [{ uid: target.uid, dmg: dmg - cut, ...extra, prevented: prevented + cut }];
+      }
+      if (prevented) extra = { ...extra, prevented };
       const loc = this.locate(target.uid);
       const guard = this.neighborsOf(loc).find((c) => ARMOR[c.id] && this.isBuried(this.locate(c.uid)));
       const plan = [{ uid: target.uid, dmg, ...extra }];
@@ -1197,6 +1211,17 @@
         if (p.dmg <= 0) { this.emit('block', { uid: p.uid }); this.say(`${this.nameOf(this.locate(p.uid).card)} shrugs it off.`); continue; }
         this.damageModule(p.uid, p.dmg, p.bolt ? 'lightning' : src);
       }
+      this.reflect(plan, src);
+    }
+    // Leviathan Plating: half of everything the ship blocked in an enemy attack is flung back.
+    reflect(plan, src) {
+      if (!this.combat || this.combat.over || !['attack', 'ram'].includes(src) || !this.has('leviplating') || this.coreDead()) return;
+      const blocked = plan.reduce((n, p) => n + (p.prevented || 0), 0);
+      const back = Math.floor(blocked / 2);
+      if (back <= 0) return;
+      this.emit('reflect', { dmg: back });
+      this.say(`The Leviathan Plating flings ${back} back at the attacker!`, 'good');
+      this.damageEnemy(back, { pierce: true, source: 'reflect', noVuln: true });
     }
     // Where a token aimed this way lands (front armor catches it too).
     tokenTarget(aim) { return this.planAim(aim, 1)[0].uid; }
@@ -1229,8 +1254,8 @@
       this.event = null;
       this.combat = {
         enc: node.enc || 'patrol', enemyId, col,
-        enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
-        galeSide: 'bow', turnDamage: 0, rodCharge: 0,
+        enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, ward: 0, armor: e.armor || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
+        galeSide: 'bow', turnDamage: 0, rodCharge: 0, spring: 0, firedThisRound: false,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
         braced: [],
@@ -1284,6 +1309,7 @@
       let r = Math.max(0, Math.floor((this.weight() - this.combat.enemy.weight) / 2));
       if (this.core.id === 'battleship') r += 2;
       if (this.has('gyro')) r += 2;
+      if (this.has('titanfist')) r += 2;
       return r;
     }
     // After round 10 the enemy grows Enraged: +1 damage per hit for every round past 10.
@@ -1358,8 +1384,15 @@
       if (c.round === 1) this.combatBonusSteam = 0;
       c.rodCharge = 0;
       c.turnDamage = 0;
+      if (this.has('mainspring')) {
+        const before = c.spring || 0;
+        c.spring = c.round === 1 || c.firedThisRound ? Math.min(4, before + 1) : 0;
+        if (c.spring < before) this.say('No gun fired: the Grand Mainspring runs down.', 'warn');
+        else if (c.spring > before) this.say(`The Grand Mainspring winds tighter: weapons +${c.spring}.`, 'good');
+      }
+      c.firedThisRound = false;
       for (const x of this.cards()) { x.fired = 0; if (x.reload > 0) x.reload--; }
-      c.evadeUsed = false; c.freeSwapUsed = false; c.gyroUsed = false; c.overclock = false; c.abilityUsed = false;
+      c.evadeUsed = false; c.freeSwapUsed = false; c.galeSwaps = 0; c.gyroUsed = false; c.overclock = false; c.abilityUsed = false;
       this.emit('steam', { steam: c.steam });
       this.say(`Round ${c.round}: ${c.steam} Steam.`, 'sys');
     }
@@ -1400,6 +1433,12 @@
       if (this.checkEnd()) return;
       if (c.enemyId === 'stormqueen') this.gale();
       if (c.enemyId === 'colossus') { en.wound++; this.say(`The Mainspring tightens: +${en.wound} damage per hit.`, 'warn'); }
+      if (this.has('stormheart')) {
+        this.emit('stormheart', {});
+        this.say('The Storm Heart lashes out with lightning.', 'good');
+        this.damageEnemy(2, { pierce: true, source: 'lightning' });
+        if (this.checkEnd()) return;
+      }
       if (en.weak > 0) en.weak--;
       if (en.vuln > 0) en.vuln--;
       c.braced = [];
@@ -1475,13 +1514,37 @@
       }
       en.charge = 0;
     }
+    // The enemy's defences are layers a hit meets in turn, outermost first: Wards (each stops one
+    // whole hit), Block (absorbs damage until its next turn) and Armor (takes a flat amount off
+    // every hit). opts.pierce skips Block and Armor; opts.pierceLayers skips that many of the
+    // layers present, outermost first; opts.prism breaks every Ward, strips Block and ignores Armor.
+    enemyLayers() {
+      const en = this.combat.enemy;
+      return ['ward', 'block', 'armor'].filter((k) => en[k] > 0);
+    }
     damageEnemy(n, opts = {}) {
       const c = this.combat;
       const en = c.enemy;
       if (n <= 0 || c.over) return 0;
       if (en.vuln > 0 && !opts.noVuln) n += 1;
-      if (c.enemyId === 'leviathan' && !opts.pierce) { n -= 1; if (n <= 0) { this.say('The shot glances off the Ironclad Hull.', 'warn'); this.emit('enemyBlocked', { amount: 1 }); return 0; } }
-      if (en.block > 0 && !opts.pierce) {
+      const present = this.enemyLayers();
+      const skip = new Set(opts.prism ? present : opts.pierce ? ['block', 'armor'] : present.slice(0, opts.pierceLayers || 0));
+      if (opts.prism && (en.ward > 0 || en.block > 0)) {
+        this.say(`The prism splits the shot: ${[en.ward ? `${en.ward} Ward${en.ward > 1 ? 's' : ''} shattered` : '', en.block ? `${en.block} Block stripped` : ''].filter(Boolean).join(', ')}.`, 'good');
+        this.emit('enemyLayers', { prism: true, ward: en.ward, block: en.block });
+        en.ward = 0; en.block = 0;
+      }
+      if (en.ward > 0 && !skip.has('ward')) {
+        en.ward--;
+        this.emit('wardPop', { left: en.ward });
+        this.say(`A Ward takes the whole hit (${en.ward} left).`, 'warn');
+        return 0;
+      }
+      if (en.armor > 0 && !skip.has('armor')) {
+        n -= en.armor;
+        if (n <= 0) { this.say(`The shot glances off its armor (${en.armor}).`, 'warn'); this.emit('enemyBlocked', { amount: en.armor }); return 0; }
+      }
+      if (en.block > 0 && !skip.has('block')) {
         const absorbed = Math.min(en.block, n);
         en.block -= absorbed;
         n -= absorbed;
@@ -1493,7 +1556,7 @@
       this.stats.dmgDealt += n;
       if (c.active === 'player') c.turnDamage += n;
       c.lastSource = opts.source || 'weapon';
-      this.emit('enemyHit', { dmg: n, source: opts.source || 'weapon', hp: en.hp, pierce: !!opts.pierce });
+      this.emit('enemyHit', { dmg: n, source: opts.source || 'weapon', hp: en.hp, pierce: !!(opts.pierce || opts.pierceLayers || opts.prism) });
       this.say(`${en.name} takes ${n} (${Math.max(0, en.hp)}/${en.max}).`, 'good');
       return n;
     }
@@ -1538,6 +1601,8 @@
         this.say(`${def.name} breaks apart. Where it fell, the sky tears open into a swirling portal.`, 'good');
         this.portalReady = true;
         this.gainCogs(BALANCE.bossCogs, 'boss bounty');
+        const pool = (LEGENDARY_POOLS[c.enemyId] || []).filter((id) => PARTS[id]);
+        if (pool.length) { this.say(`In the wreck: ${pool.map((id) => PARTS[id].name).join(' and ')}. Take one.`, 'good'); this.lootOffers.push({ ids: pool.slice(), keep: 1, legendary: true }); }
         this.openLoot('Boss spoils', { ids: this.partOffer(3, 'elite'), keep: 1 }, []);
         return;
       }
@@ -1578,11 +1643,13 @@
       const under = loc.row === UPPER ? this.at(loc.col, HULL) : null;
       const bonus = (under && under.id === 'harpoon' ? 1 : 0)
         + (card.id === 'sniper' && this.touching(uid, 'telescope') ? 1 : 0)
+        + (this.combat && this.has('mainspring') ? this.combat.spring || 0 : 0)
         - (card.tokens.glue ? 1 : 0);
       let summary;
       if (card.id === 'cannon') summary = mode === 'aimed' ? `best of 2d6 → ${2 + bonus}–${5 + bonus}` : `d6 → ${2 + bonus}–${5 + bonus}`;
       else if (card.id === 'sniper') summary = mode === 'steady' ? `${4 + bonus} piercing` : `${d.dmg + bonus}`;
       else if (card.id === 'tesla') summary = `${this.weaponsInstalled() + bonus} piercing`;
+      else if (card.id === 'titanfist') summary = `${this.fistDamage() + bonus}`;
       else summary = `${Math.max(0, d.dmg + bonus)}`;
       if (d.burn) summary += ` +${d.burn} Burn`;
       if (d.weak) summary += ` +${d.weak} Gummed`;
@@ -1590,8 +1657,10 @@
       if (d.strip) summary += ', strips Block';
       if (d.flak) summary += `, next attack −${d.flak}`;
       if (d.vuln) summary += ` +${d.vuln} Choking`;
+      if (d.pierceLayers) summary += `, pierces ${d.pierceLayers} layers`;
       return { card, loc, cost, blocked, bonus, summary, modes: card.id === 'cannon' ? ['normal', 'aimed'] : card.id === 'sniper' ? ['normal', 'steady'] : ['normal'] };
     }
+    fistDamage() { return Math.max(3, Math.floor(this.weight())); }
     fire(uid, mode = 'normal') {
       if (!this.canAct()) return false;
       const w = this.fireInfo(uid, mode);
@@ -1616,16 +1685,19 @@
         }
         if (card.id === 'sniper' && mode === 'steady') { dmg = 4; pierce = true; }
         if (card.id === 'tesla') { dmg = this.weaponsInstalled(); pierce = true; }
+        if (card.id === 'titanfist') dmg = this.fistDamage();
         dmg = Math.max(0, dmg + w.bonus);
         const en = this.combat.enemy;
         if (d.strip && en.block > 0) { this.say(`The grapnel tears away ${en.block} Block.`, 'good'); en.block = 0; }
-        for (let k = 0; k < (d.volley || 1) && !this.combat.over; k++) if (dmg > 0) this.damageEnemy(dmg, { pierce, source: card.id });
+        for (let k = 0; k < (d.volley || 1) && !this.combat.over; k++) if (dmg > 0) this.damageEnemy(dmg, { pierce, pierceLayers: d.pierceLayers || 0, source: card.id });
         if (d.flak) { this.combat.flak = Math.min(4, (this.combat.flak || 0) + d.flak); this.say(`Flak fills the sky: its next attack deals ${this.combat.flak} less.`, 'good'); }
         if (d.burn) { en.burn += d.burn; this.say(`It catches fire: Burn ${en.burn}.`, 'good'); }
         if (d.weak) { en.weak += d.weak; this.say(`Its guns are gummed up for ${en.weak} turns.`, 'good'); }
         if (d.vuln) { en.vuln += d.vuln; this.say(`It is Choking for ${en.vuln} turns.`, 'good'); }
       }
       if (card.id === 'mortar' && !this.touching(uid, 'telescope')) card.reload = 2;
+      if (d.cooldown) card.reload = d.cooldown + 1; // counts down at the start of each turn
+      if (this.combat) this.combat.firedThisRound = true;
       this.checkEnd();
       return true;
     }
@@ -1700,7 +1772,10 @@
       this.say('Evasive manoeuvres: the telegraphed attack will miss.', 'you');
       return true;
     }
-    swapCost() { return this.core.id === 'airship' && this.combat && !this.combat.freeSwapUsed ? 0 : 1; }
+    swapCost() {
+      if (this.has('galeengine') && this.combat && (this.combat.galeSwaps || 0) < 3) return 0;
+      return this.core.id === 'airship' && this.combat && !this.combat.freeSwapUsed ? 0 : 1;
+    }
     // Two touching modules (side by side, or one on top of the other) can trade places.
     canSwap(uidA, uidB) {
       const a = this.locate(uidA), b = this.locate(uidB);
@@ -1717,11 +1792,13 @@
       if (!this.canSwap(uidA, uidB)) return false;
       const a = this.locate(uidA), b = this.locate(uidB);
       const cost = this.swapCost();
-      if (cost === 0) this.combat.freeSwapUsed = true;
+      if (cost === 0 && this.has('galeengine') && (this.combat.galeSwaps || 0) < 3) this.combat.galeSwaps = (this.combat.galeSwaps || 0) + 1;
+      else if (cost === 0) this.combat.freeSwapUsed = true;
       this.pay(cost);
       this.exchange(a.card, b.card);
       this.emit('swap', { a: uidA, b: uidB });
       this.say(`Swapped ${this.def(a.card).name} and ${this.def(b.card).name}.`, 'you');
+      if (this.has('galeengine')) { this.emit('galeShift', {}); this.damageEnemy(1, { pierce: true, source: 'lightning' }); this.checkEnd(); }
       return true;
     }
     ventTargets() { return [this.core, ...this.cards()].filter((c) => c.tokens.fire || c.tokens.gas || c.tokens.glue).map((c) => c.uid); }

@@ -572,3 +572,28 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
 - **For now Areas 2 and 3 borrow Area 1's pirates and its two other bosses,** scaled up. Steps 3 and 4 give them their own enemies, bosses, mechanics, places and looks.
 - **Fixed:** the screen shake had no cap, so one huge hit could shake the view off its frame for half a minute. It now tops out at 32.
 - **Saves from before the expansion are not loaded** (new save key). *Reason: they have no areas.*
+
+## Legendaries (expansion step 2)
+
+- **Every boss now drops a legendary.** After an area's boss goes down, its wreck offers a choice of the 2 legendaries in its own pool (or neither), then the usual spoils. *Reason: a boss kill should change your build.*
+- **The first time you beat a boss, its legendaries are unlocked for good.** From then on they can turn up as very rare loot (0.6% of normal rolls, 3% of elite rolls). *Reason: a lasting reward that also makes later runs different.*
+- **Area 1's pools:**
+
+  | Boss | Legendary | What it does |
+  | --- | --- | --- |
+  | Iron Leviathan | Leviathan Plating | Armor that cuts 2 off every hit. Half of all the damage your ship blocks in an enemy attack (armor and Deflector braces) is flung back at the attacker. |
+  | Iron Leviathan | Dreadnought Cannon | 5 damage that pierces 2 of the enemy's defence layers, then a 2-turn cooldown. |
+  | Storm Queen | Gale Engine | Your first 3 Swaps each turn are free, and every Swap crackles at the enemy for 1 piercing damage. |
+  | Storm Queen | Storm Heart | +1 Steam a turn, and lightning strikes the enemy for 2 piercing after every enemy turn. |
+  | Clockwork Colossus | Grand Mainspring | Your weapons deal +1 per round of a fight (up to +4), but a round without firing lets it run down. |
+  | Clockwork Colossus | Titan's Fist | Deals damage equal to your ship's Weight (at least 3), and rams against you deal 2 less. |
+
+  *Reason: each is themed on its boss's gimmick (armor, gale and lightning, wind-up and weight), and each points a build in a new direction.* The Aurora Archon's and Crimson Sovereign's pools arrive with their areas.
+- **The enemy's defences are now layers,** met outermost first: Wards (each stops one whole hit; these arrive with Area 2), Block, then Armor (a flat cut from every hit; the Leviathan's Ironclad Hull is Armor 1). "Pierce" still skips Block and Armor; "pierces N layers" skips the first N present, Wards included. *Reason: gives "pierces 2 layers" a precise meaning, and sets up Area 2's illusions and crystals.*
+- **Legendaries look the part:**
+  - A doubled gold frame that breathes with light, with a sheen sweeping across it, on cards and offers.
+  - A gold ★ rarity tag and a gold banner.
+  - A gold ring on its battle button.
+  - In flight, a golden aura with circling motes where the module sits on your ship.
+  *Reason: you asked for a unique frame and a glowing installed visual.*
+- **Card art drawn in code.** None of the legendaries had card art, so each gets an illustration painted in code (`js/artgen.js`) in the cards' style: an outlined brass-and-iron emblem on a ray-lit backdrop. Gas Grenadiers, the one part that had no picture, now has one too. *Reason: build matching visuals in code where there's no art.*

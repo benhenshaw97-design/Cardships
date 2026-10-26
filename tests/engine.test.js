@@ -550,3 +550,97 @@ test('a run saved in Area 2 resumes there', () => {
   assert.deepEqual(h.map, g.map);
   assert.equal(h.rand(), g.rand(), 'same dice from here on');
 });
+
+// ---------- enemy layers and legendaries ----------
+test('enemy layers: Wards stop whole hits, pierce skips Block and Armor, pierceLayers skips the outermost', () => {
+  const g = fight('battleship', [['plating', 0, 1]], 'gunship', idle());
+  const en = g.combat.enemy;
+  Object.assign(en, { hp: 30, max: 30, ward: 1, block: 3, armor: 1 });
+  assert.equal(g.damageEnemy(5), 0, 'a Ward eats the whole hit');
+  assert.equal(en.ward, 0);
+  assert.equal(g.damageEnemy(5), 1, 'armor 1 then Block 3');
+  en.block = 3;
+  assert.equal(g.damageEnemy(5, { pierce: true }), 5, 'pierce skips Block and Armor');
+  Object.assign(en, { ward: 1, block: 3 });
+  assert.equal(g.damageEnemy(5, { pierce: true }), 0, 'but not a Ward');
+  Object.assign(en, { ward: 1, block: 3 });
+  assert.equal(g.damageEnemy(5, { pierceLayers: 2 }), 4, 'Ward and Block skipped, Armor still cuts 1');
+  Object.assign(en, { ward: 2, block: 3 });
+  assert.equal(g.damageEnemy(5, { prism: true }), 5, 'a prism breaks Wards, strips Block and ignores Armor');
+  assert.equal(en.ward, 0);
+  assert.equal(en.block, 0);
+});
+
+test('a boss offers a choice of the two legendaries from its pool', () => {
+  const g = new Game({ seed: 4, boss: 'leviathan' });
+  g.chooseCore('airship');
+  sinkBoss(g);
+  const o = g.lootOffer;
+  assert.ok(o.legendary);
+  assert.deepEqual(o.ids.sort(), ['dreadnought', 'leviplating']);
+  assert.equal(o.keep, 1);
+});
+
+test('legendaries never roll as loot until unlocked, then can', () => {
+  const D = require('../js/data.js');
+  const g = new Game({ seed: 9 });
+  g.chooseCore('airship');
+  for (let i = 0; i < 400; i++) assert.notEqual(D.PARTS[g.randomPart('elite')].rarity, 'legendary');
+  const h = new Game({ seed: 9, legendaries: ['dreadnought'] });
+  h.chooseCore('airship');
+  let seen = 0;
+  for (let i = 0; i < 2000; i++) if (h.randomPart('elite') === 'dreadnought') seen++;
+  assert.ok(seen > 10 && seen < 200, `rare but possible (${seen}/2000)`);
+});
+
+test('Leviathan Plating flings back half of the blocked damage', () => {
+  const g = fight('battleship', [['leviplating', 0, 1], ['harpoon', 0, 2]], 'gunship', direct(6, 0, 1));
+  const en = g.combat.enemy;
+  en.hp = en.max = 30;
+  g.endTurn();
+  assert.equal(at(g, 0, 2).hp, 3, 'the plating at the front catches the deeper shot');
+  assert.equal(at(g, 0, 1).hp, 7 - 4, 'and cuts 2 of it');
+  assert.equal(en.hp, 29, 'half of the 2 blocked comes back');
+});
+
+test('the Dreadnought Cannon pierces two layers, then cools for two turns', () => {
+  const g = fight('battleship', [['dreadnought', 0, 1]], 'leviathan', idle());
+  const en = g.combat.enemy;
+  en.block = 4;
+  const hp = en.hp;
+  const uid = at(g, 0, 1).uid;
+  assert.ok(g.fire(uid));
+  assert.equal(en.hp, hp - 5, 'Block and the Ironclad Hull both skipped');
+  g.endTurn();
+  assert.equal(g.fireInfo(uid).blocked, 'Reloading');
+  g.endTurn();
+  assert.equal(g.fireInfo(uid).blocked, 'Reloading');
+  g.endTurn();
+  g.combat.steam = 9;
+  assert.equal(g.fireInfo(uid).blocked, null, 'ready on the third turn');
+});
+
+test('the Gale Engine makes three swaps a turn free, and each crackles for 1', () => {
+  const g = fight('battleship', [['harpoon', 0, 1], ['galeengine', 0, 2]], 'gunship', idle());
+  const en = g.combat.enemy;
+  const hp = en.hp;
+  g.combat.steam = 0;
+  const [a, b] = [at(g, 0, 1).uid, at(g, 0, 2).uid];
+  for (let i = 0; i < 3; i++) assert.ok(g.swap(a, b));
+  assert.equal(en.hp, hp - 3);
+  assert.ok(!g.swap(a, b), 'the fourth costs Steam');
+});
+
+test('the Grand Mainspring winds +1 a round while guns fire, and runs down when they stop', () => {
+  const g = fight('battleship', [['harpoon', 0, 1], ['mainspring', 0, -1]], 'gunship', idle());
+  const uid = at(g, 0, 1).uid;
+  assert.equal(g.combat.spring, 1);
+  assert.equal(g.fireInfo(uid).bonus, 1);
+  g.fire(uid);
+  g.combat.enemy.intent = idle();
+  g.endTurn();
+  assert.equal(g.combat.spring, 2);
+  g.combat.enemy.intent = idle();
+  g.endTurn();
+  assert.equal(g.combat.spring, 0, 'no gun fired last round');
+});

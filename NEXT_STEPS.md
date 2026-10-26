@@ -3,7 +3,7 @@
 The current brief, so a fresh session can pick up mid-way. Build in this order and commit after each step:
 
 1. Run structure and portals: **done**
-2. Legendaries
+2. Legendaries: **done** (Area 1 pools; the Archon's and Sovereign's come in steps 3 and 4)
 3. Area 2: The Aurora Reaches
 4. Area 3: The Blood Moon
 5. The Workshop (meta-progression)
@@ -78,7 +78,33 @@ Update this file after each step: mark the step done and note anything left for 
   "Pierces N layers" skips the first N layers present. Existing "pierce" (Tesla, Steady Aim, Bombard, Burn) skips Block and Armor but not Wards. Prism Array splits an attack across all layers: it breaks every Ward, strips Block and ignores Armor.
 - **"Layers" on your ship** are your decks and columns, the existing targeting zones. A rune or blood beam on a telegraphed layer is a telegraphed deck or column.
 
+## Legendaries (step 2)
+
+- **Data.**
+  - The legendaries are in `PARTS` with `rarity: 'legendary'` and `boss`.
+  - `LEGENDARY_POOLS[bossId]` lists each boss's two.
+  - `RARITY_ODDS` gives them 0.6% (normal) and 3% (elite) once unlocked.
+- **Engine.**
+  - `game.legendaries` holds the ids unlocked by meta. `available()` allows a legendary only if it is unlocked. Boss drops ignore that.
+  - The boss drop is queued first in `winCombat`, as an offer with `legendary: true`.
+  - Effects:
+    - `leviplating`: in `ARMOR`, plus `reflect()` after `applyPlan`, counting each plan entry's `prevented`.
+    - `dreadnought`: `pierceLayers: 2` and `cooldown: 2` (reload is set to cooldown + 1).
+    - `galeengine`: `swapCost` gives 3 free swaps per turn, tracked in `combat.galeSwaps`, and each swap does 1 piercing damage.
+    - `stormheart`: deals its damage after the enemy acts in `enemyTurn`.
+    - `mainspring`: `combat.spring` winds in `beginPlayerTurn` and is added to `fireInfo().bonus`.
+    - `titanfist`: `fistDamage()`, and `ramResist` +2.
+- **Enemy layers.** `damageEnemy` handles `ward`, `block` and `armor` (in that order) with the `pierce`, `pierceLayers` and `prism` options. The Leviathan's Ironclad Hull is now `armor: 1`.
+- **Meta.** `meta.legendaries`: `recordRun` unlocks a boss's pool on its first kill, and `newRun` passes them to the Game.
+- **Visuals.**
+  - `js/artgen.js` (`CardshipsArtGen.cardArt(id)`) paints card art in code for parts in its `PAINT` table, which also covers the missing Grenadiers art. Add a painter there for every new part. `cardSrc(id)` in ui.js picks the generated art over the jpg.
+  - The legendary frame is `.card.legendary` / `.enc.part.legendary` in style.css.
+  - The flight-view glow is `legendGlow()` in shipart.js.
+  - Effect handlers: `reflect`, `stormheart`, `galeShift`, `wardPop`, `enemyLayers`.
+- **Still to add.** Archon pool (step 3): Aurora Crown (choose the aurora each turn, in every fight) and Archon's Lance (damage equal to total Resonance, pierce, resets it). Sovereign pool (step 4): Sovereign's Chalice (heal the Core when the enemy takes damage, max 3 a turn) and Eclipse Blade (Blood 2: 6 piercing, +1 per Bleed stack on your ship). The Legendary Vault comes in step 5.
+
 ## Status
 
-- Step 1 is done: run structure, portals, the simulator, and tests (40 passing).
+- Step 1 is done: run structure, portals, the simulator, and tests.
+- Step 2 is done: legendaries for the Area 1 bosses, enemy defence layers, generated card art. 47 tests pass.
 - Placeholder content means three-area runs currently win about 1% of the time. Steps 3 and 4 replace the placeholders and step 6 tunes.

@@ -14,9 +14,10 @@
     harpoon: 2.2, grapnel: 2.2, rockets: 3, flak: 2.8, cannon: 3, mortar: 3.2, flamethrower: 2.6, gatling: 2.6, grenadiers: 2.6, sniper: 2.8, tesla: 3.5,
     plating: 2.5, bulwark: 4, deflector: 1.6, repair: 2.2, quarters: 1.2, boiler: 2.6, sprinkler: 1.1, scrubber: 1,
     telescope: 1, gasbag: 1, propeller: 0.8, cargo: 0.6, hatch: 1.6, autoloader: 1, gyro: 2.4, heart: 0.6, overpressure: 3,
+    leviplating: 5, dreadnought: 4.5, galeengine: 2.6, stormheart: 4.2, mainspring: 3.6, titanfist: 4,
   };
 
-  const ARMOR = new Set(['plating', 'bulwark']);
+  const ARMOR = new Set(['plating', 'bulwark', 'leviplating']);
   function moduleValue(g, card, loc = g.locate(card.uid)) {
     const d = D.PARTS[card.id];
     const nbs = g.neighborsOf(loc);
@@ -116,9 +117,10 @@
     if (card.id === 'cannon') dmg = mode === 'aimed' ? 3.9 : 3.2;
     if (card.id === 'sniper' && mode === 'steady') dmg = 4;
     if (card.id === 'tesla') dmg = g.weaponsInstalled();
+    if (card.id === 'titanfist') dmg = g.fistDamage();
     dmg = Math.max(0, dmg + info.bonus);
     const en = g.combat.enemy;
-    const pierce = card.id === 'tesla' || mode === 'steady';
+    const pierce = card.id === 'tesla' || mode === 'steady' || !!d.pierceLayers;
     const block = d.strip ? 0 : en.block;
     const hits = d.volley || 1;
     let real = 0, left = block;

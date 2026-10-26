@@ -552,3 +552,20 @@ body.single .stage .panel { box-shadow: none; }
   body.single .win-head { margin: 0 -8px; padding: 6px 8px; }
   body.single .scene-wrap { border-radius: 4px; }
 }
+
+/* ---------- legendaries ---------- */
+/* A unique frame: a doubled gold border that breathes, and a sheen that sweeps across now and then. */
+:root { --legendary: #ffcf5a; }
+@keyframes legend-breathe { 50% { box-shadow: 0 0 0 1px #7a4c10, 0 0 22px 3px rgba(255, 196, 70, 0.7); } }
+@keyframes legend-sheen { 0%, 70% { transform: translateX(-130%) skewX(-20deg); } 100% { transform: translateX(230%) skewX(-20deg); } }
+.card.legendary { --rarity: var(--legendary); border-color: var(--legendary); box-shadow: 0 0 0 1px #7a4c10, 0 0 12px 1px rgba(255, 196, 70, 0.45); animation: legend-breathe 2.6s ease-in-out infinite; overflow: hidden; }
+.card.legendary::after, .enc.part.legendary::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; pointer-events: none; z-index: 3;
+  background: linear-gradient(90deg, rgba(255, 240, 190, 0), rgba(255, 240, 190, 0.28), rgba(255, 240, 190, 0)); animation: legend-sheen 4.5s ease-in-out infinite; }
+.enc.part.legendary { border: 2px solid var(--legendary); outline: 1px solid #8a5a14; outline-offset: 3px; overflow: hidden;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 200, 90, 0.16), rgba(0, 0, 0, 0.2) 70%); animation: legend-breathe 2.6s ease-in-out infinite; }
+.enc.part.legendary h3 { color: #ffe08a; text-shadow: 0 0 12px rgba(255, 190, 60, 0.6); }
+.rarity-chip.legendary { --r: var(--legendary); }
+.rarity-chip.legendary::before { content: "★"; background: none; width: auto; height: auto; color: var(--legendary); font-size: 11px; vertical-align: 0; }
+.mod-mark.legendary { border-color: var(--legendary); box-shadow: 0 0 0 2px #7a4c10, 0 0 16px 4px rgba(255, 200, 80, 0.7); }
+.mod-mark.legendary.ready { animation: mark-ready 1.6s ease-in-out infinite, legend-breathe 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .card.legendary, .enc.part.legendary, .card.legendary::after, .enc.part.legendary::after { animation: none; } }
