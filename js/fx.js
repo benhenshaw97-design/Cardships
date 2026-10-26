@@ -7,7 +7,7 @@
 
   // ---------- settings ----------
   const PREF_KEY = 'cardships.prefs';
-  const prefs = Object.assign({ shake: 'full', flash: true, dice: 'normal', music: 0.6, sfx: 0.8, mute: false }, (() => {
+  const prefs = Object.assign({ shake: 'full', flash: true, dice: 'normal', music: 0.6, sfx: 0.8, mute: false, battle: 'popup' }, (() => {
     try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); } catch (e) { return {}; }
   })());
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches && !localStorage.getItem?.(PREF_KEY)) { prefs.shake = 'off'; prefs.dice = 'fast'; }

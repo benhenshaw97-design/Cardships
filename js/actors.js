@@ -14,6 +14,7 @@
     selectedUid: null,
     intent: null,
     onSelect: null,
+    reserve: 0,
 
     reset() { this.player = new PlayerShip(); this.enemy = null; this.enemyKey = null; },
     // Before an event sequence plays: switch layout and make sure the enemy is on screen,
@@ -74,6 +75,8 @@
     // art pixel, in half steps so pixels stay even). Ships are anchored at the bottom of the hull.
     layout(v) {
       const phone = v.w < 560;
+      // Room kept clear along the bottom for the pop-up layout's action bar.
+      if (this.reserve && this.phase === 'combat') v = { ...v, h: v.h - this.reserve };
       const snap = (k) => Math.max(1, Math.floor(k * 2) / 2);
       const pw = this.player.width();
       const bd = this.player.bounds();
@@ -82,9 +85,11 @@
         const eh = this.enemy ? this.enemy.size.h + 10 : 120; // tall ships must clear the top of the view
         if (phone) {
           // The enemy flies in the upper band, your ship in the lower one.
-          const P = snap(Math.min(3, (v.w * 0.62) / pw, (v.h * 0.42) / bd.top));
+          // The pop-up layout's tall view leaves room for a bigger ship to tap on.
+          const wide = this.reserve ? 0.86 : 0.62;
+          const P = snap(Math.min(3, (v.w * wide) / pw, (v.h * 0.42) / bd.top));
           const eP = snap(Math.min(P, (v.w * 0.62) / ew, (v.h * 0.47) / eh));
-          return { P, player: { x: v.w * 0.36, y: v.h * 0.93 }, enemy: { x: v.w * 0.66, y: v.h * 0.5, P: eP } };
+          return { P, player: { x: v.w * (this.reserve ? 0.46 : 0.36), y: v.h * 0.93 }, enemy: { x: v.w * 0.66, y: v.h * 0.5, P: eP } };
         }
         const P = snap(Math.min(4, (v.w * 0.42) / pw, (v.h * 0.72) / bd.top));
         const eP = snap(Math.min(P, (v.w * 0.4) / ew, (v.h * 0.76) / eh));

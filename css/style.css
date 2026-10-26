@@ -442,3 +442,71 @@ body { background: linear-gradient(rgba(16, 11, 8, 0.82), rgba(16, 11, 8, 0.9)),
 .core-pick .lock img { width: 14px; height: auto; vertical-align: -3px; margin-right: 5px; }
 #settings-btn { display: inline-flex; align-items: center; gap: 6px; }
 #settings-btn img { width: 20px; height: 20px; }
+
+/* ---------- pop-up battle layout ---------- */
+/* The flight view is the board: module buttons on the ship, menus where you tap, a bar below. */
+.scene-wrap.battle { height: clamp(380px, 74vh, 660px); }
+@media (max-width: 640px) { .scene-wrap.battle { height: calc(100svh - 16px); min-height: 460px; scroll-margin-top: 8px; } }
+.battle-ui { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.battle-ui > * { pointer-events: auto; }
+body.fx-busy .battle-ui .mod-mark, body.fx-busy .battle-ui .pop, body.fx-busy .battle-ui .battle-bar button { visibility: hidden; }
+.mod-mark { position: absolute; left: 0; top: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2.5px solid var(--t, var(--brass-2)); background: #1d140e; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); transition: opacity 0.15s; }
+.mod-mark img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; opacity: 0.92; }
+.mod-mark.weapon { --t: var(--weapon); } .mod-mark.defense { --t: var(--defense); } .mod-mark.support { --t: var(--support); } .mod-mark.utility { --t: var(--utility); }
+.mod-hp { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 600 10px/1 var(--f-mono); color: #fff7e6; background: rgba(20, 14, 10, 0.92); padding: 2px 4px; border-radius: 6px; border: 1px solid var(--t, var(--brass-2)); white-space: nowrap; }
+.mod-toks { position: absolute; top: -8px; right: -10px; display: flex; }
+.mod-toks .tok-ico { width: 16px; height: 16px; }
+.mod-mark.ready { box-shadow: 0 0 0 3px rgba(240, 207, 132, 0.75), 0 0 14px rgba(240, 190, 90, 0.8); animation: mark-ready 1.6s ease-in-out infinite; }
+@keyframes mark-ready { 50% { box-shadow: 0 0 0 3px rgba(240, 207, 132, 0.35), 0 0 6px rgba(240, 190, 90, 0.4); } }
+.mod-mark.targeted { border-color: #ff5b3a; }
+.mod-mark.eligible { box-shadow: 0 0 0 3px #7fe0a8, 0 0 14px #7fe0a8; }
+.mod-mark.dim { opacity: 0.35; }
+.mod-mark.open { box-shadow: 0 0 0 3px #fff3d0; }
+@media (max-width: 640px) { .mod-mark { width: 30px; height: 30px; } .mod-hp { font-size: 9px; padding: 1px 3px; bottom: -8px; } }
+@media (prefers-reduced-motion: reduce) { .mod-mark.ready { animation: none; } }
+
+.battle-bar { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px;
+  padding: 6px 8px; background: rgba(22, 16, 12, 0.86); border: 1px solid var(--brass-2); border-radius: 6px; z-index: 2; }
+.bb-steam { display: flex; align-items: center; gap: 6px; }
+.bb-steam .ico { width: 20px; height: 20px; }
+.bb-note { display: inline-flex; align-items: center; gap: 2px; font: 600 12px/1 var(--f-mono); color: var(--ink); }
+.bb-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.bb-acts .btn { min-height: 36px; }
+
+.enemy-tag { position: absolute; right: 10px; bottom: 62px; display: grid; gap: 3px; min-width: 150px; padding: 6px 9px; text-align: left; cursor: pointer;
+  background: rgba(22, 16, 12, 0.86); border: 1px solid var(--ember); border-radius: 6px; color: var(--ink); z-index: 2; }
+.et-name { font: 400 15px/1 var(--f-display); }
+.et-bar { height: 7px; background: var(--panel-3); border-radius: 3px; overflow: hidden; }
+.et-bar i { display: block; height: 100%; width: var(--fill); background: var(--ember); }
+.et-num { font: 600 11px/1 var(--f-mono); color: var(--ink-2); }
+
+.battle-banner { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; max-width: calc(100% - 16px);
+  padding: 6px 10px; background: rgba(22, 16, 12, 0.92); border: 1px solid #7fe0a8; border-radius: 6px; color: var(--ink); font-weight: 600; z-index: 4; }
+
+.pop { position: absolute; left: 0; top: 0; width: min(300px, calc(100% - 12px)); max-height: calc(100% - 72px); overflow: auto; z-index: 5;
+  padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; color: var(--ink);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1.5px solid var(--brass); border-radius: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); }
+.pop.pop-enemy { width: min(380px, calc(100% - 12px)); }
+.pop .panel.enemy { padding: 0; background: none; border: 0; box-shadow: none; }
+.pop-x { position: absolute; top: 4px; right: 6px; width: 28px; height: 28px; border: 0; background: none; color: var(--ink-2); font-size: 22px; line-height: 1; cursor: pointer; z-index: 1; }
+.pop-head { display: flex; gap: 10px; align-items: center; padding-right: 26px; }
+.pop-head img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid var(--brass-2); flex: none; }
+.pop-head b { font: 400 19px/1.1 var(--f-display); }
+.pop-head .muted { font-size: 12px; text-transform: capitalize; }
+.pop .rules { font-size: 13.5px; }
+.pop-tok { margin: 0; font-size: 13px; }
+.pop-tok .tok-ico { width: 16px; height: 16px; vertical-align: -3px; margin-right: 3px; }
+.pop-btns { display: flex; flex-direction: column; gap: 6px; }
+.pop-btns .btn { text-align: left; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+
+.sheet-back { position: fixed; inset: 0; z-index: 200; background: rgba(8, 6, 4, 0.7); overflow: auto; padding: max(16px, env(safe-area-inset-top)) 12px 24px; }
+.sheet { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.sheet-close { align-self: flex-end; }
+@media (max-width: 560px) {
+  .enemy-tag { top: 10px; left: 50%; right: auto; bottom: auto; transform: translateX(-50%); }
+  .pop, .pop.pop-enemy { width: calc(100% - 12px); }
+  .battle-bar { padding: 5px 6px; }
+  .bb-acts { margin-left: 0; width: 100%; }
+  .bb-acts .btn { flex: 1; justify-content: center; padding: 4px 6px; }
+}

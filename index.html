@@ -18,11 +18,13 @@
     <button class="icon-btn" id="settings-btn" aria-haspopup="dialog" aria-controls="settings"><img src="assets/art/ui/btn-gear.png" alt="">Settings</button>
   </header>
   <div class="settings" id="settings" role="dialog" aria-label="Settings" hidden></div>
+  <div class="sheet-back" id="sheet" hidden></div>
   <main class="layout">
     <div class="main-col">
       <section class="scene-wrap" id="scene-wrap" aria-label="Flight view">
         <canvas id="scene"></canvas>
         <div class="scene-overlay" id="scene-overlay"></div>
+        <div class="battle-ui" id="battle-ui"></div>
       </section>
       <div class="scene-dock" id="scene-dock"></div>
       <section class="stage" id="stage" aria-live="polite"></section>

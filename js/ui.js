@@ -32,6 +32,12 @@
       render();
       return;
     }
+    if (inBattle()) {
+      ui.pop = uid && !(ui.pop && ui.pop.uid === uid) ? { uid } : null;
+      ui.selected = ui.pop && uid !== 'enemy' ? uid : null;
+      render();
+      return;
+    }
     if (uid === 'enemy') uid = null;
     ui.selected = uid && uid !== ui.selected ? uid : null;
     ui.confirmScrap = null;
@@ -136,6 +142,7 @@
     const wrap = $('scene-wrap');
     const overlay = $('scene-overlay');
     wrap.classList.toggle('tall', !game);
+    wrap.classList.toggle('battle', !!game && game.phase === 'combat' && FX.prefs.battle !== 'classic');
     syncMusic();
     if (!game) {
       scene.setBiome('dusk'); scene.setMode('title');
@@ -185,6 +192,7 @@
     }
     ui.intentSummary = game && game.phase === 'combat' && game.combat.enemy.intent ? intentText(game.combat.enemy.intent) : '';
     Actors.sync(game, ui);
+    renderBattle();
     autosave();
     const lh = $('log-head');
     if (lh) lh.textContent = game && game.phase === 'combat' ? `Combat log · round ${game.combat.round}` : "Ship's log";
@@ -458,23 +466,7 @@
     for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
 
     const buttons = h('div', { class: 'row' });
-    if (game.phase === 'combat' && !loc.stored) {
-      const fi = card !== game.core && game.fireInfo(uid);
-      if (fi) for (const mode of fi.modes) {
-        const w = game.fireInfo(uid, mode);
-        buttons.append(h('button', { class: 'btn small', disabled: w.blocked ? true : null, onclick: act(() => game.fire(uid, mode)) },
-          mode === 'aimed' ? 'Aimed shot' : mode === 'steady' ? 'Steady aim' : 'Fire', h('span', { class: 'sub' }, `${w.cost} Steam · ${w.blocked || w.summary}`)));
-      }
-      if (card !== game.core && game.canUseSupport(uid) && game.supportTargets(uid).length) {
-        buttons.append(h('button', { class: 'btn small', onclick: () => startSupport(uid) }, `Use ${partName(card.id)}`, h('span', { class: 'sub' }, `${game.useCost(card)} Steam`)));
-      }
-      for (const other of game.swapTargets(uid)) {
-        const ol = game.locate(other);
-        const dir = ol.row !== loc.row ? (ol.row > loc.row ? 'up' : 'down') : Math.abs(ol.col) > Math.abs(loc.col) ? 'outward' : 'inward';
-        buttons.append(h('button', { class: 'btn small', onclick: act(() => game.swap(uid, other)) }, `Swap ${dir}`, h('span', { class: 'sub' }, `${game.swapCost()} Steam · with ${partName(ol.card.id)}`)));
-      }
-      if (game.ventTargets().includes(uid)) buttons.append(h('button', { class: 'btn small', disabled: !game.spendable(VENT_COST) || null, onclick: act(() => game.vent(uid)) }, 'Vent tokens', h('span', { class: 'sub' }, `${VENT_COST} Steam`)));
-    }
+    if (game.phase === 'combat' && !loc.stored) buttons.append(...combatButtons(uid, loc, ui.inSheet ? () => { $('sheet').hidden = true; ui.selected = null; } : undefined));
     if (!loc.stored && card !== game.core) {
       if (game.phase === 'shop') buttons.append(h('button', { class: 'btn small', disabled: game.shop.sold >= 2 || null, onclick: act(() => { game.sell(uid); ui.selected = null; }) }, `Sell for ${game.sellValue(card)} cogs`));
       if (game.phase === 'hangar') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.detach(uid); ui.selected = null; }) }, 'Detach'));
@@ -486,6 +478,30 @@
     if (loc.stored && game.phase === 'loot') buttons.append(h('button', { class: 'btn small', onclick: act(() => { game.discardStored(game.storage.indexOf(card)); ui.selected = null; }) }, 'Dump from hold'));
     if (buttons.childNodes.length) box.append(buttons);
     return box;
+  }
+
+  // What a module can do this turn: fire (each mode), use, swap with a neighbour, vent tokens.
+  // done runs before the action, so a pop-up menu can close itself.
+  function combatButtons(uid, loc, done = () => {}) {
+    const card = loc.card;
+    const out = [];
+    const go = (fn) => act(() => { done(); fn(); });
+    const fi = card !== game.core && game.fireInfo(uid);
+    if (fi) for (const mode of fi.modes) {
+      const w = game.fireInfo(uid, mode);
+      out.push(h('button', { class: 'btn small', disabled: w.blocked ? true : null, onclick: go(() => game.fire(uid, mode)) },
+        mode === 'aimed' ? 'Aimed shot' : mode === 'steady' ? 'Steady aim' : 'Fire', h('span', { class: 'sub' }, `${w.cost} Steam · ${w.blocked || w.summary}`)));
+    }
+    if (card !== game.core && game.canUseSupport(uid) && game.supportTargets(uid).length) {
+      out.push(h('button', { class: 'btn small', onclick: () => { done(); startSupport(uid); } }, `Use ${partName(card.id)}`, h('span', { class: 'sub' }, `${game.useCost(card)} Steam`)));
+    }
+    for (const other of game.swapTargets(uid)) {
+      const ol = game.locate(other);
+      const dir = ol.row !== loc.row ? (ol.row > loc.row ? 'up' : 'down') : Math.abs(ol.col) > Math.abs(loc.col) ? 'outward' : 'inward';
+      out.push(h('button', { class: 'btn small', onclick: go(() => game.swap(uid, other)) }, `Swap ${dir}`, h('span', { class: 'sub' }, `${game.swapCost()} Steam · with ${partName(ol.card.id)}`)));
+    }
+    if (game.ventTargets().includes(uid)) out.push(h('button', { class: 'btn small', disabled: !game.spendable(VENT_COST) || null, onclick: go(() => game.vent(uid)) }, 'Vent tokens', h('span', { class: 'sub' }, `${VENT_COST} Steam`)));
+    return out;
   }
 
   function startSupport(uid) {
@@ -741,7 +757,8 @@
       default: return '';
     }
   }
-  function combatScreen() {
+  // The enemy: durability, statuses, its telegraphed move and its tactics table.
+  function enemyPanel({ art = true } = {}) {
     const c = game.combat;
     const en = c.enemy;
     const def = D.ENEMIES[c.enemyId];
@@ -768,7 +785,7 @@
       h('span', {}, intentText(it)),
       preview && preview.plan.length ? h('span', { class: 'muted' }, c.evading ? 'You will evade it.' : 'Hits: ' + preview.plan.map((p) => `${p.uid === 'core' ? 'Core' : partName(game.locate(p.uid).card.id)} ${p.braced ? 'braced' : p.dmg > 0 ? '−' + p.dmg : p.token ? '+' + p.token : '0'}`).join(', ')) : null);
     const enemy = h('section', { class: 'panel enemy' },
-      def.boss ? banner('boss') : c.enc === 'lair' ? banner('lair') : null,
+      !art ? null : def.boss ? banner('boss') : c.enc === 'lair' ? banner('lair') : null,
       h('div', { class: 'enemy-head' },
         h('div', { class: 'stack', style: 'gap:4px' }, h('span', { class: `kind k-${def.boss ? 'Boss' : def.elite ? 'Elite' : 'Combat'}`, style: 'align-self:flex-start' }, def.boss ? 'Boss' : def.elite ? 'Elite' : 'Enemy'), h('h2', {}, en.name),
           def.gimmick ? h('p', { class: 'muted' }, def.gimmick) : null),
@@ -782,7 +799,13 @@
             d6List(p.table.map((a) => a.name), pi === en.phase ? [it.roll] : []));
         }))),
     );
-
+    return enemy;
+  }
+  function combatScreen() {
+    const c = game.combat;
+    const it = c.enemy.intent;
+    if (popupMode()) return [];
+    const enemy = enemyPanel();
     const steam = h('div', { class: 'steam', 'aria-label': `${c.steam} steam` });
     for (let i = 0; i < Math.max(c.steam, game.steamCap()); i++) steam.append(h('i', { class: i < c.steam ? 'on' : '' }));
     const turn = h('section', { class: 'panel stack turn-panel' },
@@ -815,6 +838,162 @@
     return [targetBanner(), turn, enemy, shipView()];
   }
 
+  // ---------- pop-up battle layout ----------
+  // The flight view becomes the board: a button sits on every module of your ship, and tapping
+  // one (or the ship, or the enemy) opens a small menu right there. A bar along the bottom holds
+  // Steam, the Core's ability and End turn; the full Shipyard grid opens as a sheet.
+  const popupMode = () => FX.prefs.battle !== 'classic';
+  const inBattle = () => game && game.phase === 'combat' && popupMode();
+  const close = () => { ui.pop = null; };
+
+  function renderBattle() {
+    const root = $('battle-ui');
+    if (!inBattle()) { root.replaceChildren(); ui.pop = null; $('sheet').hidden = true; Actors.reserve = 0; return; }
+    const c = game.combat;
+    const hits = predictedHits();
+    const t = ui.targeting;
+    // Module buttons, placed by the position loop.
+    const marks = [];
+    for (const card of game.cards()) {
+      const uid = card.uid;
+      const info = cardInfo(card);
+      const fi = game.fireInfo(uid);
+      const ready = !t && ((fi && !fi.blocked) || (game.canUseSupport(uid) && game.supportTargets(uid).length > 0));
+      const eligible = t && t.eligible.includes(uid);
+      const cls = ['mod-mark', info.type, ready ? 'ready' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', ui.pop && ui.pop.uid === uid ? 'open' : '', hits.has(uid) ? 'targeted' : ''].join(' ');
+      const toks = ['fire', 'glue', 'gas'].filter((k) => card.tokens[k]);
+      marks.push(h('button', {
+        class: cls, 'data-uid': uid, 'aria-label': `${info.name}, ${card.hp} of ${info.max} durability`,
+        onclick: (ev) => {
+          ev.stopPropagation();
+          if (t) { if (eligible) { t.onPick(uid); ui.targeting = null; } render(); return; }
+          ui.pop = ui.pop && ui.pop.uid === uid ? null : { uid };
+          ui.selected = ui.pop ? uid : null;
+          render();
+        },
+      },
+      h('img', { src: `assets/art/cards/${card.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
+      h('span', { class: 'mod-hp' }, `${Math.max(0, card.hp)}/${info.max}`),
+      toks.length ? h('span', { class: 'mod-toks' }, toks.map((k) => ico(k, 'tok-ico'))) : null));
+    }
+    // Steam, the Core's ability, Evade, the Shipyard and End turn.
+    const steam = h('div', { class: 'steam', 'aria-label': `${c.steam} steam` });
+    for (let i = 0; i < Math.max(c.steam, game.steamCap()); i++) steam.append(h('i', { class: i < c.steam ? 'on' : '' }));
+    const core = game.coreAbilityInfo();
+    const ec = game.evadeCost();
+    const bar = h('div', { class: 'battle-bar' },
+      h('div', { class: 'bb-steam' },
+        h('span', { class: 'bb-note', title: 'Core durability' }, ico('durability'), `${Math.max(0, game.core.hp)}/${game.maxHp(game.core)}`),
+        ico('steam'), steam,
+        game.core.id === 'zeppelin' ? h('span', { class: 'bb-note' }, ico('pressure'), game.core.pressure) : null,
+        game.core.id === 'tempest' ? h('span', { class: 'bb-note' }, ico('charge'), game.core.charge || 0) : null),
+      h('div', { class: 'bb-acts' },
+        h('button', { class: 'btn small', disabled: core.blocked ? true : null, title: core.blocked || core.summary, onclick: act(() => { close(); game.useCore(); }) }, core.ability.name, h('span', { class: 'sub' }, ` ${core.cost}⚙`)),
+        ec != null ? h('button', { class: 'btn small', disabled: !game.canEvade() || null, onclick: act(() => { close(); game.evade(); }) }, c.evading ? 'Evading' : 'Evade', h('span', { class: 'sub' }, ` ${ec}⚙`)) : null,
+        h('button', { class: 'btn small', onclick: () => { close(); openSheet(); } }, 'Ship'),
+        h('button', { class: `btn small ${c.steam > 0 ? '' : 'primary'}`, onclick: act(() => { close(); game.endTurn(); }) }, 'End turn')));
+    // The enemy's durability, top right, under its move plate.
+    const en = c.enemy;
+    const etag = h('button', { class: 'enemy-tag', onclick: (ev) => { ev.stopPropagation(); ui.pop = ui.pop && ui.pop.uid === 'enemy' ? null : { uid: 'enemy' }; render(); } },
+      h('span', { class: 'et-name' }, en.name),
+      h('span', { class: 'et-bar', style: `--fill:${Math.round(Math.max(0, en.hp) / en.max * 100)}%` }, h('i')),
+      h('span', { class: 'et-num' }, `${Math.max(0, en.hp)}/${en.max}${en.block ? ` · Block ${en.block}` : ''}${en.burn ? ` · Burn ${en.burn}` : ''}`));
+    root.replaceChildren(...[...marks, etag, bar,
+      t ? h('div', { class: 'battle-banner' }, h('span', {}, t.prompt), t.cancelable ? h('button', { class: 'btn small', onclick: () => { ui.targeting = null; render(); } }, 'Cancel') : null) : null,
+      ui.pop ? popupEl() : null].filter(Boolean));
+    placeBattle();
+    if ($('sheet').hidden === false) openSheet();
+    // Phones: bring the whole battle view on screen when a fight starts.
+    if (ui.battleKey !== c && window.matchMedia('(max-width: 640px)').matches) $('scene-wrap').scrollIntoView({ block: 'start' });
+    ui.battleKey = c;
+  }
+  // The menu for whatever was tapped: a module, the Core, or the enemy.
+  function popupEl() {
+    const uid = ui.pop.uid;
+    const box = h('div', { class: 'pop', role: 'dialog', onclick: (ev) => ev.stopPropagation() });
+    const x = h('button', { class: 'pop-x', 'aria-label': 'Close', onclick: () => { close(); ui.selected = null; render(); } }, '×');
+    if (uid === 'enemy') {
+      box.classList.add('pop-enemy');
+      box.append(x, enemyPanel({ art: false }));
+      return box;
+    }
+    const loc = uid === 'core' ? { card: game.core, row: 0, col: 0 } : game.locate(uid);
+    if (!loc) { ui.pop = null; return null; }
+    const card = loc.card;
+    const info = cardInfo(card);
+    box.append(x,
+      h('div', { class: 'pop-head' },
+        h('img', { src: card === game.core ? `assets/art/cores/${card.id}.jpg` : `assets/art/cards/${card.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
+        h('div', { class: 'stack', style: 'gap:2px' },
+          h('b', {}, info.name),
+          h('span', { class: 'muted' }, `${info.type === 'core' ? 'Core' : info.type} · Dur ${Math.max(0, card.hp)}/${info.max}${card !== game.core ? ` · ${game.placeName(loc)}` : ''}`))),
+      rulesBlock(card));
+    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', { class: 'pop-tok' }, ico(k, 'tok-ico'), h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
+    const btns = uid === 'core' ? [] : combatButtons(uid, loc, close);
+    if (uid === 'core') {
+      const core = game.coreAbilityInfo();
+      btns.push(h('button', { class: 'btn small', disabled: core.blocked ? true : null, onclick: act(() => { close(); game.useCore(); }) }, core.ability.name, h('span', { class: 'sub' }, `${core.cost} Steam · ${core.blocked || core.summary}`)));
+      const ec = game.evadeCost();
+      if (ec != null) btns.push(h('button', { class: 'btn small', disabled: !game.canEvade() || null, onclick: act(() => { close(); game.evade(); }) }, 'Evade', h('span', { class: 'sub' }, `${ec} Steam`)));
+    }
+    if (btns.length) box.append(h('div', { class: 'pop-btns' }, btns));
+    else box.append(h('p', { class: 'muted' }, 'Nothing to do with it this turn.'));
+    return box;
+  }
+  // The full Shipyard grid, over the page.
+  function openSheet() {
+    const sheet = $('sheet');
+    ui.inSheet = true; // actions taken in the sheet close it, so the shot plays in view
+    sheet.replaceChildren(h('div', { class: 'sheet', onclick: (ev) => ev.stopPropagation() },
+      h('button', { class: 'btn small sheet-close', onclick: () => { sheet.hidden = true; ui.selected = null; render(); } }, 'Back to battle'),
+      shipView()));
+    ui.inSheet = false;
+    sheet.hidden = false;
+  }
+  $('sheet').addEventListener('click', () => { $('sheet').hidden = true; ui.selected = null; render(); });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape' || !inBattle()) return;
+    if (!$('sheet').hidden) $('sheet').hidden = true;
+    else if (ui.targeting && ui.targeting.cancelable) ui.targeting = null;
+    else if (ui.pop) close();
+    else return;
+    ui.selected = null;
+    render();
+  });
+  // Keeps the module buttons and the open menu on the ship as it bobs and the view resizes.
+  function placeBattle() {
+    const root = $('battle-ui');
+    if (!inBattle()) return;
+    const W = root.clientWidth, H = root.clientHeight;
+    const P = Actors.player;
+    const bar = root.querySelector('.battle-bar');
+    const barH = bar ? bar.offsetHeight + 16 : 0;
+    Actors.reserve = barH + (W < 560 ? 26 : 10);
+    for (const el of root.querySelectorAll('.mod-mark')) {
+      const p = P.pointOf(el.dataset.uid);
+      if (!p) { el.style.display = 'none'; continue; }
+      el.style.display = '';
+      el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
+    }
+    const pop = root.querySelector('.pop');
+    if (pop && ui.pop) {
+      const anchor = ui.pop.uid === 'enemy' ? (Actors.enemy && Actors.enemy.pointOf()) : P.pointOf(ui.pop.uid === 'core' ? 'core' : ui.pop.uid);
+      if (W < 560) {
+        // Phones: a panel just above the action bar.
+        pop.style.transform = `translate(6px, ${Math.round(Math.max(6, H - barH - pop.offsetHeight))}px)`;
+      } else if (anchor) {
+        const pw = pop.offsetWidth, ph = pop.offsetHeight;
+        // Beside the anchor, toward the middle of the view, kept inside it.
+        let x = ui.pop.uid === 'enemy' ? anchor.x - pw - 30 : anchor.x + 30;
+        if (x + pw > W - 6) x = anchor.x - pw - 30;
+        x = Math.max(6, Math.min(W - pw - 6, x));
+        const y = Math.max(6, Math.min(H - ph - 56, anchor.y - ph / 2));
+        pop.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+      }
+    }
+  }
+  (function follow() { placeBattle(); requestAnimationFrame(follow); })();
+
   // ---------- end ----------
   function endScreen() {
     const won = game.phase === 'victory';
@@ -841,7 +1020,7 @@
     const P = FX.prefs;
     const radio = (key, label, options) => h('fieldset', { class: 'set-group' }, h('legend', {}, label),
       h('div', { class: 'seg' }, options.map(([val, text]) => h('label', { class: `seg-opt ${P[key] === val ? 'on' : ''}` },
-        h('input', { type: 'radio', name: key, id: `set-${key}-${val}`, value: String(val), checked: P[key] === val || null, onchange: () => { P[key] = val; FX.savePrefs(); applyPrefs(); renderSettings(); } }), text))));
+        h('input', { type: 'radio', name: key, id: `set-${key}-${val}`, value: String(val), checked: P[key] === val || null, onchange: () => { P[key] = val; FX.savePrefs(); applyPrefs(); renderSettings(); if (key === 'battle') render(); } }), text))));
     const slider = (key, label) => h('label', { class: 'set-slider', for: `set-${key}` }, h('span', {}, label),
       h('input', { type: 'range', id: `set-${key}`, min: '0', max: '1', step: '0.05', value: String(P[key]), oninput: (e) => { P[key] = Number(e.target.value); FX.savePrefs(); applyPrefs(); } }));
     $('settings').replaceChildren(
@@ -852,6 +1031,7 @@
       slider('music', 'Music volume'),
       slider('sfx', 'Sound effects volume'),
       radio('mute', 'Sound', [[false, 'On'], [true, 'Muted']]),
+      radio('battle', 'Battle layout', [['popup', 'Pop-up menus'], ['classic', 'Panels below']]),
       h('p', { class: 'muted' }, 'Tap the flight view during an animation to skip ahead.'));
   }
   function applyPrefs() { if (window.CardshipsAudio) window.CardshipsAudio.applyPrefs(FX.prefs); }

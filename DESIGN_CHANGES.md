@@ -519,3 +519,25 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - The Settings button has the brass gear.
 - **Map icons, repainted.** The new sheet is in full colour and shows skyships, not sea ships. The ring centres moved on it, so the cutter now finds each brass ring by fitting a circle. Nodes are a little larger on desktop to show the detail.
 - **Still missing:** enemy portraits, enemy move icons and a full-size distant-airships layer.
+
+## Pop-up battle layout (test)
+
+*Reason: in battle you had to scroll between the flight view, the turn panel, the enemy panel and the Shipyard, so the shots played out of sight.*
+
+- **The flight view is the board.**
+  - In battle it grows to fill most of the window. On phones it fills the screen and scrolls into place when a fight starts.
+  - The whole battle fits in one window, with nothing below it to scroll to.
+- **Module buttons.**
+  - A round button sits on every module of your ship, showing its picture and Durability.
+  - Modules you can use this turn glow gold. Modules the enemy's move will hit have a red ring.
+  - Tapping one opens a menu right there with its rules and its actions: fire, aimed shot, use, swap, vent.
+  - The menu closes when you act, so the animation plays in full view.
+- **Ship and enemy menus.**
+  - Tapping the hull opens the Core's menu: its ability and Evade.
+  - Tapping the enemy, or its tag, opens its card: durability, statuses, the next move and the tactics table.
+  - Tapping empty sky closes any menu.
+- **Action bar** along the bottom of the view: Core durability, Steam (plus Pressure or Charge), the Core ability, Evade, **Ship** and **End turn**.
+  - **Ship** opens the full Shipyard grid as a sheet. An action taken there closes the sheet.
+- **Targeting** works on the buttons too. Using the Repair Bay highlights the modules it can reach, and a banner at the top offers Cancel.
+- **Phones:** menus open as a panel just above the bar, and your ship is drawn larger so its buttons are easy to hit.
+- **Settings → Battle layout** switches back to the old panels below the flight view.

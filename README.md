@@ -13,7 +13,11 @@ python3 -m http.server 8000
 
 Opening `index.html` straight from disk also works, but browsers block WebAudio filters on local files, so the music loses its muffling and boss-phase filtering.
 
-**Controls:** build and act in the **Shipyard** panel, a card grid laid out like the ship. Tap a card to see its rules and actions (fire, aimed shot, swap, vent tokens, use); cards linked to it by a synergy get a green outline. When installing a part, hover a slot (or tap it once) to preview it, then click (or tap again) to install. The **flight view** shows the ships and effects; tap your ship to select the Core, or tap during an animation to skip. **Settings** has screen shake, flashing, dice speed, music and sound volume, and mute.
+**Controls:** build and act in the **Shipyard** panel, a card grid laid out like the ship. Tap a card to see its rules and actions (fire, aimed shot, swap, vent tokens, use); cards linked to it by a synergy get a green outline. When installing a part, hover a slot (or tap it once) to preview it, then click (or tap again) to install. The **flight view** shows the ships and effects; tap during an animation to skip.
+
+**In battle** (pop-up layout, the default) the flight view is the board. Every module on your ship has a round button: tap it for a menu of what it can do this turn (fire, aimed shot, use, swap, vent). Usable modules glow gold, and modules the enemy will hit have a red ring. Tap your ship's hull for the Core's ability and Evade, or tap the enemy (or its tag) for its move, statuses and tactics table. The bar along the bottom holds your Core's durability, Steam, the Core ability, **Ship** (the full Shipyard grid) and **End turn**.
+
+**Settings** has screen shake, flashing, dice speed, music and sound volume, mute, and **Battle layout** (pop-up menus, or the older panels below the flight view).
 
 ## How it plays
 
