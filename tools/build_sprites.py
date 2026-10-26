@@ -152,24 +152,6 @@ BOARD_CUTS = {
  'glue_glob': (650, 468, 708, 522), 'glue_mesh': (728, 468, 792, 522), 'glue_spray': (815, 468, 878, 522),
  'napalm': (650, 545, 708, 604), 'fire_sticky': (732, 545, 790, 604), 'sticky_fire': (650, 625, 708, 682),
 }
-# Ships from the fleet sheets: each sheet has four quarters, each with a title, a framed big ship
-# and small variants to its right. The big ship is cut from its whole quarter (below the title, left
-# of the variants, so ships that overhang their frame stay whole) by flood fill off the backdrop.
-# name: (sheet, quarter, colour tolerance).
-SHIP_PANELS = {'TL': (2, 40, 410, 380), 'TR': (708, 40, 1118, 380), 'BL': (2, 422, 410, 764), 'BR': (708, 422, 1118, 764)}
-FRAME_LINE = (43, 53, 62)  # the panels' thin frame lines: a dull grey a shade or two lighter than the backdrop
-# Where those lines run in each quarter: ((top rows, bottom rows), (left columns, right columns)).
-FRAME_BANDS = {
- 'TL': (((33, 38), (357, 361)), ((21, 25), (383, 388))), 'TR': (((33, 38), (357, 361)), ((726, 730), (1088, 1092))),
- 'BL': (((416, 421), (737, 742)), ((28, 33), (388, 393))), 'BR': (((416, 421), (737, 742)), ((726, 730), (1088, 1092))),
-}
-SHIP_CUTS = {
- 'zephyr_scout': ('7678', 'BR', 22), 'iron_nautilus': ('7678', 'TR', 22), 'sky_voyager': ('7678', 'TL', 22), 'gilded_sparrow': ('7678', 'BL', 22),
- 'celestial_harvester': ('7679', 'TL', 22), 'crimson_comet': ('7679', 'BR', 22), 'aether_alchemist': ('7679', 'BL', 22),
- 'galleon_of_gears': ('7680', 'TL', 22), 'scarlet_caravan': ('7680', 'BR', 22), 'drill_platform': ('7681', 'BL', 22),
- 'sky_goliath': ('7682', 'TL', 22), 'scarlet_drifter': ('7683', 'BR', 22), 'clockwork_caravan': ('7684', 'BL', 22),
- 'sky_whale': ('7687', 'TL', 22), 'ironclad_leviathan': ('7687', 'BR', 9),
-}
 PARTS_CUTS = {'panel_iron': (986, 536, 1124, 638), 'crate_wood': (1132, 536, 1238, 638)}
 
 
@@ -215,68 +197,56 @@ def keyed(path, cuts):
     return pieces
 
 
-def fleet_pieces(max_w=240):
-    """Cuts each ship off its panel. The backdrop is a near-flat dark blue-grey with a little JPEG
-    noise; the ships' outlines are only a little darker, so the tolerance is measured per panel from
-    the noise of an empty corner rather than fixed. Backdrop is what matches it and touches the edge
-    (or sits on the frame's lines), plus big pockets trapped between rigging. Only pieces that reach
-    inside the frame are kept: the sheets have faint silhouettes painted outside the frames."""
+# Ships from the keyed sheets (flat magenta or green backdrops): (sheet, n-th ship on it, scanning
+# the sheet top-down then left-right).
+KEYED_CUTS = {
+ 'k_airship': ('7696', 1), 'k_zeppelin': ('7696', 0), 'k_battleship': ('7708', 7), 'k_clockwork': ('7710', 2),
+ 'k_cutter': ('7710', 0), 'k_skiff': ('7706', 3), 'k_gunship': ('7697', 6), 'k_bomber': ('7703', 3),
+ 'k_sentinel': ('7709', 6), 'k_flagship': ('7696', 2), 'k_monitor': ('7710', 4), 'k_leviathan': ('7711', 4),
+ 'k_stormqueen': ('7706', 7), 'k_colossus': ('7708', 5),
+}
+
+
+def keyed_ships(sheet):
+    """Every ship on a keyed sheet: a soft key on how far the backdrop's channel(s) dominate, the
+    backdrop's tint pulled out of the edge pixels (despill), and parts joined by rigging grouped."""
     from scipy import ndimage
-    pieces = {}
-    for nm, (sheet, panel, _) in SHIP_CUTS.items():
-        A = np.array(Image.open(os.path.join(SRC, 'ships', f'fleet-{sheet}.jpg')).convert('RGB')).astype(int)
-        x0, y0, x1, y1 = SHIP_PANELS[panel]
-        c = A[y0:y1, x0:x1]
-        (r0, r1), (q0, q1) = FRAME_BANDS[panel]
-        # The frame's interior, in quarter coordinates.
-        fy0, fy1, fx0, fx1 = r0[1] + 2 - y0, r1[0] - 2 - y0, q0[1] + 2 - x0, q1[0] - 2 - x0
-        # Sample the flattest of several empty-looking patches (a ship may overhang any one corner).
-        spots = [(fy0, fx0), (fy0, fx1 - 24), (fy1 - 24, fx0), (fy1 - 24, fx1 - 24), (fy1 + 6, fx0 + 40), (fy1 + 6, fx1 - 64)]
-        patches = [c[max(0, y):max(0, y) + 20, max(0, x):max(0, x) + 24].reshape(-1, 3) for y, x in spots]
-        patches = [p_ for p_ in patches if len(p_) >= 200 and p_.mean() < 80]
-        corner = min(patches, key=lambda p_: p_.std(axis=0).sum())
-        bg = np.median(corner, axis=0)
-        tol = max(8, np.percentile(np.abs(corner - bg).max(axis=1), 99.5) + 3)
-        diff = np.abs(c - bg).max(axis=2)
-        bands = np.zeros(diff.shape, bool)
-        for lo, hi in (r0, r1): bands[max(0, lo - 2 - y0):max(0, hi + 3 - y0), :] = True
-        for lo, hi in (q0, q1): bands[:, max(0, lo - 2 - x0):max(0, hi + 3 - x0)] = True
-        grey = (c.max(axis=2) - c.min(axis=2) <= 20) & (c.max(axis=2) <= 110) & (c.max(axis=2) >= 40)
-        frame = bands & (grey | (diff <= tol + 6))
-        lab, _ = ndimage.label((diff <= tol) | frame)
-        border = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
-        back = np.isin(lab, list(border))
-        # Pockets of backdrop between rigging lines: a tight match and a good size.
-        pocket = diff <= max(6, tol - 2)
-        lab2, n2 = ndimage.label(pocket)
-        if n2:
-            sizes = ndimage.sum(pocket, lab2, range(1, n2 + 1))
-            back |= np.isin(lab2, [i + 1 for i, sz in enumerate(sizes) if sz >= 150])
-        solid = ~back
-        lab3, n3 = ndimage.label(solid, structure=np.ones((3, 3)))
-        # Near the frame lines: the panel's corner marks live there.
-        near = np.zeros(diff.shape, bool)
-        for lo, hi in (r0, r1): near[max(0, lo - 12 - y0):max(0, hi + 13 - y0), :] = True
-        for lo, hi in (q0, q1): near[:, max(0, lo - 12 - x0):max(0, hi + 13 - x0)] = True
-        boxes = ndimage.find_objects(lab3)
-        sizes = ndimage.sum(solid, lab3, range(1, n3 + 1))
-        biggest = max(sizes) if n3 else 0
-        keep = []
-        for i, bx in enumerate(boxes):
-            ys, xs = bx
-            comp = lab3 == i + 1
-            size = sizes[i]
-            inside = ys.stop > fy0 and ys.start < fy1 and xs.stop > fx0 and xs.start < fx1
-            thin = min(ys.stop - ys.start, xs.stop - xs.start) <= 3
-            cy, cx = [v.mean() for v in np.nonzero(comp)]
-            outside = size < biggest and not (fy0 <= cy <= fy1 and fx0 <= cx <= fx1)  # stray art beyond the frame
-            mark = (size < biggest * 0.03 and near[comp].mean() > 0.5) or outside
-            if inside and size >= 25 and not thin and not mark:
-                keep.append(i + 1)
-        solid = np.isin(lab3, keep)
-        rgba = np.dstack([c.astype(np.uint8), (solid * 255).astype(np.uint8)])
-        ys, xs = np.where(solid)
-        im = Image.fromarray(rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 'RGBA')
+    A = np.array(Image.open(os.path.join(SRC, 'ships-keyed', f'keyed-{sheet}.jpg')).convert('RGB')).astype(float)
+    r, g, b = A[..., 0], A[..., 1], A[..., 2]
+    corners = np.concatenate([A[:8, :8].reshape(-1, 3), A[:8, -8:].reshape(-1, 3), A[-8:, :8].reshape(-1, 3), A[-8:, -8:].reshape(-1, 3)])
+    bg = np.median(corners, axis=0)
+    green = bg[1] > bg[0] and bg[1] > bg[2]
+    key = g - np.maximum(r, b) if green else np.minimum(r, b) - g
+    kb = bg[1] - max(bg[0], bg[2]) if green else min(bg[0], bg[2]) - bg[1]
+    alpha = np.clip(1 - (key - kb * 0.25) / (kb * 0.45), 0, 1)
+    # Despill near the edges (within 3px of the backdrop): no pixel keeps more of the key colour
+    # than its other channels allow.
+    edge = ndimage.binary_dilation(alpha < 0.98, iterations=3)
+    out = A.copy()
+    if green:
+        out[..., 1] = np.where(edge, np.minimum(g, np.maximum(r, b)), g)
+    else:
+        spill = np.clip(np.minimum(r, b) - g, 0, None)
+        out[..., 0] = np.where(edge, r - spill, r)
+        out[..., 2] = np.where(edge, b - spill, b)
+    lab, _ = ndimage.label(ndimage.binary_dilation(alpha > 0.5, iterations=7))
+    ships = []
+    for i, o in enumerate(ndimage.find_objects(lab)):
+        m = (lab[o] == i + 1) & (alpha[o] > 0.02)
+        if m.sum() < 3000:
+            continue
+        a = (alpha[o] * m * 255).astype(np.uint8)
+        im = Image.fromarray(np.dstack([out[o].clip(0, 255).astype(np.uint8), a]), 'RGBA')
+        ys, xs = np.where(a > 8)
+        ships.append(im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)))
+    return ships
+
+
+def keyed_pieces(max_w=240):
+    cache, pieces = {}, {}
+    for nm, (sheet, i) in KEYED_CUTS.items():
+        if sheet not in cache: cache[sheet] = keyed_ships(sheet)
+        im = cache[sheet][i]
         if im.width > max_w:
             im = im.resize((max_w, round(im.height * max_w / im.width)), Image.LANCZOS)
         pieces[nm] = im
@@ -305,7 +275,7 @@ def main():
               ({**area_pieces(os.path.join(SRC, 'fx-sheet.png'), FX_AREAS), **area_pieces(os.path.join(SRC, 'fx-sheet-2.png'), FX2_AREAS),
                 **keyed(os.path.join(SRC, 'effects-board.jpg'), BOARD_CUTS)}, os.path.join(ROOT, 'assets/art/fx.png')),
               (area_pieces(os.path.join(SRC, 'parts-sheet.png'), PARTS_AREAS, PARTS_CUTS), os.path.join(ROOT, 'assets/art/parts.png')),
-              (fleet_pieces(), os.path.join(ROOT, 'assets/art/ships.png'))]
+              (keyed_pieces(), os.path.join(ROOT, 'assets/art/ships.png'))]
     for i, (pieces, path) in enumerate(sheets):
         for k, f in pack(pieces, path).items():
             frames[k] = f + ((i,) if i else ())

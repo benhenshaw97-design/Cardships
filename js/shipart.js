@@ -88,44 +88,44 @@
 
 
   // ---------- the ships ----------
-  // Ships from the fleet sheets: sprite, art width, which way its bow points in the sheet, and where
-  // its decks sit as fractions of the sprite's height from the top (hull: the gondola's lower deck,
-  // where hull modules and the Core are; upper: the gondola's upper deck).
+  // Ships from the keyed sheets (all drawn bow to the right): art width, and where the decks sit
+  // as fractions of the sprite's height from the top (hull: the gondola's lower deck, where hull
+  // modules and the Core are; upper: its upper deck).
   const HULLS = {
-    zephyr_scout: { w: 118, faces: 'R', hull: 0.86, upper: 0.7, span: 0.36 },
-    iron_nautilus: { w: 150, faces: 'L', hull: 0.82, upper: 0.66, span: 0.4 },
-    sky_voyager: { w: 130, faces: 'R', hull: 0.84, upper: 0.7, span: 0.36 },
-    clockwork_caravan: { w: 140, faces: 'R', hull: 0.82, upper: 0.66, span: 0.4 },
-    crimson_comet: { w: 118, faces: 'R', hull: 0.8, upper: 0.66, span: 0.38 },
-    scarlet_drifter: { w: 104, faces: 'R', hull: 0.82, upper: 0.68, span: 0.34 },
-    gilded_sparrow: { w: 136, faces: 'R', hull: 0.84, upper: 0.68, span: 0.38 },
-    scarlet_caravan: { w: 132, faces: 'R', hull: 0.8, upper: 0.64, span: 0.34 },
-    drill_platform: { w: 122, faces: 'R', hull: 0.5, upper: 0.32, span: 0.36 },
-    sky_goliath: { w: 160, faces: 'R', hull: 0.8, upper: 0.64, span: 0.38 },
-    celestial_harvester: { w: 156, faces: 'R', hull: 0.78, upper: 0.64, span: 0.36 },
-    ironclad_leviathan: { w: 200, faces: 'R', hull: 0.78, upper: 0.62, span: 0.4 },
-    sky_whale: { w: 196, faces: 'R', hull: 0.74, upper: 0.6, span: 0.38 },
-    galleon_of_gears: { w: 190, faces: 'R', hull: 0.8, upper: 0.66, span: 0.38 },
+    k_airship: { w: 124, faces: 'R', hull: 0.82, upper: 0.66, span: 0.36 },
+    k_zeppelin: { w: 150, faces: 'R', hull: 0.82, upper: 0.66, span: 0.4 },
+    k_battleship: { w: 150, faces: 'R', hull: 0.82, upper: 0.62, span: 0.4 },
+    k_clockwork: { w: 128, faces: 'R', hull: 0.84, upper: 0.7, span: 0.36 },
+    k_cutter: { w: 120, faces: 'R', hull: 0.6, upper: 0.45, span: 0.36 },
+    k_skiff: { w: 112, faces: 'R', hull: 0.75, upper: 0.6, span: 0.34 },
+    k_gunship: { w: 140, faces: 'R', hull: 0.82, upper: 0.64, span: 0.38 },
+    k_bomber: { w: 136, faces: 'R', hull: 0.8, upper: 0.66, span: 0.36 },
+    k_sentinel: { w: 112, faces: 'R', hull: 0.7, upper: 0.4, span: 0.36 },
+    k_flagship: { w: 166, faces: 'R', hull: 0.82, upper: 0.66, span: 0.4 },
+    k_monitor: { w: 160, faces: 'R', hull: 0.78, upper: 0.5, span: 0.4 },
+    k_leviathan: { w: 196, faces: 'R', hull: 0.7, upper: 0.45, span: 0.4 },
+    k_stormqueen: { w: 196, faces: 'R', hull: 0.74, upper: 0.58, span: 0.38 },
+    k_colossus: { w: 186, faces: 'R', hull: 0.72, upper: 0.42, span: 0.4 },
   };
   // Your Core decides your ship; it grows a little with every module you bolt on.
   const PLAYER = {
-    airship: { hull: 'zephyr_scout' },
-    battleship: { hull: 'iron_nautilus' },
-    zeppelin: { hull: 'sky_voyager' },
-    clockwork: { hull: 'clockwork_caravan' },
+    airship: { hull: 'k_airship' },
+    battleship: { hull: 'k_battleship' },
+    zeppelin: { hull: 'k_zeppelin' },
+    clockwork: { hull: 'k_clockwork' },
   };
   // Every pirate and boss has a ship of its own.
   const ENEMIES = {
-    cutter: { hull: 'crimson_comet' },
-    skiff: { hull: 'scarlet_drifter' },
-    gunship: { hull: 'gilded_sparrow' },
-    bomber: { hull: 'scarlet_caravan' },
-    sentinel: { hull: 'drill_platform' },
-    flagship: { hull: 'sky_goliath' },
-    monitor: { hull: 'celestial_harvester' },
-    leviathan: { hull: 'ironclad_leviathan' },
-    stormqueen: { hull: 'sky_whale', storm: true },
-    colossus: { hull: 'galleon_of_gears' },
+    cutter: { hull: 'k_cutter' },
+    skiff: { hull: 'k_skiff' },
+    gunship: { hull: 'k_gunship' },
+    bomber: { hull: 'k_bomber' },
+    sentinel: { hull: 'k_sentinel' },
+    flagship: { hull: 'k_flagship' },
+    monitor: { hull: 'k_monitor' },
+    leviathan: { hull: 'k_leviathan' },
+    stormqueen: { hull: 'k_stormqueen', storm: true },
+    colossus: { hull: 'k_colossus' },
   };
 
   // Draws a ship sprite with its bottom centre at (0, 0) into an art context, its bow to the right

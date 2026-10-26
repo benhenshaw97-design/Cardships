@@ -63,7 +63,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/canyon-foundry.jpg`, `assets/art/rail-yard.jpg` | Far layer of the industrial smog biome (one of the two each time) |
 | `assets/art/storm-mesa.jpg` | Far layer of the Storm Front biome |
 | `assets/art/canyon-city.jpg` | Far layer of the Pirate Lair and boss biome |
-| `assets/art/ships.png` | Ship atlas cut from the fleet sheets in `assets/art/source/ships/`: every Core's ship and every enemy's |
+| `assets/art/ships.png` | Ship atlas keyed from the magenta and green sheets in `assets/art/source/ships-keyed/`: every Core's ship and every enemy's |
 | `assets/art/ui/*.png` | Pieces of `assets/art/source/ui-brass-kit.png`: flight-view corners, card plates, rarity gems, gauge bars |
 | `assets/art/ui/wall-*.jpg` | Riveted wall textures: the page background (plates) and the header (gear-work) |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |

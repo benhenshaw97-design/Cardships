@@ -397,3 +397,29 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   - Outlines are kept.
   - Separate pieces whose centre lies outside the frame, and the frame's corner marks, are dropped.
   *Reason: clean, whole ships with their pixel outlines.*
+
+## Ships from the keyed sheets
+
+- **Every ship now comes from your chroma-keyed sheets** (`assets/art/source/ships-keyed/`). They sit on flat magenta or green, so `tools/build_sprites.py` keys them with a soft key and pulls the backdrop's tint out of the edge pixels (despill), with no flood fills or frame lines. The old fleet-sheet cuts are gone from the atlas. *Reason: the dark-panel sheets could never be cut cleanly; these come out whole, with clean outlines and no fringes.*
+
+  | Core | Ship |
+  | --- | --- |
+  | Airship | Small orange airship |
+  | Zeppelin | Big striped zeppelin |
+  | Battleship | Armoured gunship |
+  | Clockwork | Clock-faced rotor ship |
+
+  | Enemy | Ship |
+  | --- | --- |
+  | Pirate Cutter | Gold winged racer |
+  | Scavenger Skiff | Bat-wing skiff |
+  | Corsair Gunship | Cannon galleon |
+  | Bomber Dirigible | Swirl-bag bomber |
+  | Clockwork Sentinel | Wheel with its drone |
+  | Dread Corsair Flagship | Striped flagship |
+  | Armored Monitor | Ironclad |
+  | Iron Leviathan | Spiked warship |
+  | Storm Queen | Sky-whale |
+  | Clockwork Colossus | Multi-rotor fortress |
+
+  The other 70-odd ships on those sheets are spares, a one-line change in `KEYED_CUTS` each.
