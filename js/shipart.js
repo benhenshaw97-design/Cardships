@@ -106,14 +106,13 @@
     k_leviathan: { w: 196, faces: 'R', hull: 0.7, upper: 0.45, span: 0.4 },
     k_stormqueen: { w: 196, faces: 'R', hull: 0.74, upper: 0.58, span: 0.38 },
     k_colossus: { w: 186, faces: 'R', hull: 0.72, upper: 0.42, span: 0.4 },
+    k_privateer: { w: 128, faces: 'R', hull: 0.8, upper: 0.62, span: 0.36 },
+    k_tempest: { w: 132, faces: 'R', hull: 0.8, upper: 0.62, span: 0.36 },
+    k_salvager: { w: 140, faces: 'R', hull: 0.84, upper: 0.66, span: 0.38 },
+    k_explorer: { w: 136, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
   };
-  // Your Core decides your ship; it grows a little with every module you bolt on.
-  const PLAYER = {
-    airship: { hull: 'k_airship' },
-    battleship: { hull: 'k_battleship' },
-    zeppelin: { hull: 'k_zeppelin' },
-    clockwork: { hull: 'k_clockwork' },
-  };
+  // Your ship is the one you picked (data SHIPS); it grows a little with every module you bolt on.
+  const shipSprite = (game) => { const D = window.CardshipsData; const sh = D.SHIPS[game.ship] || D.SHIPS[window.CardshipsEngine.Game.defaultShip(game.core.id)]; return sh.sprite; };
   // Every pirate and boss has a ship of its own.
   const ENEMIES = {
     cutter: { hull: 'k_cutter' },
@@ -167,10 +166,11 @@
       this.size = { w: 120, h: 90 };
       this.count = 0;
     }
-    spec() { return PLAYER[this.coreId] || PLAYER.airship; }
+    spec() { return { hull: HULLS[this.sprite] ? this.sprite : 'k_airship' }; }
     artWidth() { return HULLS[this.spec().hull].w + Math.min(8, this.count) * 5; }
     sync(game) {
       this.coreId = game.core.id;
+      this.sprite = shipSprite(game);
       this.coreHp = game.core.hp; this.coreMax = game.maxHp(game.core);
       const seen = new Set();
       for (const card of game.cards()) {
@@ -349,8 +349,26 @@
     hitTest(x, y) { return Math.abs(x - this.x) < this.halfW * this.P && y < this.y && y > this.y - this.size.h * this.P; }
   }
 
-  // Your Core's ship, and whether it must be mirrored to point its bow right (for the map marker).
-  const playerSprite = (coreId) => { const name = (PLAYER[coreId] || PLAYER.airship).hull; return { name, flip: HULLS[name].faces !== 'R' }; };
+  // Your ship's sprite, and whether it must be mirrored to point its bow right (for the map marker).
+  const playerSprite = (game) => { const name = shipSprite(game); return { name, flip: HULLS[name].faces !== 'R' }; };
+  // A ship picture for the ship picker, fitted into w x h, crisp.
+  function thumb(name, w, h) {
+    const c = canvas(w, h);
+    c.className = 'ship-thumb';
+    c.setAttribute('aria-hidden', 'true');
+    const paint = (tries) => {
+      const sp = SPR();
+      const f = sp && sp.FRAMES[name];
+      if (f && sp.ready(name)) {
+        const k = Math.min(w / f[2], h / f[3]);
+        const g = c.getContext('2d');
+        g.clearRect(0, 0, w, h);
+        g.drawImage(sp.sheet(f[4] || 0), f[0], f[1], f[2], f[3], (w - f[2] * k) / 2, (h - f[3] * k) / 2, f[2] * k, f[3] * k);
+      } else if (tries > 0) setTimeout(() => paint(tries - 1), 250);
+    };
+    paint(20);
+    return c;
+  }
 
-  window.CardshipsShipArt = { PlayerShip, EnemyShip, playerSprite };
+  window.CardshipsShipArt = { PlayerShip, EnemyShip, playerSprite, thumb };
 })();

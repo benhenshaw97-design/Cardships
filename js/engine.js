@@ -7,7 +7,7 @@
   if (isNode) module.exports = api;
   else root.CardshipsEngine = api;
 })(this, function (D) {
-  const { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
+  const { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
 
   const BOSS_COL = 12;
   const BASE_SIGHT = 2;
@@ -49,6 +49,7 @@
 
       this.phase = 'coreSelect';
       this.core = null;
+      this.ship = null;
       this.hull = COLS.map(() => null);
       this.top = COLS.map(() => null);
       this.storage = [];
@@ -216,7 +217,7 @@
     }
     storageCap() { return this.has('cargo') ? STORAGE_SLOTS : 0; }
     weight() {
-      let w = this.core ? this.core.weight : 0;
+      let w = (this.core ? this.core.weight : 0) + (this.shipDef().weight || 0);
       for (const c of this.cards()) w += this.def(c).weight;
       if (this.has('cargo')) w += this.storage.length;
       return w;
@@ -247,7 +248,10 @@
       return 'Blocked: only the front of a deck fires straight';
     }
     // How many columns ahead on the sky map you can identify.
-    sight() { return BASE_SIGHT + (this.telescopeOut() ? 1 : 0) + (this.sightMoves > 0 ? 1 : 0); }
+    sight() { return BASE_SIGHT + (this.telescopeOut() ? 1 : 0) + (this.sightMoves > 0 ? 1 : 0) + (this.shipDef().sight || 0); }
+    // The hull you fly (older saves have none: the Core's own ship).
+    shipDef() { return SHIPS[this.ship] || {}; }
+    static defaultShip(coreId) { return (Object.values(SHIPS).find((s) => s.core === coreId) || SHIPS.courier).id; }
     gainCogs(n, why) { if (n <= 0) return; this.cogs += n; this.stats.cogs += n; this.emit('cogs', { amount: n }); this.say(`+${n} cogs${why ? ` (${why})` : ''}.`, 'good'); }
     isWeapon(card) { return this.def(card).type === 'weapon'; }
     weaponsInstalled() { return this.cards().filter((c) => this.isWeapon(c)).length; }
@@ -391,12 +395,16 @@
     }
 
     // ---------- run setup ----------
-    chooseCore(id) {
+    chooseCore(id, shipId = null) {
       if (this.phase !== 'coreSelect') return;
       const c = CORES[id];
-      this.core = { uid: 'core', id, name: c.name, weight: c.weight, hp: c.hp, baseMax: c.hp, bonusMax: 0, tokens: noTokens(), pressure: 0 };
+      this.ship = SHIPS[shipId] ? shipId : Game.defaultShip(id);
+      const sh = this.shipDef();
+      const hp = c.hp + (sh.hp || 0);
+      this.core = { uid: 'core', id, name: c.name, weight: c.weight, hp, baseMax: hp, bonusMax: 0, tokens: noTokens(), pressure: 0, charge: 0 };
+      this.cogs += sh.cogs || 0;
       this.buildShip(c.start);
-      this.say(`${c.name} selected. Starting modules: ${c.start.map(([p]) => PARTS[p].name).join(', ')}.`, 'sys');
+      this.say(`${c.name} aboard the ${sh.name}. Starting modules: ${c.start.map(([p]) => PARTS[p].name).join(', ')}.`, 'sys');
       if (!this.bossId) this.bossId = this.pick(BOSSES);
       this.generateMap();
       this.say(`Your charts mark the final threat: ${ENEMIES[this.bossId].name}.`, 'warn');
@@ -605,6 +613,8 @@
       else if (node.enc === 'smog') this.runSmog();
       else if (node.enc === 'beacon') this.runBeacon(node);
       else if (node.enc === 'guild') this.runGuild();
+      else if (node.enc === 'derelict') this.runDerelict();
+      else if (node.enc === 'rift') this.runRift();
     }
     totalHp() { return this.core.hp + this.cards().reduce((s, c) => s + c.hp, 0); }
     setOptions(stage, options) { this.event.stage = stage; this.event.options = options; }
@@ -732,6 +742,68 @@
       opts.push({ id: 'none', label: this.quest ? 'Keep your current contract' : 'Sign nothing', desc: this.quest ? QUESTS.find((q) => q.id === this.quest).name : 'Leave empty-handed.' });
       this.setOptions('guild', opts);
     }
+    runDerelict() {
+      const r = this.d6('Derelict Hulk');
+      this.event.rolls.push(r);
+      if (r === 1) {
+        const aim = this.rollAim('plunge');
+        this.say(`Rolled 1: a booby trap! Your ${this.aimName(aim)} catches fire.`, 'bad');
+        this.placeToken('fire', aim);
+      } else if (r === 2) {
+        this.say('Rolled 2: the deck groans under you. Something glints in the hold below.', 'warn');
+        this.setOptions('collapse', [
+          { id: 'dive', label: 'Go down for it', desc: 'Your Core takes 3; take a rare part.' },
+          { id: 'leave', label: 'Leave it', desc: 'Fly on safely.' },
+        ]);
+      } else if (r === 3) {
+        this.say('Rolled 3: survivors! They patch your ship in thanks.', 'good');
+        for (const c of this.cards()) this.healCard(c, 2);
+      } else if (r === 4) {
+        this.say('Rolled 4: the captain\'s strongbox.', 'good');
+        this.gainCogs(18, 'strongbox');
+      } else if (r === 5) {
+        this.say('Rolled 5: the armory is still stocked.', 'good');
+        this.event.loot = { ids: this.partOffer(3), keep: 1 };
+      } else {
+        const p = this.randomPart('normal', (x) => x.rarity === 'uncommon');
+        this.say(`Rolled 6: an intact engine room. You haul out a ${PARTS[p].name}.`, 'good');
+        this.pendingLoot.push(p);
+        this.gainCogs(10, 'scrap');
+      }
+    }
+    runRift() {
+      const r = this.d6('Aether Rift');
+      this.event.rolls.push(r);
+      if (r === 1) {
+        const cards = this.cards();
+        this.say('Rolled 1: the rift lashes out.', 'bad');
+        if (cards.length) this.damageModule(this.pick(cards).uid, 2, 'storm');
+        if (!this.coreDead()) this.damageCore(1, 'storm');
+      } else if (r === 2) {
+        this.say('Rolled 2: a time slip. Pay the toll or feel the years.', 'warn');
+        this.setOptions('slip', [
+          { id: 'pay', label: 'Pay 10 cogs', desc: this.cogs >= 10 ? 'The rift takes its due.' : `You only have ${this.cogs} cogs.`, disabled: this.cogs < 10 },
+          { id: 'age', label: 'Fly through', desc: 'Your Core takes 2.' },
+        ].filter((o) => !o.disabled));
+      } else if (r === 3) {
+        const cards = this.cards();
+        if (cards.length) { const c = this.pick(cards); c.bonusMax += 1; c.hp += 1; this.hit(c.uid); this.say(`Rolled 3: an echo of your ship. The ${this.def(c).name} gains +1 max Durability.`, 'good'); }
+        else this.say('Rolled 3: an echo of an empty ship. Nothing happens.', 'muted');
+      } else if (r === 4) {
+        this.say('Rolled 4: a voice in the light offers a bargain.', 'warn');
+        this.setOptions('bargain', [
+          { id: 'accept', label: 'Accept', desc: 'Lose 2 max Core Durability; take a rare part.', disabled: this.maxHp(this.core) <= 4 },
+          { id: 'refuse', label: 'Refuse', desc: 'Fly on.' },
+        ].filter((o) => !o.disabled));
+      } else if (r === 5) {
+        this.say('Rolled 5: the light clears your eyes. +1 sight for three legs.', 'good');
+        this.sightMoves = Math.max(this.sightMoves, 3);
+        this.healCore(2);
+      } else {
+        this.say('Rolled 6: treasure from another sky.', 'good');
+        this.event.loot = { ids: this.partOffer(2, 'normal', (x) => x.rarity === 'rare'), keep: 1 };
+      }
+    }
     chooseOption(id) {
       const ev = this.event;
       if (this.phase !== 'event' || !ev || !ev.options || !ev.options.some((o) => o.id === id)) return false;
@@ -759,6 +831,15 @@
         if (id === 'repair') { for (const c of this.cards()) this.healCard(c, 2); this.healCore(1); }
         else this.gainCogs(14, 'scrap');
         this.finishStormCheck();
+      } else if (stage === 'collapse') {
+        if (id === 'dive') { this.damageCore(3, 'storm'); if (!this.coreDead()) { const p = this.randomPart('normal', (x) => x.rarity === 'rare'); this.pendingLoot.push(p); this.say(`You climb out with a ${PARTS[p].name}.`, 'good'); } }
+        else this.say('You leave the hulk to the clouds.', 'muted');
+      } else if (stage === 'slip') {
+        if (id === 'pay') { this.cogs -= 10; this.say('The rift takes its toll.', 'muted'); }
+        else this.damageCore(2, 'storm');
+      } else if (stage === 'bargain') {
+        if (id === 'accept') { this.core.baseMax -= 2; this.clampAll(); const p = this.randomPart('normal', (x) => x.rarity === 'rare'); this.pendingLoot.push(p); this.say(`The bargain is struck: a ${PARTS[p].name}.`, 'good'); }
+        else this.say('You refuse, and the light fades.', 'muted');
       } else if (stage === 'guild') {
         if (id !== 'none') {
           if (this.quest) this.say(`You tear up ${QUESTS.find((q) => q.id === this.quest).name}.`, 'muted');
@@ -842,7 +923,7 @@
     }
 
     // ---------- Trading Zeppelin ----------
-    price(id) { return PRICES[PARTS[id].rarity]; }
+    price(id) { return Math.round(PRICES[PARTS[id].rarity] * (this.core && this.core.id === 'privateer' ? 0.85 : 1)); }
     enterShop(node) {
       const stock = [
         ...this.partOffer(2, 'normal', (p) => p.rarity === 'common'),
@@ -939,6 +1020,7 @@
       this.hit('core');
       this.emit('hit', { uid: 'core', dmg: n, src, hp: this.core.hp });
       this.say(`Your Core takes ${n} (${Math.max(0, this.core.hp)}/${this.maxHp(this.core)}).`, 'bad');
+      this.buildCharge(src);
       if (this.coreDead()) this.gameOver();
     }
     damageModule(uid, n, src) {
@@ -951,7 +1033,13 @@
       this.hit(uid);
       this.emit('hit', { uid, dmg: n, src, hp: loc.card.hp });
       this.say(`${this.def(loc.card).name} takes ${n} (${Math.max(0, loc.card.hp)}/${this.maxHp(loc.card)}).`, 'bad');
+      this.buildCharge(src);
       if (loc.card.hp <= 0) this.removeCard(uid, src);
+    }
+    // Tempest Core: every hit in a fight winds up Charge; lightning winds it twice as fast.
+    buildCharge(src) {
+      if (this.core.id !== 'tempest' || !this.combat || this.combat.over) return;
+      this.core.charge = Math.min(BALANCE.chargeCap, (this.core.charge || 0) + (src === 'lightning' ? 2 : 1));
     }
     removeCard(uid, src) {
       const loc = this.locate(uid);
@@ -1027,7 +1115,8 @@
       const stack = [this.at(col, UPPER), col === 0 ? this.core : this.at(col, HULL)].filter(Boolean);
       if (lightning) {
         const t = stack.find((c) => c === this.core || !ARMOR[c.id]) || stack[0];
-        return this.planOn(t, dmg, { lightning: t !== stack[0] });
+        if (this.shipDef().insulated) dmg = Math.max(0, dmg - 1);
+        return this.planOn(t, dmg, { lightning: t !== stack[0], bolt: true });
       }
       return this.planOn(stack[0], dmg);
     }
@@ -1045,7 +1134,7 @@
         if (p.intercept) this.say('The armor at the front takes the hit.');
         if (p.soak) this.say('A buried bulkhead soaks some of the blow.');
         if (p.dmg <= 0) { this.emit('block', { uid: p.uid }); this.say(`${this.nameOf(this.locate(p.uid).card)} shrugs it off.`); continue; }
-        this.damageModule(p.uid, p.dmg, src);
+        this.damageModule(p.uid, p.dmg, p.bolt ? 'lightning' : src);
       }
     }
     // Where a token aimed this way lands (front armor catches it too).
@@ -1140,6 +1229,7 @@
       const en = this.combat.enemy;
       let d = (intent.dmg || 0) + en.charge - (en.weak > 0 ? 1 : 0);
       if (intent.dmg) d += this.enrage() + en.dmgBonus + en.wound;
+      if (this.isAttack(intent)) d -= this.combat.flak || 0;
       if (intent.kind === 'ram') d -= this.ramResist();
       return Math.max(intent.kind === 'ram' ? 1 : 0, d);
     }
@@ -1201,7 +1291,7 @@
         const hurt = this.cards().filter((x) => x.hp < this.maxHp(x)).sort((a, b) => (a.hp - this.maxHp(a)) - (b.hp - this.maxHp(b)))[0];
         if (hurt) { this.healCard(hurt, 1); this.say(`Self-Winding repairs the ${this.def(hurt).name}.`, 'good'); }
       }
-      c.steam = this.steamCap() + (c.round === 1 ? this.combatBonusSteam : 0) + c.rodCharge;
+      c.steam = this.steamCap() + (c.round === 1 ? this.combatBonusSteam + (this.shipDef().jump || 0) : 0) + c.rodCharge;
       if (c.round === 1) this.combatBonusSteam = 0;
       c.rodCharge = 0;
       c.turnDamage = 0;
@@ -1250,6 +1340,7 @@
       if (en.weak > 0) en.weak--;
       if (en.vuln > 0) en.vuln--;
       c.braced = [];
+      c.flak = 0;
       c.evadeStreak = c.evading ? c.evadeStreak + 1 : 0;
       c.evading = false;
       if (this.enrage() === 1) this.say(`${theName(en.name)} is Enraged: its hits grow stronger every round.`, 'warn');
@@ -1364,6 +1455,8 @@
       this.say(`${theName(c.enemy.name)} goes down in flames!`, 'good');
       for (const x of [this.core, ...this.cards()]) { x.tokens = noTokens(); x.fired = 0; x.reload = 0; }
       this.core.pressure = 0;
+      this.core.charge = 0;
+      if (this.shipDef().mendAfter && this.core.hp < this.maxHp(this.core)) { this.core.hp = Math.min(this.maxHp(this.core), this.core.hp + this.shipDef().mendAfter); this.say(`The ${this.shipDef().name}'s crew wind the Core back up (+1).`); }
       for (const b of this.cards().filter((x) => x.id === 'repair')) if (b.hp < this.maxHp(b)) { b.hp++; this.say('The Repair Bay patches itself (+1).'); }
       const def = this.enemyDef();
       if (def.elite) { this.stats.elites++; this.questEvent('eliteKill'); }
@@ -1377,7 +1470,7 @@
         return;
       }
       const tier = c.col <= 3 ? 1 : c.col <= 7 ? 2 : 3;
-      this.gainCogs(6 + 3 * tier + this.d6() + (def.elite ? 20 : 0), 'salvage');
+      this.gainCogs(6 + 3 * tier + this.d6() + (def.elite ? 20 : 0) + (this.shipDef().salvage || 0) + (this.core.id === 'privateer' ? 6 : 0), 'salvage');
       const extra = this.has('hatch') ? 1 : 0;
       const keep = this.has('hatch') && this.has('cargo') ? 2 : 1;
       const ids = this.partOffer(3 + extra, def.elite ? 'elite' : 'normal');
@@ -1421,6 +1514,9 @@
       else summary = `${Math.max(0, d.dmg + bonus)}`;
       if (d.burn) summary += ` +${d.burn} Burn`;
       if (d.weak) summary += ` +${d.weak} Gummed`;
+      if (d.volley) summary = `${d.volley} × ${Math.max(0, d.dmg + bonus)}`;
+      if (d.strip) summary += ', strips Block';
+      if (d.flak) summary += `, next attack −${d.flak}`;
       if (d.vuln) summary += ` +${d.vuln} Choking`;
       return { card, loc, cost, blocked, bonus, summary, modes: card.id === 'cannon' ? ['normal', 'aimed'] : card.id === 'sniper' ? ['normal', 'steady'] : ['normal'] };
     }
@@ -1449,8 +1545,10 @@
         if (card.id === 'sniper' && mode === 'steady') { dmg = 4; pierce = true; }
         if (card.id === 'tesla') { dmg = this.weaponsInstalled(); pierce = true; }
         dmg = Math.max(0, dmg + w.bonus);
-        if (dmg > 0) this.damageEnemy(dmg, { pierce, source: card.id });
         const en = this.combat.enemy;
+        if (d.strip && en.block > 0) { this.say(`The grapnel tears away ${en.block} Block.`, 'good'); en.block = 0; }
+        for (let k = 0; k < (d.volley || 1) && !this.combat.over; k++) if (dmg > 0) this.damageEnemy(dmg, { pierce, source: card.id });
+        if (d.flak) { this.combat.flak = Math.min(4, (this.combat.flak || 0) + d.flak); this.say(`Flak fills the sky: its next attack deals ${this.combat.flak} less.`, 'good'); }
         if (d.burn) { en.burn += d.burn; this.say(`It catches fire: Burn ${en.burn}.`, 'good'); }
         if (d.weak) { en.weak += d.weak; this.say(`Its guns are gummed up for ${en.weak} turns.`, 'good'); }
         if (d.vuln) { en.vuln += d.vuln; this.say(`It is Choking for ${en.vuln} turns.`, 'good'); }
@@ -1465,11 +1563,14 @@
       if (this.combat && this.combat.abilityUsed) blocked = 'Used this turn';
       else if (this.combat && this.combat.steam < a.cost) blocked = 'Not enough Steam';
       else if (a.id === 'bombard' && this.core.pressure < 1) blocked = 'No Pressure';
+      else if (a.id === 'discharge' && !(this.core.charge > 0)) blocked = 'No Charge';
       let summary = '';
       if (a.id === 'strafe') summary = `${this.weaponsInstalled()} dmg`;
       if (a.id === 'ram') summary = `${this.ramDamage()} dmg · bow takes 1`;
       if (a.id === 'bombard') summary = `${Math.floor(BALANCE.bombardPerPressure * this.core.pressure)} piercing`;
       if (a.id === 'overclock') summary = 'next weapon fires twice';
+      if (a.id === 'board') summary = `strip Block · ${BALANCE.boardDamage} piercing`;
+      if (a.id === 'discharge') summary = `${BALANCE.dischargeBase + (this.core.charge || 0)} piercing · Charge ${this.core.charge || 0}`;
       return { ability: a, blocked, summary, cost: a.cost };
     }
     ramDamage() { return 2 + Math.floor(Math.max(0, this.weight()) / 2); }
@@ -1496,6 +1597,8 @@
       }
       if (a.id === 'bombard') { const p = this.core.pressure; this.core.pressure = 0; this.damageEnemy(Math.floor(BALANCE.bombardPerPressure * p), { pierce: true, source: 'bombard' }); }
       if (a.id === 'overclock') { this.combat.overclock = true; this.say('Gears whir: your next weapon fires twice.', 'good'); }
+      if (a.id === 'board') { const en = this.combat.enemy; if (en.block > 0) this.say(`Your boarders tear away ${en.block} Block.`, 'good'); en.block = 0; this.emit('ram', { player: true }); this.damageEnemy(BALANCE.boardDamage, { pierce: true, source: 'board' }); }
+      if (a.id === 'discharge') { const q = this.core.charge; this.core.charge = 0; this.emit('discharge', { charge: q }); this.damageEnemy(BALANCE.dischargeBase + q, { pierce: true, source: 'discharge' }); }
       this.checkEnd();
       return true;
     }

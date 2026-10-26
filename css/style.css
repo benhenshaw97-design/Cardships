@@ -192,6 +192,7 @@ p { margin: 0; max-width: 65ch; }
 .k-Hazard { color: var(--warn); }
 .k-Trade, .k-SkyDock { color: var(--verdigris); }
 .k-Quest { color: var(--utility); }
+.k-Salvage { color: var(--brass); }
 .enc h3 { font: 400 24px/1.05 var(--f-display); color: var(--brass); }
 .d6 { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .d6 li { display: grid; grid-template-columns: 26px 1fr; gap: 6px; padding: 2px 4px; border-radius: 2px; }
@@ -279,7 +280,7 @@ p { margin: 0; max-width: 65ch; }
 .map-node.reachable { box-shadow: 0 0 0 3px #ffe39a, 0 0 18px 4px rgba(255, 227, 154, 0.7); animation: beckon-node 1.6s ease-in-out infinite; }
 .map-node.selected { outline: 3px solid var(--ember); outline-offset: 3px; }
 .map-node.k-Combat, .map-node.k-Elite, .map-node.k-Ambush { color: #8f2414; }
-.map-node.k-Hazard { color: #6b4a08; } .map-node.k-Trade, .map-node.k-SkyDock { color: #1d5b46; } .map-node.k-Quest { color: #4a2a72; }
+.map-node.k-Hazard { color: #6b4a08; } .map-node.k-Trade, .map-node.k-SkyDock { color: #1d5b46; } .map-node.k-Quest { color: #4a2a72; } .map-node.k-Salvage { color: #6b4a1a; }
 .map-label { position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%); white-space: nowrap; font: 600 11px/1 var(--f-body); color: #fff8e8; text-shadow: 0 1px 2px #000, 0 0 6px #000; pointer-events: none; }
 @keyframes beckon-node { 50% { box-shadow: 0 0 0 5px #ffe39a, 0 0 26px 8px rgba(255, 227, 154, 0.5); } }
 .map-ship { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; margin: -46px 0 0 -29px; }
@@ -386,3 +387,12 @@ body.fx-busy .scene-wrap canvas { cursor: progress; }
    and the gear-work wall behind the header. */
 body { background: linear-gradient(rgba(16, 11, 8, 0.82), rgba(16, 11, 8, 0.9)), url(../assets/art/ui/wall-plates.jpg) center top / 1100px auto repeat, var(--iron); }
 .topbar { background: linear-gradient(rgba(16, 11, 8, 0.55), rgba(16, 11, 8, 0.75)), url(../assets/art/ui/wall-gears.jpg) center 30% / cover; margin: 0 -16px; padding: 8px 16px; border-radius: 0 0 6px 6px; }
+
+/* Ship picker */
+.core-pick.picked { outline: 3px solid var(--brass); outline-offset: 2px; }
+.ships { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.ship-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 10px; border: 1.5px solid var(--rule); border-radius: 4px; background: rgba(0, 0, 0, 0.22); color: var(--ink); cursor: pointer; font: inherit; font-size: 13.5px; }
+.ship-pick:hover { border-color: var(--brass-2); }
+.ship-pick.picked { border-color: var(--brass); box-shadow: 0 0 14px -4px rgba(240, 194, 78, 0.6); background: rgba(220, 169, 74, 0.1); }
+.ship-pick .name { font: 400 19px/1.1 var(--f-display); color: var(--brass); }
+.ship-thumb { width: 100%; height: auto; max-height: 96px; object-fit: contain; align-self: center; }

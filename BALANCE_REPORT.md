@@ -144,3 +144,34 @@ After, at 1,000 runs per Core:
 
 The most common part on winning ships is the Repair Bay, at 47.6–48.9%. Next come the Mortar (44.0–47.2%) and Brass Plating (40.3–41.8%). Bosses won when reached: Colossus 62.8%, Leviathan 56.2%, Storm Queen 70.1% (seed set 1).
 
+
+## Six classes, ships, new weapons and events
+
+With the ship choice, the Privateer and Tempest Cores, the Grapnel / Rocket / Flak weapons, and the Derelict Hulk and Aether Rift events added, the first pass ran:
+
+| Core | Win |
+| --- | --- |
+| Battleship | 72% |
+| Privateer | 67–72% |
+| Tempest | 22–30% |
+| Others | 39–50% |
+
+Changes:
+- **Bulwark hull:** Durability only, no extra Weight. Weight feeds the Battleship's ram.
+- **Boarding Party:** 3 → 2 damage.
+- **Tempest:** Arc Discharge 1 → 3 base damage, Charge cap 6 → 8, Steam 4 → 5.
+- **Bulwark hull:** +3 → +2 Durability.
+- **Pirate Durability per column:** 8% → 10.5%.
+
+After, at 1,000 runs per Core (the bot flies each Core's suggested ship):
+
+| Core | Seed set 1 | Seed set 2 | Seed set 3 |
+| --- | --- | --- | --- |
+| Airship | 47.6% | 46.6% | 45.7% |
+| Battleship | 45.6% | 47.4% | 46.6% |
+| Zeppelin | 37.7% | 35.9% | 38.9% |
+| Clockwork | 43.2% | 41.8% | 45.0% |
+| Privateer | 41.0% | 38.4% | 40.8% |
+| Tempest | 44.7% | 43.9% | 47.7% |
+
+The most common part on winning ships is the Repair Bay, at 51–53%. The new Flak Cannon is on 31.5%.

@@ -12,6 +12,8 @@
     beacon: 'M12 3 V8 M8 8 H16 L15 20 H9 Z M5 5 L7 7 M19 5 L17 7 M4 11 H6 M18 11 H20 M12 12 V16',
     guild: 'M3 14 C6 12 18 12 21 14 L17 20 H7 Z M12 12 V4 M12 4 L17 6 L12 8',
     hangar: 'M3 20 V10 L12 4 L21 10 V20 M7 20 V13 H17 V20 M9 16 H15',
+    derelict: 'M3 14 L21 12 L18 18 H6 Z M8 13 L10 5 L12 13 M14 12 L18 7 M5 20 l2 -1 M17 20 l2 -1',
+    rift: 'M12 3 C9 7 15 9 12 12 C9 15 15 17 12 21 M6 8 l2 1 M16 6 l2 -1 M5 15 l2 -1 M17 17 l2 1',
     boss: 'M3 18 L5 7 L9.5 12 L12 5 L14.5 12 L19 7 L21 18 Z M3 21 H21',
     unknown: 'M9 9 a3 3 0 1 1 4 2.8 C12.4 12.1 12 12.6 12 13.5 V15 M12 18.5 a0.6 0.6 0 1 0 0.1 0',
     cloud: 'M5 16 a4 4 0 0 1 2-7.5 a5.5 5.5 0 0 1 10 1.5 a3.5 3.5 0 0 1 1 6 Z',
@@ -145,7 +147,7 @@
     const cp = pos(cur);
     ship.style.transform = `translate(${cp.x}px, ${cp.y}px)`;
     // The marker is your own ship from the fleet sheet, bow to the right (vector fallback until it loads).
-    const look = window.CardshipsShipArt && game.core && window.CardshipsShipArt.playerSprite(game.core.id);
+    const look = window.CardshipsShipArt && game.core && window.CardshipsShipArt.playerSprite(game);
     const F = look && window.CardshipsSprites && window.CardshipsSprites.FRAMES[look.name];
     if (F) {
       const k = 64 / F[2];

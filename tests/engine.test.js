@@ -27,7 +27,7 @@ test('direct fire meets the front of a deck; a bare bow exposes the Core', () =>
   assert.equal(g.previewIntent().plan[0].uid, at(g, 0, 1).uid, 'too deep: hits the front');
   g.endTurn();
   assert.equal(at(g, 0, 1).hp, 1);
-  assert.equal(g.core.hp, 15);
+  assert.equal(g.core.hp, g.maxHp(g.core), 'the Core is untouched');
   const h = fight('battleship', [['repair', 0, -1]], 'gunship', direct(2, 0, 0));
   assert.equal(h.previewIntent().plan[0].uid, 'core');
 });
@@ -340,6 +340,64 @@ test('synergies explain links, and install previews predict the change', () => {
   assert.ok(g.previewInstall('gasbag', { row: 1, col: -1 }).notes.some((n) => /Telescope below is now sheltered/.test(n)));
 });
 
+test('you pick a ship: each Core suggests its own, and every ship has a trait', () => {
+  const a = new Game({ seed: 1 }); a.chooseCore('battleship');
+  assert.equal(a.ship, 'bulwark');
+  assert.equal(a.core.hp, 17, 'Bulwark: +2 Core Durability');
+  const b = new Game({ seed: 1 }); b.chooseCore('airship', 'merchantman');
+  assert.equal(b.cogs, 40, 'Merchantman: +20 cogs');
+  const c = new Game({ seed: 1 }); c.chooseCore('airship', 'survey');
+  assert.equal(c.sight(), 3, 'Survey Ship: +1 sight');
+  const d = new Game({ seed: 1 }); d.chooseCore('airship', 'courier');
+  assert.equal(d.weight(), 1 + 0 + 1 - 1, 'Courier: -1 Weight');
+});
+
+test('new weapons: grapnel strips Block, rockets fire three times, flak blunts the next attack', () => {
+  const g = fight('battleship', [['grapnel', 0, 1], ['flak', 0, -1], ['rockets', 1, 1]], 'gunship', direct(4));
+  const en = g.combat.enemy;
+  en.block = 5;
+  const hp = en.hp;
+  g.fire(at(g, 0, 1).uid);
+  assert.equal(en.block, 0);
+  assert.equal(en.hp, hp - 1);
+  en.block = 2;
+  g.fire(at(g, 1, 1).uid);
+  assert.equal(en.hp, hp - 2, 'two rockets blocked, one hits');
+  g.fire(at(g, 0, -1).uid);
+  assert.equal(g.intentDamage(g.combat.enemy.intent), 2, 'flak takes 2 off a 4-damage shot');
+});
+
+test('Privateer boards through Block; the Tempest charges as it is hit and discharges it', () => {
+  const p = fight('privateer', [['grapnel', 0, 1]], 'gunship', idle());
+  p.combat.enemy.block = 6;
+  const hp = p.combat.enemy.hp;
+  assert.ok(p.useCore());
+  assert.equal(p.combat.enemy.block, 0);
+  assert.equal(p.combat.enemy.hp, hp - 2);
+  const t = fight('tempest', [['rockets', 0, 1]], 'gunship', direct(1));
+  assert.match(t.coreAbilityInfo().blocked, /No Charge/);
+  t.endTurn();
+  assert.equal(t.core.charge, 1);
+  const ehp = t.combat.enemy.hp;
+  assert.ok(t.useCore());
+  assert.equal(t.combat.enemy.hp, ehp - 4);
+  assert.equal(t.core.charge, 0);
+});
+
+test('the Derelict Hulk and the Aether Rift roll a d6 and offer choices on the risky results', () => {
+  for (const [enc, roll, stage] of [['derelict', 2, 'collapse'], ['rift', 2, 'slip'], ['rift', 4, 'bargain']]) {
+    const g = new Game({ seed: 4 });
+    g.chooseCore('airship');
+    g.lootOffers = []; g.pendingLoot = [];
+    g.enterMap();
+    g.d6 = () => roll;
+    g.startEncounter({ id: 'x', enc, col: 3 });
+    assert.equal(g.event.stage, stage);
+    g.chooseOption(g.event.options[0].id);
+    assert.ok(g.continueEvent());
+  }
+});
+
 test('seed codes round-trip and any text works as a seed', () => {
   assert.equal(Game.seedFromCode(Game.seedCode(987654321)), 987654321);
   assert.equal(Game.seedFromCode('Sky Ship'), Game.seedFromCode('sky ship'));
@@ -371,7 +429,7 @@ test('the bot plays 400 seeded runs without breaking an invariant', () => {
   const { playRun } = require('../js/bot.js');
   const outcomes = { gameover: 0, victory: 0 };
   for (let seed = 1; seed <= 400; seed++) {
-    const g = playRun(new Game({ seed }), ['airship', 'battleship', 'zeppelin', 'clockwork'][seed % 4], { check: invariants, random: seed % 3 === 0 });
+    const g = playRun(new Game({ seed }), ['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest'][seed % 6], { check: invariants, random: seed % 3 === 0 });
     outcomes[g.phase]++;
   }
   assert.equal(outcomes.gameover + outcomes.victory, 400);

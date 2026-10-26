@@ -36,7 +36,37 @@
       ability: { id: 'overclock', name: 'Overclock', cost: 0, text: 'Once a turn: the next weapon you fire this turn fires twice.' },
       start: [['quarters', 0, -1], ['harpoon', 0, 1]],
     },
+    privateer: {
+      id: 'privateer', name: 'Privateer Core', weight: 1, hp: 9, steam: 4,
+      style: 'Raider',
+      blurb: 'A licensed pirate. Tears through enemy armor and gets paid handsomely for it.',
+      passive: { name: 'Plunder', text: 'Every win pays 6 more cogs. The Trading Zeppelin sells you parts 15% cheaper.' },
+      ability: { id: 'board', name: 'Boarding Party', cost: 2, text: 'Strip all of the enemy\'s Block, then deal 2 damage that ignores Block.' },
+      start: [['repair', 0, -1], ['grapnel', 0, 1]],
+    },
+    tempest: {
+      id: 'tempest', name: 'Tempest Core', weight: 2, hp: 10, steam: 5,
+      style: 'Stormcaller',
+      blurb: 'A caged storm. Every blow it takes winds it tighter, until it lets the lightning out.',
+      passive: { name: 'Static Build-up', text: 'Every time your ship takes damage, gain 1 Charge (max 8). Lightning that hits you gives 2.' },
+      ability: { id: 'discharge', name: 'Arc Discharge', cost: 1, text: 'Spend all Charge: deal 3 damage plus 1 per Charge, ignoring Block.' },
+      start: [['sprinkler', 0, -1], ['rockets', 0, 1]],
+    },
   };
+
+  // ---------- Ships ----------
+  // The hull you fly. Any Core can fly any ship; each Core suggests its own. Every ship has one trait.
+  const SHIPS = {
+    courier: { name: 'Courier', sprite: 'k_airship', core: 'airship', trait: 'Light frame: −1 Weight.', weight: -1 },
+    bulwark: { name: 'Bulwark', sprite: 'k_battleship', core: 'battleship', trait: 'Armored gondola: +2 Core Durability.', hp: 2 },
+    merchantman: { name: 'Merchantman', sprite: 'k_zeppelin', core: 'zeppelin', trait: 'Deep hold: start with 20 more cogs.', cogs: 20 },
+    chronometer: { name: 'Chronometer', sprite: 'k_clockwork', core: 'clockwork', trait: 'Clock-wound crew: repair 1 Core after every fight.', mendAfter: 1 },
+    corsair: { name: 'Corsair Rocket', sprite: 'k_privateer', core: 'privateer', trait: 'Rocket gondola: +1 Steam on the first turn of every fight.', jump: 1 },
+    stormrider: { name: 'Stormrider', sprite: 'k_tempest', core: 'tempest', trait: 'Insulated: lightning deals 1 less damage to you.', insulated: true },
+    barge: { name: 'Salvage Barge', sprite: 'k_salvager', trait: 'Salvage cranes: every win pays 4 more cogs.', salvage: 4 },
+    survey: { name: 'Survey Ship', sprite: 'k_explorer', trait: 'Dish array: +1 sight on the sky map.', sight: 1 },
+  };
+  for (const [id, sh] of Object.entries(SHIPS)) sh.id = id;
 
   // ---------- Parts ----------
   // type: weapon | defense | support | utility.  rarity: common | uncommon | rare.
@@ -76,6 +106,18 @@
     tesla: {
       name: 'Tesla Coil', abbr: 'TES', type: 'weapon', rarity: 'rare', weight: 1, hp: 3, cost: 2, arc: true,
       rules: [['Fire · 2 Steam · Arcs', 'Deal 1 damage plus 1 for every other weapon installed. Ignores Block. Fires from any slot with open sky above it.']],
+    },
+    grapnel: {
+      name: 'Grapnel Launcher', abbr: 'GRP', type: 'weapon', rarity: 'common', weight: 1, hp: 3, cost: 1, dmg: 1, strip: true,
+      rules: [['Fire · 1 Steam', 'Strip all of the enemy\'s Block, then deal 1 damage.']],
+    },
+    rockets: {
+      name: 'Rocket Battery', abbr: 'RKT', type: 'weapon', rarity: 'uncommon', weight: 1, hp: 3, cost: 2, dmg: 1, volley: 3,
+      rules: [['Fire · 2 Steam', 'Launch 3 rockets of 1 damage each. Block stops them one by one; Choking adds 1 to every rocket.']],
+    },
+    flak: {
+      name: 'Flak Cannon', abbr: 'FLK', type: 'weapon', rarity: 'uncommon', weight: 1, hp: 3, cost: 1, dmg: 1, arc: true, flak: 2,
+      rules: [['Fire · 1 Steam · Arcs', 'Deal 1 damage. The flak screen makes the enemy\'s next attack this round deal 2 less.']],
     },
     plating: {
       name: 'Brass Plating', abbr: 'PLT', type: 'defense', rarity: 'common', weight: 1, hp: 4,
@@ -293,12 +335,22 @@
       text: "A hangar in the clouds. Rearrange your modules freely, then roll for the mechanics' help.",
       table: ['Core Patch: repair 3 Core', 'Part Maintenance: fully repair a module', 'Reinforcement: +1 max Durability to a module', 'Overhaul: repair 2 on every module', 'Spare Part: pick 1 of 2 parts', 'Master Mechanic: reinforce a module and fully repair it'],
     },
+    derelict: {
+      name: 'Derelict Hulk', kind: 'Salvage',
+      text: 'A dead warship drifts in the clouds, still full of parts. Roll a d6 as you board.',
+      table: ['Booby trap: a rolled column catches fire', 'Collapsing deck: risk the Core for a rare part, or leave', 'Survivors: they repair 2 on every module', 'Strongbox: +18 cogs', 'Armory: pick 1 of 3 parts', 'Intact engine room: a free uncommon part and 10 cogs'],
+    },
+    rift: {
+      name: 'Aether Rift', kind: 'Hazard', biome: 'night',
+      text: 'A tear in the sky, glowing with strange light. Roll a d6 and fly through.',
+      table: ['Rift lash: 2 damage to a random module and 1 to the Core', 'Time slip: pay 10 cogs or the Core takes 2', 'Echo: a random module gains +1 max Durability', 'A bargain: trade 2 max Core Durability for a rare part, or refuse', 'Clear sight: +1 sight for three legs and repair 2 Core', 'Aether treasure: pick 1 of 2 rare parts'],
+    },
     boss: { name: 'Boss', kind: 'Boss', text: 'The final gate.' },
   };
   for (const [id, e] of Object.entries(ENCOUNTERS)) e.id = id;
 
   // Odds for regular map nodes (Pirate Lairs only from column 4).
-  const NODE_WEIGHTS = { patrol: 34, lair: 11, storm: 9, smog: 8, trader: 11, beacon: 11, guild: 7, hangar: 9 };
+  const NODE_WEIGHTS = { patrol: 32, lair: 11, storm: 8, smog: 7, trader: 10, beacon: 10, guild: 6, hangar: 8, derelict: 8, rift: 6 };
   // Which pirates fly in each band of the map.
   const ENEMY_TIERS = [
     { upTo: 3, pool: ['cutter', 'skiff', 'bomber'] },
@@ -346,7 +398,7 @@
 
   // Global difficulty knobs, tuned by simulation (see BALANCE_REPORT.md).
   const BALANCE = {
-    hpPerColumn: 0.08,       // pirate Durability +8% per map column
+    hpPerColumn: 0.105,      // pirate Durability +10.5% per map column
     veteranColumns: [6, 11], // +1 damage per hit from each listed column onward
     bossHp: 1.5,             // boss Durability multiplier
     startCogs: 20,
@@ -356,9 +408,12 @@
     evadeBase: 2,            // Evade costs evadeBase + Weight/3 Steam (minimum 1)
     nimbleDiscount: 1,       // Airship Evade discount
     evadeFatigue: 2,         // extra Steam per consecutive Evade
+    boardDamage: 2,          // Privateer Boarding Party damage (after stripping Block)
+    dischargeBase: 3,        // Tempest Arc Discharge: base + Charge, piercing
+    chargeCap: 8,            // Tempest's most Charge
   };
 
-  const data = { BALANCE, CORES, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
+  const data = { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);

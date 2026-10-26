@@ -204,6 +204,7 @@ KEYED_CUTS = {
  'k_cutter': ('7710', 0), 'k_skiff': ('7706', 3), 'k_gunship': ('7697', 6), 'k_bomber': ('7703', 3),
  'k_sentinel': ('7709', 6), 'k_flagship': ('7696', 2), 'k_monitor': ('7710', 4), 'k_leviathan': ('7711', 4),
  'k_stormqueen': ('7706', 7), 'k_colossus': ('7708', 5),
+ 'k_privateer': ('7697', 5), 'k_tempest': ('7705', 3), 'k_salvager': ('7706', 1), 'k_explorer': ('7707', 0),
 }
 
 

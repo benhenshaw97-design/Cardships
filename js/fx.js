@@ -153,7 +153,7 @@
   const BOLTS = ['bolt_forked', 'bolt_jagged', 'bolt_chain'];
   const FLAMES = ['fire_1', 'fire_2', 'fire_3'];
   const BIG_FLAMES = ['fire_big_1', 'fire_big_2', 'fire_big_1', 'fire_big_2', 'fire_big_3'];
-  const WEAPON_SHOT = { harpoon: ['harpoon', 0.3, 0], cannon: ['ball', 0.32, 18], mortar: ['shell', 0.55, 90], flamethrower: ['flame', 0.35, 0], gatling: ['goo', 0.3, 0], grenadiers: ['rocket', 0.45, 40], sniper: ['tracer', 0.14, 0], tesla: ['lightning', 0.18, 0] };
+  const WEAPON_SHOT = { harpoon: ['harpoon', 0.3, 0], grapnel: ['harpoon', 0.3, 0], rockets: ['rocket', 0.4, 30], flak: ['shell', 0.45, 70], cannon: ['ball', 0.32, 18], mortar: ['shell', 0.55, 90], flamethrower: ['flame', 0.35, 0], gatling: ['goo', 0.3, 0], grenadiers: ['rocket', 0.45, 40], sniper: ['tracer', 0.14, 0], tesla: ['lightning', 0.18, 0] };
 
   // ---------- ambient effects ----------
   function ambient(dt, t) {
@@ -352,7 +352,9 @@
       ring(from.x + 18, from.y - 4, 'rgba(255,230,160,0.9)', 2, 18, 0.18, 3);
       if (ev.id === 'tesla') sprite(from.x + 6, from.y - 20, 'orb_blue', 34, 0.3, { add: true });
       else if (ev.id !== 'harpoon') { sprite(from.x + 24, from.y - 5, 'spark_orange', 30, 0.16, { grow: 0.6, add: true }); smokeCloud(from.x + 26, from.y - 8, 26, 'white', { life: 0.8, alpha: 0.6 }); }
-      shoot({ x: from.x + 16, y: from.y - 6 }, { x: to.x + rand(-to.r * 0.3, to.r * 0.2), y: to.y + rand(-14, 14) }, style, dur, arc);
+      const volley = ev.id === 'rockets' ? 3 : 1;
+      for (let i = 0; i < volley; i++) setTimeout(() => shoot({ x: from.x + 16, y: from.y - 6 }, { x: to.x + rand(-to.r * 0.3, to.r * 0.2), y: to.y + rand(-14, 14) }, style, dur, arc + rand(-10, 10) * i), i * 90);
+      if (ev.id === 'flak') setTimeout(() => { for (let i = 0; i < 6; i++) sprite(from.x + 40 + rand(0, (to.x - from.x) * 0.6), from.y - 60 + rand(-30, 20), 'smoke_grey', 30, 1.2, { grow: 0.6, alpha: 0.55 }); }, dur * 600);
       sfx(ev.id === 'flamethrower' ? 'flame' : ev.id === 'tesla' ? 'zap' : ev.id === 'gatling' ? 'gatling' : ev.id === 'harpoon' ? 'harpoon' : 'cannon');
       return dur * 1000;
     },
@@ -367,6 +369,14 @@
       for (let i = 0; i < 5; i++) setTimeout(() => shoot({ x: to.x + rand(-60, 60), y: -20 }, { x: to.x + rand(-30, 30), y: to.y }, 'bomb', 0.4), i * 80);
       sfx('whistle');
       return 760;
+    },
+    // Tempest: the stored charge leaps from the Core to the enemy as a painted bolt.
+    discharge(ev) {
+      const c = playerPt('core'), to = enemyPt();
+      for (let i = 0; i < 1 + Math.min(3, Math.floor(ev.charge / 2)); i++) setTimeout(() => shoot({ x: c.x, y: c.y - 10 }, { x: to.x + rand(-20, 20), y: to.y + rand(-14, 14) }, 'lightning', 0.2), i * 80);
+      lastFire = 'tesla';
+      sfx('zap');
+      return 320;
     },
     coreAbility(ev) {
       if (ev.id === 'overclock') { const c = playerPt('core'); for (let i = 0; i < 8; i++) parts.push({ kind: 'cog', x: c.x, y: c.y, vx: rand(-80, 80), vy: rand(-140, -60), g: 200, life: 0.8, max: 0.8, r: 4, rot: 0, vr: rand(-8, 8) }); sfx('clank'); return 300; }

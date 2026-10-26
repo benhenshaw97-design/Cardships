@@ -11,7 +11,7 @@
 
   // Rough worth of a module in place, used to judge layouts and losses.
   const BASE = {
-    harpoon: 2.2, cannon: 3, mortar: 3.2, flamethrower: 2.6, gatling: 2.6, grenadiers: 2.6, sniper: 2.8, tesla: 3.5,
+    harpoon: 2.2, grapnel: 2.2, rockets: 3, flak: 2.8, cannon: 3, mortar: 3.2, flamethrower: 2.6, gatling: 2.6, grenadiers: 2.6, sniper: 2.8, tesla: 3.5,
     plating: 2.5, bulwark: 4, deflector: 1.6, repair: 2.2, quarters: 1.2, boiler: 2.6, sprinkler: 1.1, scrubber: 1,
     telescope: 1, gasbag: 1, propeller: 0.8, cargo: 0.6, hatch: 1.6, autoloader: 1, gyro: 2.4, heart: 0.6, overpressure: 3,
   };
@@ -119,9 +119,13 @@
     dmg = Math.max(0, dmg + info.bonus);
     const en = g.combat.enemy;
     const pierce = card.id === 'tesla' || mode === 'steady';
-    let real = dmg + (en.vuln > 0 && dmg > 0 ? 1 : 0) - (pierce ? 0 : Math.min(en.block, dmg));
-    real = Math.max(0, real);
+    const block = d.strip ? 0 : en.block;
+    const hits = d.volley || 1;
+    let real = 0, left = block;
+    for (let k = 0; k < hits; k++) { const one = dmg + (en.vuln > 0 && dmg > 0 ? 1 : 0); const soak = pierce ? 0 : Math.min(left, one); left -= soak; real += Math.max(0, one - soak); }
     let extra = 0;
+    if (d.strip) extra += Math.min(en.block, 4) * 0.8;
+    if (d.flak) { const p = g.previewIntent(); if (p && g.isAttack(p.intent) && !g.combat.flak) extra += Math.min(d.flak, p.dmg) * 1.4; }
     if (d.burn) extra += en.hp > 4 ? 2.5 : 1;
     if (d.weak) extra += en.weak > 0 ? 0.6 : 1.6;
     if (d.vuln) extra += en.vuln > 0 ? 0.6 : 1.8;
@@ -164,6 +168,8 @@
       if (a === 'strafe') s = g.weaponsInstalled() * 2 + killBonus(g.weaponsInstalled());
       if (a === 'ram') s = g.ramDamage() * 2 - 1.5 + killBonus(g.ramDamage());
       if (a === 'bombard') { const dmg = Math.floor(D.BALANCE.bombardPerPressure * g.core.pressure); s = (g.core.pressure >= 5 || dmg >= en.hp) ? dmg * 2 + killBonus(dmg) : -1; }
+      if (a === 'board') s = (D.BALANCE.boardDamage + Math.min(en.block, 5)) * 2 - 1 + killBonus(D.BALANCE.boardDamage);
+      if (a === 'discharge') { const dmg = D.BALANCE.dischargeBase + (g.core.charge || 0); s = (g.core.charge >= D.BALANCE.chargeCap - 2 || dmg >= en.hp) ? dmg * 2 + killBonus(dmg) : -1; }
       if (a === 'overclock') s = g.cards().some((x) => { const i = g.fireInfo(x.uid); return i && !i.blocked && g.combat.steam - 1 >= i.cost; }) ? 4 : -1;
       acts.push({ score: s - core.cost * steamWorth, run: () => g.useCore() });
     }
@@ -265,6 +271,7 @@
       case 'Trade': return 1.5 + rep * 0.4;
       case 'Sky Dock': return 1 + rep * 0.35;
       case 'Quest': return g.quest ? 0.5 : 1.8;
+      case 'Salvage': return 1.6 + (hpFrac > 0.5 ? 0.4 : 0);
       default: return 0;
     }
   }
@@ -285,6 +292,9 @@
           case 'eye': return g.core.hp <= g.maxHp(g.core) - 3 ? 'core' : needRepair(g) > 6 ? 'all' : 'scavenge';
           case 'trader': return needRepair(g) >= 8 ? 'repair' : 'buy';
           case 'refit': { const w = weakestModule(g); return w ? w.uid : ids[0]; }
+          case 'collapse': return g.core.hp > 7 ? 'dive' : 'leave';
+          case 'slip': return ids.includes('pay') && g.cogs >= 40 ? 'pay' : g.core.hp > 5 ? 'age' : ids[0];
+          case 'bargain': return g.maxHp(g.core) >= 11 ? 'accept' : 'refuse';
           case 'guild': return g.quest ? 'none' : ['bounty', 'marksman', 'rammer', 'ironclad', 'survivor', 'hoarder'].find((q) => ids.includes(q)) || 'none';
           default: return ids[0];
         }

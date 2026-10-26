@@ -74,11 +74,12 @@
     ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
     render();
   }
-  function newRun(coreId) {
+  function newRun(coreId, shipId) {
     const seed = Game.seedFromCode(ui.seedCode);
     game = new Game({ unlocked: meta.unlocked, seed: seed == null ? undefined : seed });
     Actors.reset();
-    game.chooseCore(coreId);
+    game.chooseCore(coreId, shipId);
+    ui.pickCore = null; ui.pickShip = null;
     game.events = [];
     ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
     render();
@@ -244,11 +245,29 @@
   }
 
   // ---------- title ----------
+  // After choosing a Core: which ship to fly it in. Each Core suggests its own.
+  function shipPicker() {
+    if (!ui.pickCore) return null;
+    const core = D.CORES[ui.pickCore];
+    const ships = Object.values(D.SHIPS).map((sh) => h('button', { class: `ship-pick${ui.pickShip === sh.id ? ' picked' : ''}`, onclick: () => { ui.pickShip = sh.id; render(); } },
+      window.CardshipsShipArt.thumb(sh.sprite, 150, 96),
+      h('span', { class: 'name' }, sh.name),
+      sh.core === ui.pickCore ? h('span', { class: 'eyebrow' }, 'Suggested') : null,
+      h('span', {}, sh.trait)));
+    return h('section', { class: 'panel stack', id: 'ship-picker' },
+      h('span', { class: 'eyebrow' }, core.name),
+      h('h2', {}, 'Choose your ship'),
+      h('p', { class: 'muted' }, 'Any Core can fly any ship. Each ship has one trait.'),
+      h('div', { class: 'ships' }, ships),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', onclick: () => newRun(ui.pickCore, ui.pickShip) }, `Launch the ${D.SHIPS[ui.pickShip].name}`),
+        h('button', { class: 'btn', onclick: () => { ui.pickCore = null; render(); } }, 'Back')));
+  }
   function titleScreen() {
     const cores = Object.values(D.CORES).map((c) => {
       const open = Meta.coreUnlocked(meta, c.id);
       const how = D.UNLOCKS.find((u) => u.id === c.id);
-      return h('button', { class: 'core-pick', disabled: open ? null : true, onclick: () => newRun(c.id) },
+      return h('button', { class: `core-pick${ui.pickCore === c.id ? ' picked' : ''}`, disabled: open ? null : true, onclick: () => { ui.pickCore = c.id; ui.pickShip = Game.defaultShip(c.id); render(); requestAnimationFrame(() => { const el = document.getElementById('ship-picker'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); } },
         !open ? h('span', { class: 'lock' }, `Locked · ${how.how}`) : null,
         h('span', { class: 'eyebrow' }, c.style),
         h('span', { class: 'name' }, c.name.replace(' Core', '')),
@@ -273,6 +292,7 @@
           h('b', {}, `${D.CORES[saved.core.id].name} · column ${saved.depth} of ${saved.maxDepth} · seed ${Game.seedCode(saved.seed)}`)),
         h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => continueRun(saved) }, 'Continue run'), h('button', { class: 'btn', onclick: () => { clearSave(); render(); } }, 'Abandon'))) : null,
       h('div', { class: 'cores' }, cores),
+      shipPicker(),
       seedBox,
       h('div', { class: 'panel stack' },
         h('h3', {}, 'How it flies'),
@@ -598,7 +618,7 @@
     } else {
       detail = h('p', { class: 'muted' }, 'Tap a glowing node to plot your next leg.');
     }
-    const legend = h('div', { class: 'legend' }, ['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar'].map((id) =>
+    const legend = h('div', { class: 'legend' }, ['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar', 'derelict', 'rift'].map((id) =>
       h('span', { class: `k-${D.ENCOUNTERS[id].kind.replace(' ', '')}` }, SkyMap.icon(id, 16), D.ENCOUNTERS[id].name)));
     const panel = h('section', { class: 'panel stack map-panel' },
       h('div', { class: 'row', style: 'justify-content:space-between' },
@@ -749,7 +769,8 @@
       h('div', { class: 'turnbar' },
         h('span', { class: 'turn-state' }, `Round ${c.round}`),
         h('div', { class: 'row' }, h('span', { class: 'hud-label' }, 'Steam'), steam,
-          game.core.id === 'zeppelin' ? h('span', { class: 'hud-label' }, `Pressure ${game.core.pressure}`) : null)));
+          game.core.id === 'zeppelin' ? h('span', { class: 'hud-label' }, `Pressure ${game.core.pressure}`) : null,
+          game.core.id === 'tempest' ? h('span', { class: 'hud-label' }, `Charge ${game.core.charge || 0}`) : null)));
     const bar2 = h('div', { class: 'actionbar' });
     for (const card of game.cards()) {
       const fi = game.fireInfo(card.uid);

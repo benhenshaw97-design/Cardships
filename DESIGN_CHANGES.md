@@ -423,3 +423,37 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   | Clockwork Colossus | Multi-rotor fortress |
 
   The other 70-odd ships on those sheets are spares, a one-line change in `KEYED_CUTS` each.
+
+## Ship choice, two new classes, three weapons, two new locations
+
+- **Pick your ship.** After choosing a Core, you pick one of eight ships from the keyed sheets. Any Core can fly any ship; each Core suggests its own, and every ship has one small trait. *Reason: you asked to choose the ship; the trait makes the choice matter without overshadowing the Core.*
+
+  | Ship | Trait |
+  | --- | --- |
+  | Courier | −1 Weight |
+  | Bulwark | +2 Core Durability |
+  | Merchantman | +20 starting cogs |
+  | Chronometer | repair 1 Core after every fight |
+  | Corsair Rocket | +1 Steam on each fight's first turn |
+  | Stormrider | lightning deals 1 less to you |
+  | Salvage Barge | +4 cogs per win |
+  | Survey Ship | +1 sight |
+
+- **Privateer Core (Raider).** Weight 1, Durability 9, Steam 4. Starts with a Repair Bay and a Grapnel Launcher.
+  - **Plunder:** every win pays 6 more cogs, and shop parts are 15% cheaper.
+  - **Boarding Party** (2 Steam): strip all enemy Block, then deal 2 damage that ignores Block.
+  *Reason: a class built around beating Block-heavy enemies and money.*
+- **Tempest Core (Stormcaller).** Weight 2, Durability 10, Steam 5. Starts with a Sprinkler Tank and a Rocket Battery.
+  - **Static Build-up:** every hit you take gains 1 Charge, and lightning gains 2 (max 8).
+  - **Arc Discharge** (1 Steam): spend all Charge for 3 + Charge damage that ignores Block.
+  *Reason: a class that turns taking hits into a big payoff, so it plays differently from the rest.*
+- **New weapons.**
+  - **Grapnel Launcher** (common, 1 Steam): strip all Block, then deal 1.
+  - **Rocket Battery** (uncommon, 2 Steam): three 1-damage rockets. Block stops them one at a time, and Choking adds to each.
+  - **Flak Cannon** (uncommon, 1 Steam, arcs): deal 1, and the enemy's next attack this round deals 2 less (stacks to 4).
+  *Reason: answers to Block and to big telegraphed hits.*
+- **New locations.**
+  - **Derelict Hulk** (Salvage): board a dead warship. A booby trap; a collapsing deck (risk 3 Core for a rare part); survivors who repair you; a strongbox; an armory (pick 1 of 3); or an intact engine room.
+  - **Aether Rift** (Hazard, under the night sky): a lash; a time slip (pay 10 cogs or take 2); an echo (+1 max Durability on a module); a bargain (2 max Core for a rare part); clear sight; or rare treasure.
+  *Reason: more variety on the map, with risk-reward choices.*
+- **Balance.** Pirates gain Durability a little faster along the route (+10.5% per column, was 8%), because the new events and weapons made runs easier. A heavier Bulwark hull let the Battleship ram far too hard, so it gives Durability instead. All six classes now win 36–48% over 3 seed sets (BALANCE_REPORT.md).
