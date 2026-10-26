@@ -79,14 +79,15 @@
       const bd = this.player.bounds();
       if (this.phase === 'combat' || (this.enemy && this.enemy.sinking > 0 && this.enemy.sinking < 3)) {
         const ew = this.enemy ? this.enemy.artW : 140;
+        const eh = this.enemy ? this.enemy.size.h + 10 : 120; // tall ships must clear the top of the view
         if (phone) {
           // The enemy flies in the upper band, your ship in the lower one.
           const P = snap(Math.min(3, (v.w * 0.62) / pw, (v.h * 0.42) / bd.top));
-          const eP = snap(Math.min(P, (v.w * 0.62) / ew));
+          const eP = snap(Math.min(P, (v.w * 0.62) / ew, (v.h * 0.47) / eh));
           return { P, player: { x: v.w * 0.36, y: v.h * 0.93 }, enemy: { x: v.w * 0.66, y: v.h * 0.5, P: eP } };
         }
         const P = snap(Math.min(4, (v.w * 0.42) / pw, (v.h * 0.72) / bd.top));
-        const eP = snap(Math.min(P, (v.w * 0.4) / ew));
+        const eP = snap(Math.min(P, (v.w * 0.4) / ew, (v.h * 0.76) / eh));
         return { P, player: { x: v.w * 0.27, y: v.h * 0.84 }, enemy: { x: v.w * 0.74, y: v.h * 0.8, P: eP } };
       }
       const P = snap(Math.min(4, (v.w * 0.6) / pw, (v.h * 0.74) / bd.top));

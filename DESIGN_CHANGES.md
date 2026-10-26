@@ -385,3 +385,9 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   - The ships' small animation variants and the crew and item pieces on the fleet sheets.
   - The UI kit's header bar.
   - The three UI mock-up boards (`ui-mockup-*.jpg`), which are flattened screens rather than separate pieces.
+- **Fixed: badly cut ships.** The first cut used a fixed box inside each panel's frame, but the big ships overhang their frames. The Ironclad Leviathan lost its tail fins, the Sky-Whale its tail and top, the Sky Goliath its top and side, and the Clockwork Caravan and Drill Platform their left ends. Specks of backdrop were also left around the drill.
+  - Each ship is now cut from the whole quarter of its sheet, below the title and left of the small variants.
+  - The panel's frame lines are removed only where they run (the same bands on every sheet), and only their dull grey pixels.
+  - Bigger pockets of backdrop and leftover thin strips are dropped.
+  - Tall enemies are also scaled to clear the top of the flight view.
+  *Reason: the ships must be whole and clean.*

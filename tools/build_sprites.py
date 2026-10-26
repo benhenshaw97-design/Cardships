@@ -152,9 +152,17 @@ BOARD_CUTS = {
  'glue_glob': (650, 468, 708, 522), 'glue_mesh': (728, 468, 792, 522), 'glue_spray': (815, 468, 878, 522),
  'napalm': (650, 545, 708, 604), 'fire_sticky': (732, 545, 790, 604), 'sticky_fire': (650, 625, 708, 682),
 }
-# Ships from the fleet sheets: each sheet has four panels, and the big ship in each is cut off its
-# dark panel by flood fill. name: (sheet, panel, colour tolerance).
-SHIP_PANELS = {'TL': (28, 41, 382, 353), 'TR': (734, 41, 1084, 353), 'BL': (36, 424, 386, 734), 'BR': (734, 424, 1084, 734)}
+# Ships from the fleet sheets: each sheet has four quarters, each with a title, a framed big ship
+# and small variants to its right. The big ship is cut from its whole quarter (below the title, left
+# of the variants, so ships that overhang their frame stay whole) by flood fill off the backdrop.
+# name: (sheet, quarter, colour tolerance).
+SHIP_PANELS = {'TL': (2, 40, 410, 380), 'TR': (708, 40, 1118, 380), 'BL': (2, 422, 410, 764), 'BR': (708, 422, 1118, 764)}
+FRAME_LINE = (43, 53, 62)  # the panels' thin frame lines: a dull grey a shade or two lighter than the backdrop
+# Where those lines run in each quarter: ((top rows, bottom rows), (left columns, right columns)).
+FRAME_BANDS = {
+ 'TL': (((33, 38), (357, 361)), ((21, 25), (383, 388))), 'TR': (((33, 38), (357, 361)), ((726, 730), (1088, 1092))),
+ 'BL': (((416, 421), (737, 742)), ((28, 33), (388, 393))), 'BR': (((416, 421), (737, 742)), ((726, 730), (1088, 1092))),
+}
 SHIP_CUTS = {
  'zephyr_scout': ('7678', 'BR', 22), 'iron_nautilus': ('7678', 'TR', 22), 'sky_voyager': ('7678', 'TL', 22), 'gilded_sparrow': ('7678', 'BL', 22),
  'celestial_harvester': ('7679', 'TL', 22), 'crimson_comet': ('7679', 'BR', 22), 'aether_alchemist': ('7679', 'BL', 22),
@@ -218,18 +226,30 @@ def fleet_pieces(max_w=240):
         c = A[y0:y1, x0:x1]
         bg = np.median(np.concatenate([c[0], c[-1], c[:, 0], c[:, -1]]), axis=0)
         diff = np.abs(c - bg).max(axis=2)
-        lab, _ = ndimage.label(diff <= tol)
+        # The panel's frame rectangle sits on the same bands on every sheet; only frame-coloured
+        # pixels on those bands are backdrop, so a ship crossing a band keeps its own pixels.
+        bands = np.zeros(diff.shape, bool)
+        (r0, r1), (q0, q1) = FRAME_BANDS[panel]
+        for lo, hi in (r0, r1): bands[max(0, lo - 2 - y0):max(0, hi + 3 - y0), :] = True
+        for lo, hi in (q0, q1): bands[:, max(0, lo - 2 - x0):max(0, hi + 3 - x0)] = True
+        grey = (c.max(axis=2) - c.min(axis=2) <= 20) & (c.max(axis=2) <= 110)  # the lines vary from sheet to sheet
+        frame = bands & ((np.abs(c - np.array(FRAME_LINE)).max(axis=2) <= 26) | (diff <= tol + 14) | grey)
+        lab, _ = ndimage.label((diff <= tol) | frame)
         border = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
         back = np.isin(lab, list(border))
-        lab2, n2 = ndimage.label(diff <= 10)
+        pocket = diff <= 12
+        lab2, n2 = ndimage.label(pocket)
         if n2:
-            sizes = ndimage.sum(diff <= 10, lab2, range(1, n2 + 1))
-            back |= np.isin(lab2, [i + 1 for i, sz in enumerate(sizes) if sz >= 120])
+            sizes = ndimage.sum(pocket, lab2, range(1, n2 + 1))
+            back |= np.isin(lab2, [i + 1 for i, sz in enumerate(sizes) if sz >= 80])
         solid = ~back
         lab3, n3 = ndimage.label(solid)
         if n3:
             sizes = ndimage.sum(solid, lab3, range(1, n3 + 1))
-            solid = np.isin(lab3, [i + 1 for i, sz in enumerate(sizes) if sz >= 60])
+            # Drop specks, and thin straight strips (leftovers of the frame lines).
+            boxes = ndimage.find_objects(lab3)
+            keep = [i + 1 for i, (sz, bx) in enumerate(zip(sizes, boxes)) if sz >= 120 and min(bx[0].stop - bx[0].start, bx[1].stop - bx[1].start) > 5]
+            solid = np.isin(lab3, keep)
         rgba = np.dstack([c.astype(np.uint8), (solid * 255).astype(np.uint8)])
         ys, xs = np.where(solid)
         im = Image.fromarray(rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 'RGBA')
