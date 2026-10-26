@@ -25,7 +25,7 @@ Opening `index.html` straight from disk also works, but browsers block WebAudio 
   - **Direct fire** comes in along a deck from the bow and meets the front module first; armor at the front catches it. **Bombs and lightning** drop onto a column and hit whatever is on top, so upper modules shelter the ones below.
   - A bare bow, or a bare side with no bridge, exposes the Core. Buried armor soaks hits for its neighbours, and many parts power up the modules they touch (a Harpoon feeds the weapon bolted on top of it).
 - **Weight matters.** Light ships outpace enemies and dodge cheaply; heavy ships shrug off rams and crosswinds.
-- **Six Cores** (Airship, Battleship, Zeppelin, Privateer, Tempest, and the unlockable Clockwork), **eight ships** to fly them in (each with a trait), **29 parts** in three rarities, **7 pirate ships**, and **3 bosses** with their own gimmicks (Iron Leviathan, Storm Queen, Clockwork Colossus).
+- **Six Cores** (Airship, Battleship, Zeppelin, Privateer, Tempest, and the unlockable Clockwork), **three ships per class** to fly them in (each with a trait), **29 parts** in three rarities, **7 pirate ships**, and **3 bosses** with their own gimmicks (Iron Leviathan, Storm Queen, Clockwork Colossus).
 - **Runs** cross a 12-column sky map with sight, cloud cover, cogs, a Trading Zeppelin shop, contracts, Sky Docks, Derelict Hulks and Aether Rifts. Lifetime milestones unlock new Cores and rare parts. Every run has a shareable seed and autosaves.
 
 See `DESIGN_CHANGES.md` for every rule change and why, and `BALANCE_REPORT.md` for the tuning data.

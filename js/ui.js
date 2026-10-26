@@ -249,15 +249,15 @@
   function shipPicker() {
     if (!ui.pickCore) return null;
     const core = D.CORES[ui.pickCore];
-    const ships = Object.values(D.SHIPS).map((sh) => h('button', { class: `ship-pick${ui.pickShip === sh.id ? ' picked' : ''}`, onclick: () => { ui.pickShip = sh.id; render(); } },
+    const ships = Game.shipsFor(ui.pickCore).map((sh) => h('button', { class: `ship-pick${ui.pickShip === sh.id ? ' picked' : ''}`, onclick: () => { ui.pickShip = sh.id; render(); } },
       window.CardshipsShipArt.thumb(sh.sprite, 150, 96),
       h('span', { class: 'name' }, sh.name),
-      sh.core === ui.pickCore ? h('span', { class: 'eyebrow' }, 'Suggested') : null,
+      sh.id === Game.defaultShip(ui.pickCore) ? h('span', { class: 'eyebrow' }, 'Classic') : null,
       h('span', {}, sh.trait)));
     return h('section', { class: 'panel stack', id: 'ship-picker' },
       h('span', { class: 'eyebrow' }, core.name),
       h('h2', {}, 'Choose your ship'),
-      h('p', { class: 'muted' }, 'Any Core can fly any ship. Each ship has one trait.'),
+      h('p', { class: 'muted' }, `Three ships fly the ${core.name.replace(' Core', '')} Core. Each has one trait.`),
       h('div', { class: 'ships' }, ships),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: () => newRun(ui.pickCore, ui.pickShip) }, `Launch the ${D.SHIPS[ui.pickShip].name}`),

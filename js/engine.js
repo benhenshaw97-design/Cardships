@@ -252,6 +252,7 @@
     // The hull you fly (older saves have none: the Core's own ship).
     shipDef() { return SHIPS[this.ship] || {}; }
     static defaultShip(coreId) { return (Object.values(SHIPS).find((s) => s.core === coreId) || SHIPS.courier).id; }
+    static shipsFor(coreId) { return Object.values(SHIPS).filter((s) => s.core === coreId); }
     gainCogs(n, why) { if (n <= 0) return; this.cogs += n; this.stats.cogs += n; this.emit('cogs', { amount: n }); this.say(`+${n} cogs${why ? ` (${why})` : ''}.`, 'good'); }
     isWeapon(card) { return this.def(card).type === 'weapon'; }
     weaponsInstalled() { return this.cards().filter((c) => this.isWeapon(c)).length; }
@@ -398,7 +399,7 @@
     chooseCore(id, shipId = null) {
       if (this.phase !== 'coreSelect') return;
       const c = CORES[id];
-      this.ship = SHIPS[shipId] ? shipId : Game.defaultShip(id);
+      this.ship = SHIPS[shipId] && SHIPS[shipId].core === id ? shipId : Game.defaultShip(id);
       const sh = this.shipDef();
       const hp = c.hp + (sh.hp || 0);
       this.core = { uid: 'core', id, name: c.name, weight: c.weight, hp, baseMax: hp, bonusMax: 0, tokens: noTokens(), pressure: 0, charge: 0 };

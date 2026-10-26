@@ -340,14 +340,17 @@ test('synergies explain links, and install previews predict the change', () => {
   assert.ok(g.previewInstall('gasbag', { row: 1, col: -1 }).notes.some((n) => /Telescope below is now sheltered/.test(n)));
 });
 
-test('you pick a ship: each Core suggests its own, and every ship has a trait', () => {
+test('each Core has three ships of its own, and every ship has a trait', () => {
   const a = new Game({ seed: 1 }); a.chooseCore('battleship');
   assert.equal(a.ship, 'bulwark');
   assert.equal(a.core.hp, 17, 'Bulwark: +2 Core Durability');
-  const b = new Game({ seed: 1 }); b.chooseCore('airship', 'merchantman');
+  const b = new Game({ seed: 1 }); b.chooseCore('zeppelin', 'merchantman');
   assert.equal(b.cogs, 40, 'Merchantman: +20 cogs');
-  const c = new Game({ seed: 1 }); c.chooseCore('airship', 'survey');
-  assert.equal(c.sight(), 3, 'Survey Ship: +1 sight');
+  const c = new Game({ seed: 1 }); c.chooseCore('airship', 'kite');
+  assert.equal(c.sight(), 3, 'Sky Kite: +1 sight');
+  const x = new Game({ seed: 1 }); x.chooseCore('airship', 'bulwark');
+  assert.equal(x.ship, 'courier', 'another class\'s ship falls back to the classic');
+  for (const core of ['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest']) assert.equal(Game.shipsFor(core).length, 3);
   const d = new Game({ seed: 1 }); d.chooseCore('airship', 'courier');
   assert.equal(d.weight(), 1 + 0 + 1 - 1, 'Courier: -1 Weight');
 });

@@ -108,8 +108,18 @@
     k_colossus: { w: 186, faces: 'R', hull: 0.72, upper: 0.42, span: 0.4 },
     k_privateer: { w: 128, faces: 'R', hull: 0.8, upper: 0.62, span: 0.36 },
     k_tempest: { w: 132, faces: 'R', hull: 0.8, upper: 0.62, span: 0.36 },
-    k_salvager: { w: 140, faces: 'R', hull: 0.84, upper: 0.66, span: 0.38 },
-    k_explorer: { w: 136, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_kite: { w: 104, faces: 'R', hull: 0.86, upper: 0.74, span: 0.32 },
+    k_comet: { w: 128, faces: 'R', hull: 0.62, upper: 0.46, span: 0.36 },
+    k_ironside: { w: 146, faces: 'R', hull: 0.78, upper: 0.48, span: 0.4 },
+    k_blacksail: { w: 150, faces: 'R', hull: 0.82, upper: 0.62, span: 0.4 },
+    k_cranegalleon: { w: 150, faces: 'R', hull: 0.84, upper: 0.66, span: 0.4 },
+    k_harlequin: { w: 136, faces: 'R', hull: 0.82, upper: 0.66, span: 0.36 },
+    k_twinclock: { w: 128, faces: 'R', hull: 0.82, upper: 0.68, span: 0.36 },
+    k_gearwheel: { w: 140, faces: 'R', hull: 0.8, upper: 0.64, span: 0.38 },
+    k_patchwork: { w: 146, faces: 'R', hull: 0.84, upper: 0.66, span: 0.4 },
+    k_sailraider: { w: 140, faces: 'R', hull: 0.82, upper: 0.64, span: 0.38 },
+    k_crystal: { w: 128, faces: 'R', hull: 0.84, upper: 0.62, span: 0.36 },
+    k_starpagoda: { w: 132, faces: 'R', hull: 0.82, upper: 0.6, span: 0.36 },
   };
   // Your ship is the one you picked (data SHIPS); it grows a little with every module you bolt on.
   const shipSprite = (game) => { const D = window.CardshipsData; const sh = D.SHIPS[game.ship] || D.SHIPS[window.CardshipsEngine.Game.defaultShip(game.core.id)]; return sh.sprite; };

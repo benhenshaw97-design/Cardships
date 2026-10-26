@@ -463,3 +463,16 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
 - **The round's action buttons sit directly under the flight view.** The enemy's card and next move follow below them. *Reason: you can watch the shots and hits while you click, instead of scrolling between them.*
 - **Every route keeps fighting.** A route could chain traders, guilds and hazards and reach the boss with one or two fights (about 1 map in 5; non-fight runs of up to 10). Now no route has more than 2 non-fight stops in a row (`BALANCE.maxCalmRun`), or more than 5 in all (`BALANCE.maxCalm`). A stop that would break either becomes a Pirate Patrol. The guaranteed mid-route trader and the Sky Dock before the boss stay, so a 3-in-a-row run can still happen through one of them. Over 2,000 maps, every route now has 5–7 fights. *Reason: runs need their fights for cogs, parts and challenge.*
 - **Pirates gain Durability a little slower again** (+8% per column, was 10.5%). The guaranteed fights made runs harder; all six Cores now win 37–49% over 3 seed sets. *Reason: keep the target win rate.*
+
+## Three ships per class
+
+- **Each class now has three ships of its own** instead of one shared list of eight. The picker after choosing a Core shows only that class's ships, with its classic ship marked. Every ship keeps one trait. The ships are new cuts from the keyed sheets, picked to suit the class; the Salvage Barge and Survey Ship are retired. *Reason: you asked for a different choice of ships for each class.*
+
+  | Class | Ships (trait) |
+  | --- | --- |
+  | Airship | Courier (−1 Weight), Sky Kite (+1 sight), Copper Comet (+1 Steam on turn one) |
+  | Battleship | Bulwark (+2 Core), Ironside (repair 1 Core after fights), Black Sail (+4 cogs per win) |
+  | Zeppelin | Merchantman (+20 cogs), Crane Galleon (+4 cogs per win), Harlequin (−1 Weight) |
+  | Clockwork | Chronometer (repair 1 Core after fights), Twin Clock (+1 sight), Gearwheel (+2 Core) |
+  | Privateer | Corsair Rocket (+1 Steam on turn one), Patchwork (+4 cogs per win), Sail Raider (−1 Weight) |
+  | Tempest | Stormrider (lightning −1), Crystal Pagoda (+1 Steam on turn one), Star Pagoda (+2 Core) |

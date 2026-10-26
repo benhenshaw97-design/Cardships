@@ -55,16 +55,27 @@
   };
 
   // ---------- Ships ----------
-  // The hull you fly. Any Core can fly any ship; each Core suggests its own. Every ship has one trait.
+  // The hull you fly. Each Core has three ships of its own (the first is its classic), and every
+  // ship has one trait.
   const SHIPS = {
     courier: { name: 'Courier', sprite: 'k_airship', core: 'airship', trait: 'Light frame: −1 Weight.', weight: -1 },
+    kite: { name: 'Sky Kite', sprite: 'k_kite', core: 'airship', trait: 'High lookout: +1 sight on the sky map.', sight: 1 },
+    comet: { name: 'Copper Comet', sprite: 'k_comet', core: 'airship', trait: 'Rocket engines: +1 Steam on the first turn of every fight.', jump: 1 },
     bulwark: { name: 'Bulwark', sprite: 'k_battleship', core: 'battleship', trait: 'Armored gondola: +2 Core Durability.', hp: 2 },
+    ironside: { name: 'Ironside', sprite: 'k_ironside', core: 'battleship', trait: 'Damage crews: repair 1 Core after every fight.', mendAfter: 1 },
+    blacksail: { name: 'Black Sail', sprite: 'k_blacksail', core: 'battleship', trait: 'Prize crew: every win pays 4 more cogs.', salvage: 4 },
     merchantman: { name: 'Merchantman', sprite: 'k_zeppelin', core: 'zeppelin', trait: 'Deep hold: start with 20 more cogs.', cogs: 20 },
+    cranegalleon: { name: 'Crane Galleon', sprite: 'k_cranegalleon', core: 'zeppelin', trait: 'Salvage crane: every win pays 4 more cogs.', salvage: 4 },
+    harlequin: { name: 'Harlequin', sprite: 'k_harlequin', core: 'zeppelin', trait: 'Big gasbag: −1 Weight.', weight: -1 },
     chronometer: { name: 'Chronometer', sprite: 'k_clockwork', core: 'clockwork', trait: 'Clock-wound crew: repair 1 Core after every fight.', mendAfter: 1 },
+    twinclock: { name: 'Twin Clock', sprite: 'k_twinclock', core: 'clockwork', trait: 'Spyglass mast: +1 sight on the sky map.', sight: 1 },
+    gearwheel: { name: 'Gearwheel', sprite: 'k_gearwheel', core: 'clockwork', trait: 'Geared hull: +2 Core Durability.', hp: 2 },
     corsair: { name: 'Corsair Rocket', sprite: 'k_privateer', core: 'privateer', trait: 'Rocket gondola: +1 Steam on the first turn of every fight.', jump: 1 },
+    patchwork: { name: 'Patchwork', sprite: 'k_patchwork', core: 'privateer', trait: 'Salvage nets: every win pays 4 more cogs.', salvage: 4 },
+    sailraider: { name: 'Sail Raider', sprite: 'k_sailraider', core: 'privateer', trait: 'Sails and props: −1 Weight.', weight: -1 },
     stormrider: { name: 'Stormrider', sprite: 'k_tempest', core: 'tempest', trait: 'Insulated: lightning deals 1 less damage to you.', insulated: true },
-    barge: { name: 'Salvage Barge', sprite: 'k_salvager', trait: 'Salvage cranes: every win pays 4 more cogs.', salvage: 4 },
-    survey: { name: 'Survey Ship', sprite: 'k_explorer', trait: 'Dish array: +1 sight on the sky map.', sight: 1 },
+    crystal: { name: 'Crystal Pagoda', sprite: 'k_crystal', core: 'tempest', trait: 'Aether crystal: +1 Steam on the first turn of every fight.', jump: 1 },
+    starpagoda: { name: 'Star Pagoda', sprite: 'k_starpagoda', core: 'tempest', trait: 'Star globe: +2 Core Durability.', hp: 2 },
   };
   for (const [id, sh] of Object.entries(SHIPS)) sh.id = id;
 

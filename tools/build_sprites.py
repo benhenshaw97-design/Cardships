@@ -204,7 +204,14 @@ KEYED_CUTS = {
  'k_cutter': ('7710', 0), 'k_skiff': ('7706', 3), 'k_gunship': ('7697', 6), 'k_bomber': ('7703', 3),
  'k_sentinel': ('7709', 6), 'k_flagship': ('7696', 2), 'k_monitor': ('7710', 4), 'k_leviathan': ('7711', 4),
  'k_stormqueen': ('7706', 7), 'k_colossus': ('7708', 5),
- 'k_privateer': ('7697', 5), 'k_tempest': ('7705', 3), 'k_salvager': ('7706', 1), 'k_explorer': ('7707', 0),
+ 'k_privateer': ('7697', 5), 'k_tempest': ('7705', 3),
+ # The other two ships each class can fly.
+ 'k_kite': ('7698', 0), 'k_comet': ('7709', 4),
+ 'k_ironside': ('7707', 4), 'k_blacksail': ('7709', 7),
+ 'k_cranegalleon': ('7697', 4), 'k_harlequin': ('7698', 2),
+ 'k_twinclock': ('7711', 2), 'k_gearwheel': ('7705', 6),
+ 'k_patchwork': ('7696', 3), 'k_sailraider': ('7711', 1),
+ 'k_crystal': ('7705', 1), 'k_starpagoda': ('7703', 1),
 }
 
 
