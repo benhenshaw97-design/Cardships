@@ -269,6 +269,7 @@
       const how = D.UNLOCKS.find((u) => u.id === c.id);
       return h('button', { class: `core-pick${ui.pickCore === c.id ? ' picked' : ''}`, disabled: open ? null : true, onclick: () => { ui.pickCore = c.id; ui.pickShip = Game.defaultShip(c.id); render(); requestAnimationFrame(() => { const el = document.getElementById('ship-picker'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); } },
         !open ? h('span', { class: 'lock' }, `Locked · ${how.how}`) : null,
+        h('img', { class: 'core-art', src: `assets/art/cores/${c.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
         h('span', { class: 'eyebrow' }, c.style),
         h('span', { class: 'name' }, c.name.replace(' Core', '')),
         statline(`Weight ${fmt(c.weight)}`, `Durability ${c.hp}`, `Steam ${c.steam}`),
@@ -349,6 +350,7 @@
         render();
       },
     },
+    h('img', { class: 'card-art', src: card === game.core ? `assets/art/cores/${card.id}.jpg` : `assets/art/cards/${card.id}.jpg`, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }),
     h('div', { class: 'card-body' },
       h('span', { class: 'card-name' }, info.name),
       h('span', { class: 'card-abbr' }, info.abbr),
@@ -499,7 +501,7 @@
     const d = D.PARTS[id];
     return h('div', { class: `enc part ${d.rarity}` },
       h('div', { class: 'row' }, h('span', { class: `type-chip ${d.type}` }, d.type), h('span', { class: `rarity-chip ${d.rarity}` }, d.rarity)),
-      h('h3', {}, d.name),
+      h('div', { class: 'part-head' }, h('img', { class: 'part-art', src: `assets/art/cards/${id}.jpg`, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }), h('h3', {}, d.name)),
       statline(`Weight ${fmt(d.weight)}`, `Durability ${d.hp}`, d.cost != null ? `${d.cost} Steam` : 'Passive'),
       h('div', { class: 'rules stack' }, d.rules.map(([k, v]) => h('div', {}, h('b', {}, k + ': '), v))),
       extra ? h('div', { class: 'enc-foot' }, extra) : null,

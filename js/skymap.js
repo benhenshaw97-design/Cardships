@@ -25,6 +25,17 @@
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
     return el;
   }
+  // The painted icons (assets/art/icons) for map nodes; the line icons stay for the legend and as fallbacks.
+  const ART_ICONS = new Set(['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar', 'derelict', 'rift', 'boss', 'unknown', 'cloud']);
+  function artIcon(name) {
+    if (!ART_ICONS.has(name)) return icon(name);
+    const img = document.createElement('img');
+    img.className = 'node-art';
+    img.src = `assets/art/icons/${name}.png`;
+    img.alt = '';
+    img.draggable = false;
+    return img;
+  }
   function icon(name, size = 22) {
     const s = svgEl('svg', { viewBox: '0 0 24 24', width: size, height: size, 'aria-hidden': 'true', class: 'node-icon' });
     s.append(svgEl('path', { d: ICONS[name] || ICONS.unknown, fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
@@ -133,7 +144,7 @@
       btn.style.left = p.x + 'px';
       btn.style.top = p.y + 'px';
       btn.setAttribute('aria-label', `${label}, column ${n.col}${reachable.has(n.id) ? ', reachable' : ''}`);
-      btn.append(icon(known ? n.enc : n.cloud ? 'cloud' : 'unknown', isBoss ? 30 : 22));
+      btn.append(artIcon(isBoss ? 'boss' : known ? n.enc : n.cloud ? 'cloud' : 'unknown'));
       const tag = document.createElement('span');
       tag.className = 'map-label';
       tag.textContent = label;

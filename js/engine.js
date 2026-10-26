@@ -529,7 +529,7 @@
         const count = col === BOSS_COL ? 1 : col === 1 ? 2 + Math.floor(this.rand() * 2) : 2 + Math.floor(this.rand() * 3);
         const colNodes = [];
         for (let i = 0; i < count; i++) {
-          const y = count === 1 ? 0.5 : 0.14 + (0.72 * i) / (count - 1) + (this.rand() - 0.5) * 0.08;
+          const y = count === 1 ? 0.5 : 0.14 + (0.72 * i) / (count - 1) + (this.rand() - 0.5) * 0.03; // small jitter: crowded columns never overlap
           colNodes.push({ id: `n${nodes.length + colNodes.length}`, col, y, edges: [] });
         }
         for (const n of colNodes) {

@@ -65,6 +65,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/canyon-city.jpg` | Far layer of the Pirate Lair and boss biome |
 | `assets/art/ships.png` | Ship atlas keyed from the magenta and green sheets in `assets/art/source/ships-keyed/`: every Core's ship and every enemy's |
 | `assets/art/ui/*.png` | Pieces of `assets/art/source/ui-brass-kit.png`: flight-view corners, card plates, rarity gems, gauge bars |
+| `assets/art/cards/*.jpg`, `assets/art/cores/*.jpg`, `assets/art/icons/*.png` | Part pictures, Core portraits and map icons, cut from `assets/art/source/ui/` by `python3 tools/build_ui_art.py` |
 | `assets/art/ui/wall-*.jpg` | Riveted wall textures: the page background (plates) and the header (gear-work) |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |

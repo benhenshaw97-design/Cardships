@@ -476,3 +476,13 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   | Clockwork | Chronometer (repair 1 Core after fights), Twin Clock (+1 sight), Gearwheel (+2 Core) |
   | Privateer | Corsair Rocket (+1 Steam on turn one), Patchwork (+4 cogs per win), Sail Raider (−1 Weight) |
   | Tempest | Stormrider (lightning −1), Crystal Pagoda (+1 Steam on turn one), Star Pagoda (+2 Core) |
+
+## Painted card art, Core portraits and map icons
+
+- **Part pictures** (`assets/art/source/ui/part-cards.png`, cut by `tools/build_ui_art.py` to `assets/art/cards/`).
+  - Every Shipyard card shows its part's picture behind the name and Durability pips, and every loot, contract and shop offer shows it beside the name. *Reason: you see what each module is at a glance.*
+  - Matched by picture where the label was off: the brass boiler labelled "Sprinkler Tank" is the Auxiliary Boiler; the red tanks labelled "Air Scrubber" are the Sprinkler Tank; the mesh filter labelled "Clockwork Heart" is the Air Scrubber; and the gold heart with a blue gem labelled "Ovekpressure Valve" is the Clockwork Heart.
+  - **Still missing:** the Supply Hatch has no picture, and its cards stay plain.
+- **Core portraits** (`core-portraits.png` → `assets/art/cores/`). The six paintings head the class cards on the title screen and fill the Core's card in the Shipyard.
+- **Map icons** (`map-icons.png` → `assets/art/icons/`). Every sky-map node is its painted round icon, masked to the brass ring: the ten encounters, the boss, Uncharted and Cloud cover. The legend keeps the small line icons.
+- **Fixed:** nodes in crowded map columns could overlap. Their random nudge is now small enough that they never do; the dice rolls are unchanged, so seeds give the same routes. The "Locked" note on the Clockwork card now sits over its painting.
