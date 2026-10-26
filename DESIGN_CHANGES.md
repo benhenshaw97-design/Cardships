@@ -508,7 +508,7 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - Winning the run plays Victor's Trumpet Call.
   - Defeat plays Pirate Defeat instead of a slowed, muffled cut of the roaming track.
   - Each track has an AAC copy for Safari, like the first three.
-- **Supply Hatch** now has its card picture, so every part has art.
+- **Supply Hatch** now has its card picture. (Grenadiers still has none; its cards and battle button show its short name.)
 - **Sky map.**
   - The route is drawn on the painted sky chart, with each biome band's colour blended over it.
   - The chart's brass frame stays fixed while the route scrolls beneath it.

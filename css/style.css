@@ -452,7 +452,8 @@ body { background: linear-gradient(rgba(16, 11, 8, 0.82), rgba(16, 11, 8, 0.9)),
 body.fx-busy .battle-ui .mod-mark, body.fx-busy .battle-ui .pop, body.fx-busy .battle-ui .battle-bar button { visibility: hidden; }
 .mod-mark { position: absolute; left: 0; top: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; cursor: pointer;
   border: 2.5px solid var(--t, var(--brass-2)); background: #1d140e; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); transition: opacity 0.15s; }
-.mod-mark img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; opacity: 0.92; }
+.mod-mark img { position: relative; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; opacity: 0.92; }
+.mod-abbr { position: absolute; inset: 0; display: grid; place-items: center; font: 600 10px/1 var(--f-mono); color: var(--ink); }
 .mod-mark.weapon { --t: var(--weapon); } .mod-mark.defense { --t: var(--defense); } .mod-mark.support { --t: var(--support); } .mod-mark.utility { --t: var(--utility); }
 .mod-hp { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); font: 600 10px/1 var(--f-mono); color: #fff7e6; background: rgba(20, 14, 10, 0.92); padding: 2px 4px; border-radius: 6px; border: 1px solid var(--t, var(--brass-2)); white-space: nowrap; }
 .mod-toks { position: absolute; top: -8px; right: -10px; display: flex; }

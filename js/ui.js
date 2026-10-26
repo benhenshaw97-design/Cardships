@@ -872,6 +872,7 @@
           render();
         },
       },
+      h('span', { class: 'mod-abbr' }, info.abbr), // shows if the part has no picture
       h('img', { src: `assets/art/cards/${card.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
       h('span', { class: 'mod-hp' }, `${Math.max(0, card.hp)}/${info.max}`),
       toks.length ? h('span', { class: 'mod-toks' }, toks.map((k) => ico(k, 'tok-ico'))) : null));
