@@ -66,6 +66,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/ships.png` | Ship atlas keyed from the magenta and green sheets in `assets/art/source/ships-keyed/`: every Core's ship and every enemy's |
 | `assets/art/ui/*.png` | Pieces of `assets/art/source/ui-brass-kit.png`: flight-view corners, card plates, rarity gems, gauge bars |
 | `assets/art/cards/*.jpg`, `assets/art/cores/*.jpg`, `assets/art/icons/*.png` | Part pictures, Core portraits and map icons, cut from `assets/art/source/ui/` by `python3 tools/build_ui_art.py` |
+| `assets/art/status/*.png`, `assets/art/bits/*.png`, `assets/art/scenes/*.jpg`, `assets/art/skies/*.jpg` | Status icons, dice faces, coins, debris, badges, gulls, event banners and biome skies, cut from `assets/art/source/ui2/` and the sky paintings by the same script |
 | `assets/art/ui/wall-*.jpg` | Riveted wall textures: the page background (plates) and the header (gear-work) |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |

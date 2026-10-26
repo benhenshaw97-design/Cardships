@@ -486,3 +486,16 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
 - **Core portraits** (`core-portraits.png` → `assets/art/cores/`). The six paintings head the class cards on the title screen and fill the Core's card in the Shipyard.
 - **Map icons** (`map-icons.png` → `assets/art/icons/`). Every sky-map node is its painted round icon, masked to the brass ring: the ten encounters, the boss, Uncharted and Cloud cover. The legend keeps the small line icons.
 - **Fixed:** nodes in crowded map columns could overlap. Their random nudge is now small enough that they never do; the dice rolls are unchanged, so seeds give the same routes. The "Locked" note on the Clockwork card now sits over its painting.
+
+## Status icons, event banners, skies, gulls, dice and debris
+
+All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2()` in `tools/build_ui_art.py`.
+
+- **Status and stat icons** (`assets/art/status/`). The HUD (hull, cogs, steam, pressure, Charge), module tokens and enemy status chips use the painted icons instead of glyphs.
+- **Event banners** (`assets/art/scenes/`). Events, the Sky Dock, the Trading Zeppelin and lair and boss fights open with a painted banner. The baked-in label at the bottom of each painting is cropped off, because the panel shows the name.
+- **Skies** (`assets/art/skies/`). All eleven paintings are biome backdrops. The clear sky has its own painting. Smog, sunset, night and the lair pick from more paintings. The Derelict Hulk, Aether Rift and Sky Dock now have their own biomes. Victory and defeat end on their own skies.
+- **Gulls.** Birds in the clear and sunset skies use the eight seagull frames.
+- **Dice.** Rolled dice show the painted brass-cornered faces. The drawn pips stay as a fallback while the images load.
+- **Debris and cogs.** Hits throw painted scrap (gears, bolts, shards, a wrench for repairs) instead of drawn shapes. Cog rewards spray spinning coins.
+- **Unlock badges.** The title screen's unlocks show the badge art.
+- **Still missing:** the Supply Hatch card picture, enemy portraits, enemy move icons and a full-size distant-airships layer. `bits-a.png` is an alternate copy of the bits sheet and is not used.

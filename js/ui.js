@@ -149,7 +149,8 @@
     const node = game.map && game.currentNode();
     const here = node && node.enc !== 'start' ? node.biome : 'clear';
     const phase = game.phase;
-    if (phase === 'hangar') { scene.setBiome('dock'); scene.setMode('docked'); }
+    if (phase === 'victory' || phase === 'gameover') { scene.setBiome(phase === 'victory' ? 'victory' : 'defeat'); scene.setMode('docked'); }
+    else if (phase === 'hangar') { scene.setBiome('dock'); scene.setMode('docked'); }
     else if (phase === 'shop') { scene.setBiome('interior'); scene.setMode('docked'); }
     else if (phase === 'combat') { scene.setBiome(node && node.enc === 'boss' ? 'lair' : here); scene.setMode('combat'); }
     else { scene.setBiome(here); scene.setMode(ui.flying ? 'travel' : 'flight'); }
@@ -207,6 +208,12 @@
     }
   }
 
+  // ---------- painted icons ----------
+  // Status and stat icons (assets/art/status), event banners (assets/art/scenes), unlock badges.
+  const ico = (name, cls = 'ico') => h('img', { class: cls, src: `assets/art/status/${name}.png`, alt: '', 'aria-hidden': 'true', onerror: (e) => e.target.remove() });
+  const banner = (enc) => h('img', { class: 'scene-banner', src: `assets/art/scenes/${enc}.jpg`, alt: '', onerror: (e) => e.target.remove() });
+  const BADGES = { tesla: 0, overpressure: 1, gyro: 3, autoloader: 4, clockwork: 7 };
+
   // ---------- HUD ----------
   // A brass gauge bar (from the UI kit) with the number beside it.
   function meterEl(frac, kind, text) {
@@ -221,7 +228,8 @@
       const cls = [i < game.depth || (i === game.depth && game.phase === 'map') ? 'done' : '', i === game.depth && game.phase !== 'map' ? 'here' : '', i === game.maxDepth ? 'boss' : ''].join(' ');
       route.append(h('i', { class: cls }));
     }
-    const item = (label, value, title) => h('div', { class: 'hud-item', title }, h('span', { class: 'hud-label' }, label), h('span', { class: 'hud-value' }, value));
+    const HUD_ICONS = { Core: 'durability', Weight: 'weight', Steam: 'steam', Cogs: 'cogs' };
+    const item = (label, value, title) => h('div', { class: 'hud-item', title }, HUD_ICONS[label] ? ico(HUD_ICONS[label], 'ico hud-ico') : null, h('span', { class: 'hud-label' }, label), h('span', { class: 'hud-value' }, value));
     const quest = game.quest && D.QUESTS.find((q) => q.id === game.quest);
     hud.replaceChildren(...[
       item('Route', route),
@@ -280,7 +288,7 @@
     });
     const unlocks = h('div', { class: 'unlocks' }, D.UNLOCKS.map((u) => {
       const got = meta.unlocked.includes(u.id);
-      return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('b', {}, u.name), h('span', {}, got ? `Unlocked ${u.kind}` : u.how));
+      return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('img', { class: 'badge', src: `assets/art/bits/badge${BADGES[u.id] ?? 7}.png`, alt: '' }), h('div', { class: 'stack', style: 'gap:2px' }, h('b', {}, u.name), h('span', {}, got ? `Unlocked ${u.kind}` : u.how)));
     }));
     const saved = loadSave();
     const seedBox = h('div', { class: 'row seed-row' },
@@ -338,7 +346,7 @@
     const pips = h('div', { class: 'pips' });
     for (let i = 0; i < info.max; i++) pips.append(h('i', { class: i < card.hp ? 'on' : '' }));
     const toks = h('div', { class: 'tokens' });
-    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) toks.append(h('span', { class: `tok ${k}` }, k));
+    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) toks.append(h('span', { class: `tok ${k}`, title: D.TOKENS[k].name }, ico(k, 'tok-ico'), h('span', { class: 'tok-txt' }, k)));
     if (card.reload > 0) toks.append(h('span', { class: 'tok cd' }, 'rld'));
     return h('button', {
       class: cls, 'aria-label': `${info.name}, ${card.hp} of ${info.max} durability`,
@@ -647,6 +655,7 @@
     const e = D.ENCOUNTERS[ev.enc];
     const lines = game.log.filter((l) => l.id > ev.logStart);
     const panel = h('section', { class: 'panel stack' },
+      banner(ev.enc),
       h('span', { class: `kind k-${e.kind.replace(' ', '')}`, style: 'align-self:flex-start' }, e.kind),
       h('h2', {}, e.name),
       h('p', {}, e.text),
@@ -670,6 +679,7 @@
       y.dock.length ? y.dock.map((c, i) => h('button', { class: `btn ${ui.dockSel === i ? 'primary' : ''}`, onclick: () => { ui.dockSel = ui.dockSel === i ? null : i; render(); } }, partName(c.id), h('span', { class: 'sub' }, `${c.hp}/${D.PARTS[c.id].hp + c.bonusMax}`)))
         : h('span', { class: 'muted' }, 'Tap a module, then Detach, to lift it onto the dock.'));
     const panel = h('section', { class: 'panel stack' },
+      banner('hangar'),
       h('span', { class: 'kind k-SkyDock', style: 'align-self:flex-start' }, e.kind),
       h('h2', {}, e.name),
       h('p', {}, 'Full reassembly: detach any modules and reattach them anywhere. Choose a docked part, then a slot in the Shipyard.'),
@@ -692,6 +702,7 @@
     const service = (kind, label, desc, price) => h('button', { class: 'option', disabled: sh[kind] || game.cogs < price ? true : null, onclick: act(() => game.buyService(kind)) },
       h('b', {}, `${label} · ${price} cogs`), h('span', {}, sh[kind] ? 'Bought.' : desc));
     const panel = h('section', { class: 'panel stack' },
+      banner('trader'),
       h('span', { class: 'kind k-Trade', style: 'align-self:flex-start' }, 'Trade'),
       h('div', { class: 'row', style: 'justify-content:space-between' }, h('h2', {}, 'Trading Zeppelin'), h('span', { class: 'cogs' }, `${game.cogs} cogs`)),
       h('p', { class: 'muted' }, 'Bought parts are installed when you cast off. Tap one of your modules to sell it (up to 2).'),
@@ -732,10 +743,10 @@
     const marks = def.phases.map((p) => p.min).filter((m) => m > 1);
     for (let i = 1; i <= en.max; i++) bar.append(h('i', { class: `${i <= en.hp ? 'on' : ''} ${marks.includes(i + 1) ? 'mark' : ''}` }));
     const chips = h('div', { class: 'chips' },
-      en.block ? h('span', { class: 'chip shield' }, `Block ${en.block}`) : null,
-      en.burn ? h('span', { class: 'chip fire' }, `Burn ${en.burn}`) : null,
-      en.weak ? h('span', { class: 'chip glue' }, `Gummed ${en.weak}`) : null,
-      en.vuln ? h('span', { class: 'chip gas' }, `Choking ${en.vuln}`) : null,
+      en.block ? h('span', { class: 'chip shield' }, ico('block'), `Block ${en.block}`) : null,
+      en.burn ? h('span', { class: 'chip fire' }, ico('burn'), `Burn ${en.burn}`) : null,
+      en.weak ? h('span', { class: 'chip glue' }, ico('gummed'), `Gummed ${en.weak}`) : null,
+      en.vuln ? h('span', { class: 'chip gas' }, ico('choking'), `Choking ${en.vuln}`) : null,
       en.charge ? h('span', { class: 'chip fire' }, `Charged +${en.charge}`) : null,
       game.enrage() ? h('span', { class: 'chip fire' }, `Enraged +${game.enrage()}`) : null,
       en.dmgBonus ? h('span', { class: 'chip fire' }, `Veteran +${en.dmgBonus}`) : null,
@@ -751,6 +762,7 @@
       h('span', {}, intentText(it)),
       preview && preview.plan.length ? h('span', { class: 'muted' }, c.evading ? 'You will evade it.' : 'Hits: ' + preview.plan.map((p) => `${p.uid === 'core' ? 'Core' : partName(game.locate(p.uid).card.id)} ${p.braced ? 'braced' : p.dmg > 0 ? '−' + p.dmg : p.token ? '+' + p.token : '0'}`).join(', ')) : null);
     const enemy = h('section', { class: 'panel enemy' },
+      def.boss ? banner('boss') : c.enc === 'lair' ? banner('lair') : null,
       h('div', { class: 'enemy-head' },
         h('div', { class: 'stack', style: 'gap:4px' }, h('span', { class: `kind k-${def.boss ? 'Boss' : def.elite ? 'Elite' : 'Combat'}`, style: 'align-self:flex-start' }, def.boss ? 'Boss' : def.elite ? 'Elite' : 'Enemy'), h('h2', {}, en.name),
           def.gimmick ? h('p', { class: 'muted' }, def.gimmick) : null),
@@ -770,9 +782,9 @@
     const turn = h('section', { class: 'panel stack turn-panel' },
       h('div', { class: 'turnbar' },
         h('span', { class: 'turn-state' }, `Round ${c.round}`),
-        h('div', { class: 'row' }, h('span', { class: 'hud-label' }, 'Steam'), steam,
-          game.core.id === 'zeppelin' ? h('span', { class: 'hud-label' }, `Pressure ${game.core.pressure}`) : null,
-          game.core.id === 'tempest' ? h('span', { class: 'hud-label' }, `Charge ${game.core.charge || 0}`) : null)));
+        h('div', { class: 'row' }, ico('steam'), h('span', { class: 'hud-label' }, 'Steam'), steam,
+          game.core.id === 'zeppelin' ? h('span', { class: 'hud-label' }, ico('pressure'), `Pressure ${game.core.pressure}`) : null,
+          game.core.id === 'tempest' ? h('span', { class: 'hud-label' }, ico('charge'), `Charge ${game.core.charge || 0}`) : null)));
     const bar2 = h('div', { class: 'actionbar' });
     for (const card of game.cards()) {
       const fi = game.fireInfo(card.uid);

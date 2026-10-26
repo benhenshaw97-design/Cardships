@@ -79,5 +79,100 @@ def main():
     print(f'{len(cards)} cards, {len(cores)} cores, {len(ICON_CENTRES)} icons')
 
 
+# ---------- second batch: status icons, dice, debris, coins, badges, event scenes, gulls, skies ----------
+SRC2 = os.path.join(ROOT, 'assets/art/source/ui2')
+STATUS_ROWS = [  # (names, centre xs, top, bottom) of each row of icons on status-icons.png
+    (['fire', 'glue', 'gas', 'burn', 'choking', 'gummed', 'block'], [118, 330, 549, 754, 969, 1195, 1411], 92, 405),
+    (['steam', 'pressure', 'charge', 'cogs', 'weight', 'durability'], [144, 395, 653, 915, 1159, 1411], 495, 845),
+]
+DICE = [(88, 78, 240, 220), (333, 78, 485, 220), (577, 77, 729, 219), (815, 77, 966, 219), (1054, 75, 1207, 219), (1295, 70, 1450, 217)]
+COINS = [(63, 586, 172, 697), (226, 596, 320, 694), (369, 596, 459, 697), (511, 591, 566, 701), (641, 601, 742, 700), (782, 596, 887, 701),
+         (921, 604, 992, 710), (1053, 586, 1112, 705), (1165, 596, 1208, 712), (1255, 598, 1342, 705), (1383, 604, 1489, 710)]
+BADGES = [(34, 783, 208, 977), (225, 781, 389, 976), (415, 781, 567, 976), (594, 781, 746, 976), (775, 781, 929, 976), (953, 777, 1110, 976), (1137, 777, 1294, 976), (1321, 777, 1495, 977)]
+DEBRIS_BAND = (290, 500)  # the hit-debris row; every piece in it is cut
+EVENT_ORDER = ['storm', 'smog', 'beacon', 'guild', 'derelict', 'rift', 'lair', 'trader', 'hangar', 'boss']
+EVENT_ROWS = [(8, 169), (186, 347), (364, 525), (541, 703), (719, 878)]
+EVENT_COLS = [(10, 877), (893, 1764)]
+GULL_FLAP = [(50, 231, 177, 365), (218, 254, 400, 367), (436, 250, 604, 367), (643, 244, 764, 367), (813, 231, 956, 360), (1022, 241, 1163, 373), (1220, 244, 1387, 365), (1451, 219, 1566, 372)]
+# Full-size paintings in assets/art (by upload name) -> sky backdrops.
+SKIES = {
+    '4929161B-87F1-4FE8-A71E-F7B340E2ACB7': 'sky-clear', '04D0371F-EDA8-4509-8DFF-F8FFE3A84BE0': 'sky-sunset-isles',
+    '3EDAD1C4-069A-412A-B603-6D8A6A1B45DF': 'sky-chimneys', 'BFF973EC-908B-40EF-A802-7DA5442D16B9': 'sky-smoke-wrecks',
+    '6546AEA0-120B-4659-9379-DE04A578571F': 'sky-night-city', 'E8375B07-10C1-4B00-898E-A618D6C206CD': 'sky-pirate-lair',
+    'FF8AEA10-B4F7-4B0E-9C0A-A3895639A2F7': 'sky-derelicts', '34A4A4A7-775A-491D-9639-7F38BE60B49E': 'sky-rift',
+    '105D406F-5F89-4BAF-AFAA-E25490C5425D': 'sky-port', '9C054B03-B0B9-471F-9738-95C0F94CB446': 'sky-victory',
+    'EF46F0FF-0413-4EDB-A223-A55B54C2CE96': 'sky-defeat',
+}
+
+
+def lift(img, soft=(12, 40)):
+    """Lifts art off a flat dark backdrop: alpha rises with distance from the backdrop colour."""
+    A = np.array(img.convert('RGB')).astype(int)
+    bg = np.median(np.concatenate([A[0], A[-1], A[:, 0], A[:, -1]]), axis=0)
+    d = np.abs(A - bg).max(axis=2)
+    a = np.clip((d - soft[0]) / (soft[1] - soft[0]), 0, 1)
+    lab, n = ndimage.label(a > 0.5)
+    if n:  # keep the main shape and anything sizeable, drop specks
+        sizes = ndimage.sum(a > 0.5, lab, range(1, n + 1))
+        keep = np.isin(lab, [i + 1 for i, s in enumerate(sizes) if s >= max(30, sizes.max() * 0.02)])
+        a = a * ndimage.binary_dilation(keep, iterations=2)
+    out = Image.fromarray(np.dstack([A.astype(np.uint8), (a * 255).astype(np.uint8)]), 'RGBA')
+    bb = out.getbbox()
+    return out.crop(bb) if bb else out
+
+
+def save_small(im, path, size):
+    im = im.copy()
+    im.thumbnail((size, size), Image.LANCZOS)
+    im.save(path, optimize=True)
+
+
+def batch2():
+    for d in ['status', 'bits', 'scenes', 'skies']:
+        os.makedirs(os.path.join(ROOT, 'assets/art', d), exist_ok=True)
+    sheet = Image.open(os.path.join(SRC2, 'status-icons.png')).convert('RGB')
+    for names, xs, top, bottom in STATUS_ROWS:
+        for nm, cx in zip(names, xs):
+            save_small(lift(sheet.crop((cx - 110, top, cx + 110, bottom))), os.path.join(ROOT, 'assets/art/status', nm + '.png'), 72)
+    sheet = Image.open(os.path.join(SRC2, 'bits.png')).convert('RGB')
+    for i, b in enumerate(DICE):
+        save_small(lift(sheet.crop((b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4))), os.path.join(ROOT, f'assets/art/bits/die{i + 1}.png'), 64)
+    for i, b in enumerate(COINS):
+        save_small(lift(sheet.crop((b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4))), os.path.join(ROOT, f'assets/art/bits/coin{i}.png'), 32)
+    for i, b in enumerate(BADGES):
+        save_small(lift(sheet.crop((b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4))), os.path.join(ROOT, f'assets/art/bits/badge{i}.png'), 72)
+    band = sheet.crop((0, DEBRIS_BAND[0], sheet.width, DEBRIS_BAND[1]))
+    A = np.array(band).astype(int)
+    bg = np.median(A[:4, :4].reshape(-1, 3), axis=0)
+    lab, n = ndimage.label(ndimage.binary_dilation(np.abs(A - bg).max(axis=2) > 28, iterations=2))
+    k = 0
+    for o in sorted(ndimage.find_objects(lab), key=lambda o: o[1].start):
+        if (o[0].stop - o[0].start) * (o[1].stop - o[1].start) < 900:
+            continue
+        piece = lift(band.crop((max(0, o[1].start - 3), max(0, o[0].start - 3), o[1].stop + 3, o[0].stop + 3)))
+        save_small(piece, os.path.join(ROOT, f'assets/art/bits/debris{k}.png'), 40)
+        k += 1
+    sheet = Image.open(os.path.join(SRC2, 'event-scenes.png')).convert('RGB')
+    i = 0
+    for r0, r1 in EVENT_ROWS:
+        for c0, c1 in EVENT_COLS:
+            h = r1 - r0
+            sc = sheet.crop((c0 + 6, r0 + 6, c1 - 6, r1 - round(h * 0.25)))
+            sc.thumbnail((900, 900), Image.LANCZOS)
+            sc.save(os.path.join(ROOT, 'assets/art/scenes', EVENT_ORDER[i] + '.jpg'), quality=84)
+            i += 1
+    sheet = Image.open(os.path.join(SRC2, 'seagulls.png')).convert('RGB')
+    for i, b in enumerate(GULL_FLAP):
+        save_small(lift(sheet.crop((b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4))), os.path.join(ROOT, f'assets/art/bits/gull{i}.png'), 40)
+    for src, name in SKIES.items():
+        path = os.path.join(ROOT, 'assets/art/source/skies', src + '.png')
+        if os.path.exists(path):
+            im = Image.open(path).convert('RGB')
+            im.thumbnail((1600, 1600), Image.LANCZOS)
+            im.save(os.path.join(ROOT, 'assets/art/skies', name + '.jpg'), quality=82)
+    print(f'status, dice, {len(COINS)} coins, {len(BADGES)} badges, {k} debris, {i} scenes, gulls, skies')
+
+
 if __name__ == '__main__':
     main()
+    batch2()

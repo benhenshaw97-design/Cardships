@@ -340,19 +340,19 @@
       text: 'A wreck calls for help. Roll a d6, then pirates spring the trap.',
       table: ['Debris rains on a rolled column: 2 damage', 'Burning wreckage sets a rolled column alight', 'Gas leaks into a weapon', 'Trap sprung: the pirates start with 4 Block', 'You spot the trap: +2 Steam on your first turn', 'Strip the wreck first: pick 1 of 2 parts'],
     },
-    guild: { name: 'Mercenary Island', kind: 'Quest', text: 'A guild outpost on a floating island. Roll two contracts and sign one.' },
+    guild: { name: 'Mercenary Island', kind: 'Quest', biome: 'port', text: 'A guild outpost on a floating island. Roll two contracts and sign one.' },
     hangar: {
       name: 'Sky Dock', kind: 'Sky Dock',
       text: "A hangar in the clouds. Rearrange your modules freely, then roll for the mechanics' help.",
       table: ['Core Patch: repair 3 Core', 'Part Maintenance: fully repair a module', 'Reinforcement: +1 max Durability to a module', 'Overhaul: repair 2 on every module', 'Spare Part: pick 1 of 2 parts', 'Master Mechanic: reinforce a module and fully repair it'],
     },
     derelict: {
-      name: 'Derelict Hulk', kind: 'Salvage',
+      name: 'Derelict Hulk', kind: 'Salvage', biome: 'derelict',
       text: 'A dead warship drifts in the clouds, still full of parts. Roll a d6 as you board.',
       table: ['Booby trap: a rolled column catches fire', 'Collapsing deck: risk the Core for a rare part, or leave', 'Survivors: they repair 2 on every module', 'Strongbox: +18 cogs', 'Armory: pick 1 of 3 parts', 'Intact engine room: a free uncommon part and 10 cogs'],
     },
     rift: {
-      name: 'Aether Rift', kind: 'Hazard', biome: 'night',
+      name: 'Aether Rift', kind: 'Hazard', biome: 'rift',
       text: 'A tear in the sky, glowing with strange light. Roll a d6 and fly through.',
       table: ['Rift lash: 2 damage to a random module and 1 to the Core', 'Time slip: pay 10 cogs or the Core takes 2', 'Echo: a random module gains +1 max Durability', 'A bargain: trade 2 max Core Durability for a rare part, or refuse', 'Clear sight: +1 sight for three legs and repair 2 Core', 'Aether treasure: pick 1 of 2 rare parts'],
     },

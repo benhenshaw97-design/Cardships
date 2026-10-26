@@ -203,6 +203,32 @@
     }
   }
 
+  // Painted bits: coin spin frames and scrap pieces (gears, bolts, wrench, shards).
+  const bitImg = (n) => { const im = new Image(); im.src = `assets/art/bits/${n}.png`; return im; };
+  const BITS = {
+    coin: Array.from({ length: 11 }, (_, i) => bitImg('coin' + i)),
+    gear: [0, 3, 23, 29, 30].map((i) => bitImg('debris' + i)),
+    bolt: [6, 18, 25, 31, 4, 19].map((i) => bitImg('debris' + i)),
+    scrap: [1, 2, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 24, 26, 27, 28].map((i) => bitImg('debris' + i)),
+    wrench: [bitImg('debris20')],
+  };
+  function bitFor(p) {
+    if (p.seed == null) p.seed = Math.floor(Math.random() * 64);
+    const set = p.kind === 'wrench' ? BITS.wrench : p.kind === 'bolt' ? (p.seed % 3 ? BITS.scrap : BITS.bolt) : BITS.gear;
+    return set[p.seed % set.length];
+  }
+  function drawOldBit(g, p, a) {
+    switch (p.kind) {
+      case 'bolt': g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a; g.fillStyle = '#8d9399'; g.fillRect(-1.5, -4, 3, 8); g.fillStyle = '#c9ced3'; g.fillRect(-3, -5, 6, 2.5); g.restore(); break;
+      case 'cog': {
+        g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a;
+        g.fillStyle = '#f0c24e'; g.strokeStyle = '#7a5313'; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 16; i++) { const ang = (i / 16) * TAU; const rr = i % 2 ? p.r : p.r * 1.25; g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); } g.closePath(); g.fill(); g.stroke();
+        g.fillStyle = '#7a5313'; g.beginPath(); g.arc(0, 0, p.r * 0.4, 0, TAU); g.fill(); g.restore(); break;
+      }
+      case 'wrench': g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a; g.strokeStyle = '#d6dde2'; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, 0); g.lineTo(6, 0); g.stroke(); g.beginPath(); g.arc(8, 0, 4, 0.6, TAU - 0.6); g.stroke(); g.restore(); break;
+    }
+  }
+
   // ---------- drawing hooks ----------
   function drawFx(g, v) {
     const dt = v.dt;
@@ -220,18 +246,19 @@
         case 'ember': g.fillStyle = `rgba(255,${150 + Math.floor(a * 80)},60,${a})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, TAU); g.fill(); break;
         case 'gas': g.fillStyle = `rgba(160,130,215,${a * 0.35})`; g.beginPath(); g.arc(p.x + Math.sin(v.t * 2 + p.r) * 4, p.y, p.r * (1.4 - a * 0.4), 0, TAU); g.fill(); break;
         case 'drip': g.fillStyle = `rgba(150,210,80,${a})`; g.beginPath(); g.ellipse(p.x, p.y, p.r * 0.8, p.r * 1.3, 0, 0, TAU); g.fill(); break;
-        case 'gear': {
+        case 'gear': case 'bolt': case 'wrench': case 'cog': {
+          // Painted debris and coin sprites; the drawn shapes below stand in until they load.
+          const im = p.kind === 'cog' ? BITS.coin[Math.floor((p.max - p.life) * 14 + (p.seed || 0)) % BITS.coin.length] : bitFor(p);
+          if (im && im.complete && im.naturalWidth) {
+            const s = (p.r || 4) * (p.kind === 'cog' ? 3.2 : 3.6) / Math.max(im.naturalWidth, im.naturalHeight);
+            g.save(); g.translate(p.x, p.y); if (p.kind !== 'cog') g.rotate(p.rot); g.globalAlpha = a; g.imageSmoothingEnabled = false;
+            g.drawImage(im, -im.naturalWidth * s / 2, -im.naturalHeight * s / 2, im.naturalWidth * s, im.naturalHeight * s); g.restore(); break;
+          }
+          if (p.kind !== 'gear') { drawOldBit(g, p, a); break; }
           g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a; g.fillStyle = p.color || '#d4a24c'; g.strokeStyle = '#24170f'; g.lineWidth = 1;
           g.beginPath(); for (let i = 0; i < 12; i++) { const ang = (i / 12) * TAU; const rr = i % 2 ? p.r : p.r * 1.35; g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); } g.closePath(); g.fill(); g.stroke();
           g.fillStyle = '#24170f'; g.beginPath(); g.arc(0, 0, p.r * 0.35, 0, TAU); g.fill(); g.restore(); break;
         }
-        case 'bolt': g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a; g.fillStyle = '#8d9399'; g.fillRect(-1.5, -4, 3, 8); g.fillStyle = '#c9ced3'; g.fillRect(-3, -5, 6, 2.5); g.restore(); break;
-        case 'cog': {
-          g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a;
-          g.fillStyle = '#f0c24e'; g.strokeStyle = '#7a5313'; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 16; i++) { const ang = (i / 16) * TAU; const rr = i % 2 ? p.r : p.r * 1.25; g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); } g.closePath(); g.fill(); g.stroke();
-          g.fillStyle = '#7a5313'; g.beginPath(); g.arc(0, 0, p.r * 0.4, 0, TAU); g.fill(); g.restore(); break;
-        }
-        case 'wrench': g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = a; g.strokeStyle = '#d6dde2'; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, 0); g.lineTo(6, 0); g.stroke(); g.beginPath(); g.arc(8, 0, 4, 0.6, TAU - 0.6); g.stroke(); g.restore(); break;
         case 'water': g.fillStyle = `rgba(150,200,255,${a})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, TAU); g.fill(); break;
         case 'sprite': {
           const k = 1 - a;
@@ -299,6 +326,10 @@
     const face = document.createElement('div');
     face.className = 'die-face';
     for (let i = 0; i < 9; i++) { const p = document.createElement('i'); if (PIPS[value].includes(i)) p.className = 'on'; face.append(p); }
+    // The painted die face covers the drawn pips once it loads.
+    const art = new Image(); art.className = 'die-art'; art.alt = ''; art.src = `assets/art/bits/die${value}.png`;
+    art.onload = () => face.classList.add('painted');
+    face.append(art);
     d.append(face);
     const l = document.createElement('span');
     l.className = 'die-label';
