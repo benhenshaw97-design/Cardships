@@ -391,3 +391,4 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   - Bigger pockets of backdrop and leftover thin strips are dropped.
   - Tall enemies are also scaled to clear the top of the flight view.
   *Reason: the ships must be whole and clean.*
+- **Riveted wall textures** (your three latest uploads, now `assets/art/ui/wall-*.jpg`). The plain plate wall sits behind the whole page, darkened so panels and text stay readable. The gear-work wall sits behind the header. The bright brass-and-copper wall is kept for later. *Reason: the page around the game now matches the steampunk art.*

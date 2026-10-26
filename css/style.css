@@ -381,3 +381,8 @@ body.fx-busy .scene-wrap canvas { cursor: progress; }
 .meter > i { position: absolute; inset: 0; background: url(../assets/art/ui/bar_hp.png) left center / 92px 18px no-repeat; clip-path: inset(0 calc(100% - var(--fill)) 0 0); }
 .meter.steam > i { background-image: url(../assets/art/ui/bar_steam.png); }
 .hud-meter { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Riveted wall textures behind the page: plain plates, darkened so panels and text stay readable,
+   and the gear-work wall behind the header. */
+body { background: linear-gradient(rgba(16, 11, 8, 0.82), rgba(16, 11, 8, 0.9)), url(../assets/art/ui/wall-plates.jpg) center top / 1100px auto repeat, var(--iron); }
+.topbar { background: linear-gradient(rgba(16, 11, 8, 0.55), rgba(16, 11, 8, 0.75)), url(../assets/art/ui/wall-gears.jpg) center 30% / cover; margin: 0 -16px; padding: 8px 16px; border-radius: 0 0 6px 6px; }
