@@ -575,7 +575,7 @@
       for (let i = 0; i < 3; i++) setTimeout(() => { explosion(p.x + rand(-50, 50), p.y + rand(-30, 30), 120 + i * 30, true); smokeCloud(p.x + rand(-40, 40), p.y - 20, 110, 'black', { life: 2 }); ring(p.x + rand(-30, 30), p.y + rand(-20, 20), 'rgba(255,200,90,0.95)', 6, 80, 0.5, 8); burst(p.x + rand(-40, 40), p.y, 30, 'flame', { min: 40, max: 200, g: -30, life: 0.8, rmin: 6, rmax: 14 }); burst(p.x, p.y, 20, 'spark', { min: 100, max: 400 }); shake(12); sfx('explode'); }, i * 220);
       for (let i = 0; i < 30; i++) parts.push({ kind: 'cog', x: p.x, y: p.y, vx: rand(-220, 220), vy: rand(-380, -140), g: 420, life: 1.8, max: 1.8, r: rand(4, 7), rot: 0, vr: rand(-10, 10) });
       phaseBanner = { text: 'Victory!', life: 1.6, max: 1.6 };
-      if (window.CardshipsAudio) window.CardshipsAudio.sting('victory');
+      if (window.CardshipsAudio) window.CardshipsAudio.sting(window.cardships && window.cardships.game && window.cardships.game.phase === 'victory' ? 'victory' : 'spoils');
       return 1100;
     },
     defeat() {

@@ -258,7 +258,12 @@ p { margin: 0; max-width: 65ch; }
 
 /* ---------- sky map ---------- */
 .skymap { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--rule); border-radius: 4px; scrollbar-color: var(--brass-2) transparent; -webkit-overflow-scrolling: touch; }
-.skymap-inner { position: relative; overflow: hidden; }
+.skymap-inner { position: relative; overflow: hidden; background: #c9cfd0 url(../assets/art/ui/map-sky.jpg) center / 100% 100%; }
+.map-tint { position: absolute; inset: 0; mix-blend-mode: color; opacity: 0.5; pointer-events: none; }
+.skymap-shell { position: relative; padding: 13px 11px 19px; background: #2a2622; border-radius: 4px; }
+.skymap-shell .skymap { border: 0; border-radius: 0; }
+.map-frame { position: absolute; inset: 0; pointer-events: none; z-index: 6; border: 18px solid transparent; border-image: url(../assets/art/ui/map-frame.png) 36 stretch; }
+@media (max-width: 640px) { .skymap-shell { padding: 8px 7px 12px; } .map-frame { border-width: 12px; } }
 .sky-layer { position: absolute; inset: 0 auto 0 0; height: 100%; pointer-events: none; will-change: transform; }
 .sky-layer.near { z-index: 4; }
 .map-cloud { position: absolute; border-radius: 50%; background: radial-gradient(ellipse at 50% 60%, rgba(255, 250, 240, 0.95), rgba(255, 250, 240, 0.55) 45%, rgba(255, 250, 240, 0) 70%); animation: drift linear infinite alternate; }
@@ -427,3 +432,12 @@ body { background: linear-gradient(rgba(16, 11, 8, 0.82), rgba(16, 11, 8, 0.9)),
 .die-face.painted { background: none; border-color: transparent; box-shadow: none; }
 .die-face.painted .die-art { display: block; }
 .die-face.painted i { visibility: hidden; }
+
+/* Second UI kit: offer flags, padlock, settings gear */
+.enc.part { position: relative; }
+.enc.part .flags { position: absolute; top: -6px; right: 10px; display: flex; gap: 4px; pointer-events: none; }
+.enc.part .flags img { width: 22px; height: auto; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5)); }
+.enc.part > .row:first-of-type { padding-right: 60px; }
+.core-pick .lock img { width: 14px; height: auto; vertical-align: -3px; margin-right: 5px; }
+#settings-btn { display: inline-flex; align-items: center; gap: 6px; }
+#settings-btn img { width: 20px; height: 20px; }

@@ -126,7 +126,7 @@
     const cue = {
       combat: node && node.enc === 'boss' ? 'boss' : 'combat',
       event: ['storm', 'smog', 'beacon'].includes(enc) ? 'hazard' : 'map',
-      hangar: 'dock', shop: 'dock', gameover: 'defeat', victory: 'victory',
+      hangar: 'dock', shop: 'dock', loot: 'spoils', gameover: 'defeat', victory: 'victory',
     }[game.phase] || 'map';
     Audio.setScene(cue);
     Audio.setTension(game.phase === 'combat' && game.core.hp / game.maxHp(game.core) <= 0.34);
@@ -276,7 +276,7 @@
       const open = Meta.coreUnlocked(meta, c.id);
       const how = D.UNLOCKS.find((u) => u.id === c.id);
       return h('button', { class: `core-pick${ui.pickCore === c.id ? ' picked' : ''}`, disabled: open ? null : true, onclick: () => { ui.pickCore = c.id; ui.pickShip = Game.defaultShip(c.id); render(); requestAnimationFrame(() => { const el = document.getElementById('ship-picker'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); } },
-        !open ? h('span', { class: 'lock' }, `Locked · ${how.how}`) : null,
+        !open ? h('span', { class: 'lock' }, h('img', { src: 'assets/art/ui/padlock.png', alt: '' }), `Locked · ${how.how}`) : null,
         h('img', { class: 'core-art', src: `assets/art/cores/${c.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
         h('span', { class: 'eyebrow' }, c.style),
         h('span', { class: 'name' }, c.name.replace(' Core', '')),
@@ -505,9 +505,15 @@
       t.cancelable ? h('button', { class: 'btn small', onclick: () => { ui.targeting = null; render(); } }, 'Cancel') : null);
   }
 
+  // Offers fly two flags: a pennant for the part's type and a banner in its rarity's colour.
+  const TYPE_PENNANT = { weapon: 'rocket', defense: 'tower', support: 'wrench', utility: 'gear' };
+  const RARITY_BANNER = { common: 'grey', uncommon: 'blue', rare: 'red' };
   function partSheet(id, extra) {
     const d = D.PARTS[id];
     return h('div', { class: `enc part ${d.rarity}` },
+      h('div', { class: 'flags', 'aria-hidden': 'true' },
+        h('img', { src: `assets/art/ui/pennant-${TYPE_PENNANT[d.type]}.png`, alt: '' }),
+        h('img', { src: `assets/art/ui/banner-${RARITY_BANNER[d.rarity]}.png`, alt: '' })),
       h('div', { class: 'row' }, h('span', { class: `type-chip ${d.type}` }, d.type), h('span', { class: `rarity-chip ${d.rarity}` }, d.rarity)),
       h('div', { class: 'part-head' }, h('img', { class: 'part-art', src: `assets/art/cards/${id}.jpg`, alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }), h('h3', {}, d.name)),
       statline(`Weight ${fmt(d.weight)}`, `Durability ${d.hp}`, d.cost != null ? `${d.cost} Steam` : 'Passive'),

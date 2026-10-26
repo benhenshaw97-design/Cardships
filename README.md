@@ -67,15 +67,20 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/ui/*.png` | Pieces of `assets/art/source/ui-brass-kit.png`: flight-view corners, card plates, rarity gems, gauge bars |
 | `assets/art/cards/*.jpg`, `assets/art/cores/*.jpg`, `assets/art/icons/*.png` | Part pictures, Core portraits and map icons, cut from `assets/art/source/ui/` by `python3 tools/build_ui_art.py` |
 | `assets/art/status/*.png`, `assets/art/bits/*.png`, `assets/art/scenes/*.jpg`, `assets/art/skies/*.jpg` | Status icons, dice faces, coins, debris, badges, gulls, event banners and biome skies, cut from `assets/art/source/ui2/` and the sky paintings by the same script |
+| `assets/art/ui/map-sky.jpg`, `map-frame.png` | The sky map's painted chart and brass frame, from `assets/art/source/ui2/map-chart.png` |
+| `assets/art/ui/pennant-*.png`, `banner-*.png`, `padlock.png`, `btn-*.png` | Pieces of `assets/art/source/ui2/ui-kit-2.png`: type pennants and rarity banners on offers, the lock on locked Cores, the Settings gear |
 | `assets/art/ui/wall-*.jpg` | Riveted wall textures: the page background (plates) and the header (gear-work) |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |
 | `assets/art/ship-parts.png` | Sprite atlas cut from `assets/art/source/ship-parts-sheet.png` (rebuild with `python3 tools/build_sprites.py`): the four full ships (yours and the pirates'), flags, map marker, clouds, smoke trail |
 | `assets/art/fx.png` | Effects atlas cut from `assets/art/source/fx-sheet.png`, `fx-sheet-2.png` and `effects-board.jpg` (keyed off its navy background): explosions, blasts, smoke clouds, muzzle flashes, rockets, bullets, fireballs, flames, napalm, lightning bolts and cracks, glue globs and spray, splashes |
 | `assets/art/parts.png` | Steampunk parts atlas cut from `assets/art/source/parts-sheet.png`: guns, gatlings, rocket racks, boilers, engines, gears, armour plates, chests, spyglass, compass, propellers (cut but not used at the moment) |
-| `assets/music/pirate-battle-1` | Title, sky map, docks, victory, defeat |
-| `assets/music/pirate-battle-2` | Standard combat |
+| `assets/music/pirate-battle-1` | Title, sky map, docks |
+| `assets/music/pirate-battle-2`, `pirate-battle-4`, `pirate-battle-5` | Standard combat (each fight plays the next one) |
 | `assets/music/pirate-battle-3` | Boss (stepping up per phase) and hazards |
+| `assets/music/victory-at-sea` | Spoils after a won fight |
+| `assets/music/victors-trumpet-call` | Winning the run |
+| `assets/music/pirate-defeat` | Defeat |
 
 Ships are drawn at a low "art pixel" resolution and scaled up unsmoothed, with every sprite hardened and given a one-pixel ink outline. The effects are painted on a matching low-resolution layer, so ships and effects share one pixel grid.
 

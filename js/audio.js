@@ -1,4 +1,4 @@
-// Music and sound. Three provided tracks are assigned to scenes ("cues") with their own start
+// Music and sound. The provided tracks are assigned to scenes ("cues") with their own start
 // section, filter and rate; scene changes crossfade, tracks loop seamlessly by crossfading two
 // players, the boss fight steps up a section per phase, and low hull health filters the music.
 // Sound effects are synthesised with WebAudio unless a file is registered for that name.
@@ -7,17 +7,24 @@
     roam: { src: 'assets/music/pirate-battle-1', loopEnd: 186.5 },   // ~83 BPM, wide dynamics
     battle: { src: 'assets/music/pirate-battle-2', loopEnd: 233.0 }, // ~99 BPM, steady and loud
     boss: { src: 'assets/music/pirate-battle-3', loopEnd: 194.2 },   // ~123 BPM, breakdown then climax
+    battle4: { src: 'assets/music/pirate-battle-4', loopEnd: 142.8 },
+    battle5: { src: 'assets/music/pirate-battle-5', loopEnd: 140.6 },
+    spoils: { src: 'assets/music/victory-at-sea', loopEnd: 134.1 },
+    fanfare: { src: 'assets/music/victors-trumpet-call', loopEnd: 162.8 },
+    lament: { src: 'assets/music/pirate-defeat', loopEnd: 156.1 },
   };
   // cutoff: low-pass filter in Hz (20000 = open). rate < 1 slows and lowers the track.
+  // A list of tracks takes turns: each new fight plays the next one.
   const CUES = {
     title: { track: 'roam', start: 0, gain: 0.75, cutoff: 1500 },
     map: { track: 'roam', start: 8, gain: 0.8, cutoff: 20000 },
     dock: { track: 'roam', start: 48, gain: 0.6, cutoff: 900 },
-    combat: { track: 'battle', start: 0, gain: 0.85, cutoff: 20000 },
+    combat: { track: ['battle', 'battle4', 'battle5'], start: 0, gain: 0.85, cutoff: 20000 },
     hazard: { track: 'boss', start: 79, gain: 0.75, cutoff: 2600 },
     boss: { track: 'boss', start: 0, gain: 0.8, cutoff: 3200 },
-    victory: { track: 'roam', start: 139, gain: 0.9, cutoff: 20000 },
-    defeat: { track: 'roam', start: 119, gain: 0.7, cutoff: 700, rate: 0.82 },
+    spoils: { track: 'spoils', start: 0, gain: 0.8, cutoff: 20000 },
+    victory: { track: 'fanfare', start: 0, gain: 0.9, cutoff: 20000 },
+    defeat: { track: 'lament', start: 0, gain: 0.8, cutoff: 20000 },
   };
   // Each boss phase jumps to a hotter section of the boss track and opens the filter.
   const BOSS_STEPS = [{ start: 0, cutoff: 3200, gain: 0.8 }, { start: 100, cutoff: 9000, gain: 0.88 }, { start: 168, cutoff: 20000, gain: 0.95 }];
@@ -33,6 +40,7 @@
   let current = null; // { cue, players, step }
   let wanted = null;
   let tension = false;
+  let turn = 0; // which of a cue's tracks plays next
   const sampleCache = {};
 
   function ext() {
@@ -130,7 +138,8 @@
     const cue = CUES[name];
     if (!cue || !ctx) return;
     if (!force && current && current.cue === name) return;
-    const sameTrack = current && current.trackId === cue.track && !cue.rate && !(current.rate) && name !== 'victory' && name !== 'defeat';
+    const track = Array.isArray(cue.track) ? cue.track[turn++ % cue.track.length] : cue.track;
+    const sameTrack = current && current.trackId === track && !cue.rate && !(current.rate) && name !== 'victory' && name !== 'defeat';
     if (sameTrack) {
       current.cue = name;
       fade(current.players[current.players.length - 1], cue.gain, FADE);
@@ -138,8 +147,8 @@
       return;
     }
     if (current) for (const pl of current.players) fade(pl, 0, FADE);
-    const pl = makePlayer(cue.track, cue.start, cue.rate);
-    current = { cue: name, trackId: cue.track, players: [pl], step: 0, rate: cue.rate, cutoff: cue.cutoff };
+    const pl = makePlayer(track, cue.start, cue.rate);
+    current = { cue: name, trackId: track, players: [pl], step: 0, rate: cue.rate, cutoff: cue.cutoff };
     fade(pl, cue.gain, FADE);
     setFilter(cue.cutoff);
   }

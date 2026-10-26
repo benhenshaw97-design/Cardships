@@ -108,7 +108,11 @@
     // The sky shifts through the biome bands from left to right.
     const stops = [];
     for (let c = 1; c <= cols; c++) stops.push(`${BIOME_SKY[D.BIOME_BANDS.find((b) => c <= b.upTo).biome]} ${(((pad + c * colW) / width) * 100).toFixed(1)}%`);
-    inner.style.background = `linear-gradient(90deg, ${BIOME_SKY.clear} 0%, ${stops.join(', ')})`;
+    // The painted sky chart sits under a tint of each band's colour.
+    const tint = document.createElement('div');
+    tint.className = 'map-tint';
+    tint.style.background = `linear-gradient(90deg, ${BIOME_SKY.clear} 0%, ${stops.join(', ')})`;
+    inner.append(tint);
 
     const r = rng(game.seed);
     const far = sceneryLayer('far', 11, width, H, r, island);
@@ -197,7 +201,14 @@
       requestAnimationFrame(() => { ship.style.transform = `translate(${t.x}px, ${t.y}px)`; });
       setTimeout(done, reduce ? 0 : 950);
     };
-    return wrap;
+    // The chart's brass frame stays put while the route scrolls beneath it.
+    const shell = document.createElement('div');
+    shell.className = 'skymap-shell';
+    const frame = document.createElement('div');
+    frame.className = 'map-frame';
+    shell.append(wrap, frame);
+    shell.flyTo = wrap.flyTo;
+    return shell;
   }
 
   window.CardshipsSkyMap = { render, icon };

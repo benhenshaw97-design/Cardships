@@ -17,8 +17,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'assets/art/source/ui')
 
 # Cards in sheet order (left to right, top to bottom). Some support cards on the sheet carry the
-# wrong name for what they show, so they are matched by their pictures. Auxiliary Boiler and Supply
-# Hatch have no card yet; the misspelt second Overpressure Valve is the Clockwork Heart's picture.
+# wrong name for what they show, so they are matched by their pictures. Supply Hatch has its own
+# sheet; the misspelt second Overpressure Valve is the Clockwork Heart's picture.
 CARD_ORDER = [
     'harpoon', 'grapnel', 'cannon', 'mortar', 'flamethrower', 'gatling', 'sniper', 'rockets', 'flak', 'tesla',
     'plating', 'bulwark', 'deflector', 'repair', 'quarters', 'boiler', 'sprinkler', 'scrubber', 'heart', 'overpressure',
@@ -60,6 +60,13 @@ def main():
         art = sheet.crop((x0 + round(w * 0.07), y0 + round(h * 0.13), x1 - round(w * 0.07), y0 + round(h * 0.77)))
         art.thumbnail((240, 240), Image.LANCZOS)
         art.save(os.path.join(ROOT, 'assets/art/cards', pid + '.jpg'), quality=86)
+    # The Supply Hatch came later, on a sheet of its own.
+    sheet = Image.open(os.path.join(SRC, 'supply-hatch.png')).convert('RGB')
+    (x0, y0, x1, y1), = boxes(sheet, 100000)
+    w, h = x1 - x0, y1 - y0
+    art = sheet.crop((x0 + round(w * 0.04), y0 + round(h * 0.15), x1 - round(w * 0.04), y0 + round(h * 0.78)))
+    art.thumbnail((240, 240), Image.LANCZOS)
+    art.save(os.path.join(ROOT, 'assets/art/cards', 'hatch.jpg'), quality=86)
     sheet = Image.open(os.path.join(SRC, 'core-portraits.png')).convert('RGB')
     cores = boxes(sheet, 100000)
     assert len(cores) == len(CORE_ORDER), len(cores)
@@ -173,6 +180,59 @@ def batch2():
     print(f'status, dice, {len(COINS)} coins, {len(BADGES)} badges, {k} debris, {i} scenes, gulls, skies')
 
 
+def map_chart():
+    """The sky chart: its sky (behind the map) and its brass frame (around it), gears removed so
+    the frame's edges stretch cleanly as a border image."""
+    im = Image.open(os.path.join(SRC2, 'map-chart.png')).convert('RGB')
+    W, H = im.size
+    sky = im.crop((30, 64, W - 30, H - 92))  # clear of the gears that hang off the middle of each bar
+    sky.thumbnail((1600, 1600), Image.LANCZOS)
+    sky.save(os.path.join(ROOT, 'assets/art/ui/map-sky.jpg'), quality=80)
+    fr = im.convert('RGBA')
+    # Cover the middle gears on the top and bottom bars with a plain stretch of bar.
+    for y0, y1 in ((0, 72), (H - 72, H)):
+        fr.paste(fr.crop((880, y0, 1000, y1)), (1026, y0))
+        fr.paste(fr.crop((880, y0, 940, y1)), (1146, y0))
+    # Keep only metal: the bars along each edge, plus the brass and dark ink of the corner plates
+    # and side brackets. Sky and cloud inside the frame become transparent.
+    A = np.array(fr).astype(int)
+    r, g, b = A[..., 0], A[..., 1], A[..., 2]
+    lum = 0.3 * r + 0.59 * g + 0.11 * b
+    metal = (lum < 80) | ((r - b) > 0.42 * np.maximum(r, 1))
+    yy, xx = np.mgrid[:H, :W]
+    edge = np.minimum(np.minimum(xx, W - 1 - xx), np.minimum(yy, H - 1 - yy))
+    bars = (np.minimum(xx, W - 1 - xx) < 22) | (yy < 31) | ((H - 1 - yy) < 40)
+    plates = (edge < 72) & ~bars & ndimage.binary_opening(metal, iterations=2)
+    lab, n = ndimage.label(plates)
+    # Corner plates and brackets are chunky; rust flecks and the thin lip along the bars are not.
+    chunky = [i + 1 for i, o in enumerate(ndimage.find_objects(lab)) if min(o[0].stop - o[0].start, o[1].stop - o[1].start) >= 24]
+    plates = np.isin(lab, chunky)
+    keep = bars | plates
+    A[..., 3] = np.where(keep, 255, 0)
+    fr = Image.fromarray(A.astype(np.uint8), 'RGBA')
+    fr = fr.resize((W // 2, H // 2), Image.LANCZOS)
+    fr.save(os.path.join(ROOT, 'assets/art/ui/map-frame.png'), optimize=True)
+
+
+# Pieces of the second UI kit (ui-kit-2.png), by their boxes on the sheet.
+KIT2 = {
+    'pennant-gear': (15, 831, 70, 969), 'pennant-crate': (79, 831, 133, 969), 'pennant-wrench': (141, 831, 196, 968),
+    'pennant-rocket': (204, 831, 259, 969), 'pennant-ladder': (267, 831, 322, 969), 'pennant-balloon': (329, 831, 384, 968),
+    'pennant-tower': (392, 831, 447, 969), 'pennant-compass': (455, 831, 510, 969),
+    'banner-red': (1225, 381, 1283, 499), 'banner-blue': (1286, 381, 1345, 505), 'banner-green': (1348, 380, 1408, 500),
+    'banner-grey': (1409, 381, 1468, 499),
+    'padlock': (1394, 690, 1436, 761), 'btn-gear': (200, 701, 265, 768), 'btn-home': (124, 701, 189, 768),
+}
+
+
+def kit2():
+    sheet = Image.open(os.path.join(SRC2, 'ui-kit-2.png')).convert('RGB')
+    for name, (x0, y0, x1, y1) in KIT2.items():
+        save_small(lift(sheet.crop((x0 - 6, y0 - 6, x1 + 6, y1 + 6))), os.path.join(ROOT, 'assets/art/ui', name + '.png'), 96)
+
+
 if __name__ == '__main__':
     main()
     batch2()
+    map_chart()
+    kit2()

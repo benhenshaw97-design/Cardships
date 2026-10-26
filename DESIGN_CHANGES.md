@@ -498,4 +498,23 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
 - **Dice.** Rolled dice show the painted brass-cornered faces. The drawn pips stay as a fallback while the images load.
 - **Debris and cogs.** Hits throw painted scrap (gears, bolts, shards, a wrench for repairs) instead of drawn shapes. Cog rewards spray spinning coins.
 - **Unlock badges.** The title screen's unlocks show the badge art.
-- **Still missing:** the Supply Hatch card picture, enemy portraits, enemy move icons and a full-size distant-airships layer. `bits-a.png` is an alternate copy of the bits sheet and is not used.
+- **Still missing:** enemy portraits, enemy move icons and a full-size distant-airships layer. `bits-a.png` is an alternate copy of the bits sheet and is not used.
+
+## More music, the Supply Hatch card, a painted sky chart and the second UI kit
+
+- **Music.**
+  - Fights take turns between Pirate Battle 2, 4 and 5, so back-to-back fights don't repeat the same track.
+  - Winning a fight plays Victory at Sea while you choose spoils.
+  - Winning the run plays Victor's Trumpet Call.
+  - Defeat plays Pirate Defeat instead of a slowed, muffled cut of the roaming track.
+  - Each track has an AAC copy for Safari, like the first three.
+- **Supply Hatch** now has its card picture, so every part has art.
+- **Sky map.**
+  - The route is drawn on the painted sky chart, with each biome band's colour blended over it.
+  - The chart's brass frame stays fixed while the route scrolls beneath it.
+  - The frame's middle gears are painted out so its bars stretch cleanly.
+- **Second UI kit.**
+  - Part offers fly a pennant for the part's type (rocket for weapons, tower for defence, wrench for support, gear for utility) and a banner in the rarity colour (grey, blue, red, matching the gems).
+  - Locked Cores show a padlock.
+  - The Settings button has the brass gear.
+- **Still missing:** enemy portraits, enemy move icons and a full-size distant-airships layer.
