@@ -7,9 +7,8 @@
   if (isNode) module.exports = api;
   else root.CardshipsEngine = api;
 })(this, function (D) {
-  const { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
+  const { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
 
-  const BOSS_COL = 12;
   const BASE_SIGHT = 2;
   const SNAP_DAMAGE = 6;
   const STORAGE_SLOTS = 2;
@@ -39,7 +38,8 @@
     constructor(opts = {}) {
       this.seed = opts.seed != null ? opts.seed >>> 0 : (Math.floor(Math.random() * 2 ** 32) >>> 0);
       this.rngState = this.seed;
-      this.maxDepth = BOSS_COL;
+      this.area = 0; // which of the three areas the run is in (AREAS)
+      this.maxDepth = AREAS[0].cols;
       this.unlocked = opts.unlocked || null; // ids unlocked by meta-progression; null = everything
       this.nextUid = 1;
       this.log = [];
@@ -55,7 +55,9 @@
       this.storage = [];
       this.depth = 0;
       this.map = null;
-      this.bossId = opts.boss || null;
+      this.bossIds = opts.bosses || (opts.boss ? [opts.boss] : null); // one boss per area, rolled at the start
+      this.bossId = null; // the current area's boss
+      this.portalReady = false; // the area's boss is down: a portal opens once the spoils are in
       this.sightMoves = 0;
       this.cogs = BALANCE.startCogs;
       this.shop = null;
@@ -71,7 +73,7 @@
       this.swapAvailable = false;
       this.pendingChoice = null;
       this.won = false;
-      this.stats = { encounters: 0, kills: 0, dmgDealt: 0, dmgTaken: 0, parts: 0, quests: 0, cogs: 0, elites: 0, reachedBoss: false };
+      this.stats = { encounters: 0, kills: 0, dmgDealt: 0, dmgTaken: 0, parts: 0, quests: 0, cogs: 0, elites: 0, reachedBoss: false, areasCleared: 0, bossesFought: [], bossesKilled: [] };
     }
 
     // ---------- save / load ----------
@@ -406,9 +408,10 @@
       this.cogs += sh.cogs || 0;
       this.buildShip(c.start);
       this.say(`${c.name} aboard the ${sh.name}. Starting modules: ${c.start.map(([p]) => PARTS[p].name).join(', ')}.`, 'sys');
-      if (!this.bossId) this.bossId = this.pick(BOSSES);
+      this.rollBosses();
+      this.bossId = this.bossIds[0];
       this.generateMap();
-      this.say(`Your charts mark the final threat: ${ENEMIES[this.bossId].name}.`, 'warn');
+      this.say(`${AREAS[0].name}. Your charts mark the first threat: ${ENEMIES[this.bossId].name}.`, 'warn');
       this.openLoot('Starter draft', { ids: this.partOffer(3, 'normal', (p) => p.rarity === 'common'), keep: 1 }, []);
     }
 
@@ -520,10 +523,44 @@
       return true;
     }
 
+    // ---------- areas and portals ----------
+    areaDef() { return AREAS[this.area] || AREAS[0]; }
+    // One boss per area, each different (given ones, e.g. from tests, are kept).
+    rollBosses() {
+      const ids = (this.bossIds || []).slice(0, AREAS.length);
+      for (let i = ids.length; i < AREAS.length; i++) {
+        const pool = AREAS[i].bosses.filter((b) => !ids.includes(b));
+        ids.push(this.pick(pool.length ? pool : AREAS[i].bosses));
+      }
+      this.bossIds = ids;
+    }
+    // How far the run has come: columns cleared across every area so far.
+    progress() { return AREAS.slice(0, this.area).reduce((s, a) => s + a.cols, 0) + this.depth; }
+    // Through the portal into the next area: the ship and every module carry over, the Core is
+    // fully repaired, and a new route is charted.
+    crossPortal() {
+      if (this.phase !== 'portal') return false;
+      this.area++;
+      this.portalReady = false;
+      this.bossId = this.bossIds[this.area];
+      this.depth = 0;
+      this.sightMoves = 0;
+      this.maxDepth = this.areaDef().cols;
+      this.generateMap();
+      this.emit('portal', { area: this.area });
+      this.say(`— ${this.areaDef().name} —`, 'head');
+      this.say(`You burst out of the portal into ${this.areaDef().name}. Its master: ${ENEMIES[this.bossId].name}.`, 'warn');
+      const missing = this.maxHp(this.core) - this.core.hp;
+      if (missing > 0) this.healCore(missing);
+      this.phase = 'map';
+      return true;
+    }
+
     // ---------- sky map ----------
-    // Columns 1-11 hold 2-4 nodes each; column 12 is the boss. Edges only run to the next column.
+    // Columns 1 to cols-1 hold 2-4 nodes each; the last column is the boss. Edges only run to the next column.
     generateMap() {
-      const nodes = [{ id: 'n0', col: 0, y: 0.5, enc: 'start', edges: [], biome: 'clear' }];
+      const A = this.areaDef(), BOSS_COL = A.cols;
+      const nodes = [{ id: 'n0', col: 0, y: 0.5, enc: 'start', edges: [], biome: A.bands[0].biome }];
       let prev = [nodes[0]];
       for (let col = 1; col <= BOSS_COL; col++) {
         const count = col === BOSS_COL ? 1 : col === 1 ? 2 + Math.floor(this.rand() * 2) : 2 + Math.floor(this.rand() * 3);
@@ -535,10 +572,10 @@
         for (const n of colNodes) {
           if (col === BOSS_COL) { n.enc = 'boss'; n.enemy = this.bossId; }
           else n.enc = this.rollNodeType(col);
-          if (n.enc === 'patrol') n.enemy = this.pick(ENEMY_TIERS.find((t) => col <= t.upTo).pool);
-          if (n.enc === 'lair') n.enemy = this.pick(ELITES);
-          if (n.enc === 'beacon') n.enemy = col <= 4 ? 'skiff' : 'cutter';
-          n.biome = ENCOUNTERS[n.enc].biome || BIOME_BANDS.find((b) => col <= b.upTo).biome;
+          if (n.enc === 'patrol') n.enemy = this.pick(A.tiers.find((t) => col <= t.upTo).pool);
+          if (n.enc === 'lair') n.enemy = this.pick(A.elites);
+          if (n.enc === 'beacon') n.enemy = A.beacon[col <= 4 ? 0 : 1];
+          n.biome = n.enc === 'boss' ? A.bossBiome : (this.area === 0 && ENCOUNTERS[n.enc].biome) || A.bands.find((b) => col <= b.upTo).biome;
           n.cloud = col > 1 && col < BOSS_COL && this.rand() < 0.22; // type hidden until close or spotted
         }
         // Connect without crossings: each previous node links to the proportionally nearest node(s).
@@ -562,7 +599,7 @@
       // Guarantee a Sky Dock right before the boss and a place to spend cogs midway.
       const pre = nodes.filter((n) => n.col === BOSS_COL - 1);
       if (!pre.some((n) => n.enc === 'hangar')) Object.assign(this.pick(pre), { enc: 'hangar', enemy: undefined, cloud: false });
-      const mid = nodes.filter((n) => n.col === 6);
+      const mid = nodes.filter((n) => n.col === A.midCol);
       if (!mid.some((n) => n.enc === 'trader' || n.enc === 'hangar')) Object.assign(this.pick(mid), { enc: 'trader', enemy: undefined });
       this.paceFights(nodes);
       for (const n of nodes) if (!n.enemy) delete n.enemy;
@@ -572,17 +609,18 @@
     // a row and BALANCE.maxCalm in all. A stop that would break either becomes a Pirate Patrol (the
     // guaranteed Sky Dock and mid-route trader stay as they are).
     paceFights(nodes) {
+      const A = this.areaDef(), BOSS_COL = A.cols;
       const fight = (n) => ['patrol', 'lair', 'beacon', 'start'].includes(n.enc);
       const run = { n0: 0 }, calm = { n0: 0 };
       for (let col = 1; col < BOSS_COL; col++) {
         for (const n of nodes.filter((x) => x.col === col)) {
           const parents = nodes.filter((p) => p.edges.includes(n.id));
           const pr = Math.max(...parents.map((p) => run[p.id])), pc = Math.max(...parents.map((p) => calm[p.id]));
-          const forced = (col === BOSS_COL - 1 && n.enc === 'hangar') || (col === 6 && n.enc === 'trader');
+          const forced = (col === BOSS_COL - 1 && n.enc === 'hangar') || (col === A.midCol && n.enc === 'trader');
           if (!fight(n) && !forced && (pr >= BALANCE.maxCalmRun || pc >= BALANCE.maxCalm)) {
             n.enc = 'patrol';
-            n.enemy = this.pick(ENEMY_TIERS.find((t) => col <= t.upTo).pool);
-            n.biome = BIOME_BANDS.find((b) => col <= b.upTo).biome;
+            n.enemy = this.pick(A.tiers.find((t) => col <= t.upTo).pool);
+            n.biome = A.bands.find((b) => col <= b.upTo).biome;
           }
           run[n.id] = fight(n) ? 0 : pr + 1;
           calm[n.id] = pc + (fight(n) ? 0 : 1);
@@ -591,8 +629,8 @@
     }
     rollNodeType(col) {
       if (col === 1) return this.rand() < 0.75 ? 'patrol' : 'beacon';
-      const w = { ...NODE_WEIGHTS };
-      if (col < 4) w.lair = 0;
+      const w = { ...this.areaDef().nodeWeights };
+      if (col < this.areaDef().lairFrom) w.lair = 0;
       if (col < 3) w.hangar = 0;
       return this.weighted(w);
     }
@@ -609,7 +647,7 @@
     mapChoices() { return this.currentNode().edges.map((id) => this.node(id)); }
     enterMap() {
       if (this.won) { this.phase = 'victory'; return; }
-      this.phase = 'map';
+      this.phase = this.portalReady ? 'portal' : 'map';
     }
     travel(id) {
       if (this.phase !== 'map' || !this.currentNode().edges.includes(id)) return false;
@@ -626,7 +664,7 @@
       const enc = ENCOUNTERS[node.enc];
       this.stats.encounters++;
       this.say(`— ${node.enc === 'boss' ? ENEMIES[node.enemy].name : enc.name} —`, 'head');
-      if (node.enc === 'boss') this.stats.reachedBoss = true;
+      if (node.enc === 'boss') { this.stats.reachedBoss = true; this.stats.bossesFought.push(node.enemy); }
       if (['patrol', 'lair', 'boss'].includes(node.enc)) return this.startCombat(node.enemy, node);
       if (node.enc === 'hangar') return this.enterHangar(node);
       if (node.enc === 'trader') return this.enterShop(node);
@@ -1184,12 +1222,14 @@
     startCombat(enemyId, node, opts = {}) {
       const e = ENEMIES[enemyId];
       const col = node.col || 1;
-      const hpScale = e.boss ? BALANCE.bossHp : 1 + BALANCE.hpPerColumn * (col - 1);
+      const A = this.areaDef();
+      const hpScale = e.boss ? BALANCE.bossHp * A.bossHp : (1 + BALANCE.hpPerColumn * (col - 1)) * A.hp;
       const hp = Math.round(e.hp * hpScale);
+      const dmgBonus = e.boss ? (this.area ? A.dmg : 0) : A.dmg + A.veteranColumns.filter((c) => col >= c).length;
       this.event = null;
       this.combat = {
         enc: node.enc || 'patrol', enemyId, col,
-        enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus: e.boss ? 0 : BALANCE.veteranColumns.filter((c) => col >= c).length, block: opts.block || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
+        enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
         galeSide: 'bow', turnDamage: 0, rodCharge: 0,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
@@ -1487,9 +1527,18 @@
       if (c.round <= 3) this.questEvent('quickWin');
       if (['ram', 'bombard'].includes(c.lastSource)) this.questEvent('ramKill');
       if (def.boss) {
-        this.won = true;
-        this.phase = 'victory';
-        this.say(`${def.name} breaks apart and falls through the clouds. Victory!`, 'good');
+        this.stats.bossesKilled.push(c.enemyId);
+        this.stats.areasCleared++;
+        if (this.area >= AREAS.length - 1) {
+          this.won = true;
+          this.phase = 'victory';
+          this.say(`${def.name} breaks apart and falls through the clouds. Victory!`, 'good');
+          return;
+        }
+        this.say(`${def.name} breaks apart. Where it fell, the sky tears open into a swirling portal.`, 'good');
+        this.portalReady = true;
+        this.gainCogs(BALANCE.bossCogs, 'boss bounty');
+        this.openLoot('Boss spoils', { ids: this.partOffer(3, 'elite'), keep: 1 }, []);
         return;
       }
       const tier = c.col <= 3 ? 1 : c.col <= 7 ? 2 : 3;

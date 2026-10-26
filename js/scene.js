@@ -452,7 +452,7 @@
     setMode(mode) { this.mode = mode; }
     // A sudden lurch, e.g. a Ram: the world snaps backwards and the camera shakes.
     jolt(power = 1) { this.joltV = -260 * power; this.kick(10 * power); }
-    kick(amount) { this.shake = Math.max(this.shake, amount); }
+    kick(amount) { this.shake = Math.min(32, Math.max(this.shake, amount)); } // capped: no hit shakes the view off its frame
     frame(now) {
       let dt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;

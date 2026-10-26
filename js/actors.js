@@ -15,6 +15,7 @@
     intent: null,
     onSelect: null,
     reserve: 0,
+    portal: null, // a portal crossing in progress: { k: 0..1 drawn into the vortex, at: {x, y} }
 
     reset() { this.player = new PlayerShip(); this.enemy = null; this.enemyKey = null; },
     // Before an event sequence plays: switch layout and make sure the enemy is on screen,
@@ -114,7 +115,16 @@
         window.CardshipsSprites.draw(g, 'trail_smoke', L.player.x - e.left * L.P - tw / 2 + 6, L.player.y - this.player.size.h * 0.35 * L.P + bob, tw, null, true);
         g.restore();
       }
-      if (this.phase !== 'gameover' || this.player.dying > 0) this.player.draw(g, L.player.x, L.player.y + bob, L.P, v.t);
+      // A portal swirls behind the ships; crossing it draws your ship in, shrinking, then back out.
+      if (window.CardshipsFX.drawPortal) window.CardshipsFX.drawPortal(g, v);
+      let px = L.player.x, py = L.player.y + bob, pP = L.P;
+      if (this.portal && this.portal.k > 0) {
+        const k = this.portal.k, at = this.portal.at;
+        px += (at.x - px) * k;
+        py += (at.y + this.player.size.h * L.P * 0.4 - py) * k;
+        pP = L.P * (1 - 0.85 * k);
+      }
+      if (this.phase !== 'gameover' || this.player.dying > 0) this.player.draw(g, px, py, pP, v.t);
       if (L.enemy && this.enemy) this.enemy.draw(g, L.enemy.x, L.enemy.y - bob, L.enemy.P, v.t);
       if (this.phase === 'combat' && this.enemy && this.intent && !window.CardshipsFX.isPlaying()) this.drawIntent(g, v);
       if (this.enemy && this.enemy.sinking > 3) { this.enemy = null; this.enemyKey = null; }

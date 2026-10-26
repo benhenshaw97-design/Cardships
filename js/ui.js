@@ -65,7 +65,7 @@
   let game = null;
   let meta = Meta.load();
   const ui = { insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
-  const SAVE_KEY = 'cardships.run.v4'; // v4: two-deck grid
+  const SAVE_KEY = 'cardships.run.v5'; // v5: three-area runs // v4: two-deck grid
   function loadSave() { try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
   function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage unavailable */ } }
   // Autosave: the whole run, dice generator included, after every change.
@@ -134,7 +134,7 @@
     const cue = {
       combat: node && node.enc === 'boss' ? 'boss' : 'combat',
       event: ['storm', 'smog', 'beacon'].includes(enc) ? 'hazard' : 'map',
-      hangar: 'dock', shop: 'dock', loot: 'spoils', gameover: 'defeat', victory: 'victory',
+      hangar: 'dock', shop: 'dock', loot: 'spoils', portal: 'spoils', gameover: 'defeat', victory: 'victory',
     }[game.phase] || 'map';
     Audio.setScene(cue);
     Audio.setTension(game.phase === 'combat' && game.core.hp / game.maxHp(game.core) <= 0.34);
@@ -161,8 +161,8 @@
     if (phase === 'victory' || phase === 'gameover') { scene.setBiome(phase === 'victory' ? 'victory' : 'defeat'); scene.setMode('docked'); }
     else if (phase === 'hangar') { scene.setBiome('dock'); scene.setMode('docked'); }
     else if (phase === 'shop') { scene.setBiome('interior'); scene.setMode('docked'); }
-    else if (phase === 'combat') { scene.setBiome(node && node.enc === 'boss' ? 'lair' : here); scene.setMode('combat'); }
-    else { scene.setBiome(here); scene.setMode(ui.flying ? 'travel' : 'flight'); }
+    else if (phase === 'combat') { scene.setBiome(here); scene.setMode('combat'); }
+    else { scene.setBiome(here); scene.setMode(ui.flying || ui.portaling ? 'travel' : 'flight'); }
   }
   // Animates whatever just happened in the game, then redraws the panels.
   function render() {
@@ -214,6 +214,7 @@
   }
   function stageContent() {
     if (!game) return titleScreen();
+    if (ui.portaling) return []; // nothing in the way of the crossing
     if (game.pendingChoice) {
       const pc = game.pendingChoice;
       ui.targeting = { prompt: pc.prompt, eligible: pc.eligible, onPick: (uid) => game.resolveChoice(uid), cancelable: false };
@@ -225,6 +226,7 @@
       case 'hangar': return hangarScreen();
       case 'shop': return shopScreen();
       case 'combat': return combatScreen();
+      case 'portal': return ui.portaling ? [] : portalScreen();
       case 'gameover':
       case 'victory': return endScreen();
       default: return titleScreen();
@@ -246,7 +248,8 @@
   function renderHud() {
     const hud = $('hud');
     if (!game || !game.core) { hud.replaceChildren(); return; }
-    const route = h('div', { class: 'route', title: `Column ${game.depth} of ${game.maxDepth}` });
+    const A = game.areaDef();
+    const route = h('div', { class: 'route', title: `${A.name}: column ${game.depth} of ${game.maxDepth}` }, h('span', { class: 'route-area' }, A.numeral));
     for (let i = 1; i <= game.maxDepth; i++) {
       const cls = [i < game.depth || (i === game.depth && game.phase === 'map') ? 'done' : '', i === game.depth && game.phase !== 'map' ? 'here' : '', i === game.maxDepth ? 'boss' : ''].join(' ');
       route.append(h('i', { class: cls }));
@@ -321,7 +324,7 @@
     return [
       saved && saved.core ? h('div', { class: 'panel row', style: 'justify-content:space-between' },
         h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, 'Autosaved run'),
-          h('b', {}, `${D.CORES[saved.core.id].name} · column ${saved.depth} of ${saved.maxDepth} · seed ${Game.seedCode(saved.seed)}`)),
+          h('b', {}, `${D.CORES[saved.core.id].name} · Area ${D.AREAS[saved.area || 0].numeral}, column ${saved.depth} of ${saved.maxDepth} · seed ${Game.seedCode(saved.seed)}`)),
         h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => continueRun(saved) }, 'Continue run'), h('button', { class: 'btn', onclick: () => { clearSave(); render(); } }, 'Abandon'))) : null,
       h('div', { class: 'cores' }, cores),
       shipPicker(),
@@ -675,7 +678,7 @@
       h('span', { class: `k-${D.ENCOUNTERS[id].kind.replace(' ', '')}` }, SkyMap.icon(id, 16), D.ENCOUNTERS[id].name)));
     const panel = h('section', { class: 'panel stack map-panel' },
       h('div', { class: 'row', style: 'justify-content:space-between' },
-        h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, `Column ${game.depth} of ${game.maxDepth} · sight ${game.sight()} · seed ${Game.seedCode(game.seed)}`), h('h2', {}, 'Sky route')),
+        h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, `Area ${game.areaDef().numeral} · column ${game.depth} of ${game.maxDepth} · sight ${game.sight()} · seed ${Game.seedCode(game.seed)}`), h('h2', {}, game.areaDef().name)),
         h('span', { class: 'muted' }, `Ahead: ${D.ENEMIES[game.bossId].name}`)),
       mapEl, detail, legend);
     return panel;
@@ -870,6 +873,7 @@
       case 'event': return game.event ? D.ENCOUNTERS[game.event.enc].name : 'Encounter';
       case 'hangar': return 'Sky Dock';
       case 'shop': return 'Trading Zeppelin';
+      case 'portal': return 'The portal';
       case 'victory': return 'Victory';
       case 'gameover': return 'Defeat';
       default: return '';
@@ -1065,6 +1069,35 @@
   }
   (function follow() { placeBattle(); requestAnimationFrame(follow); })();
 
+  // ---------- the portal ----------
+  // The boss is down and its spoils are in: a portal swirls where it fell.
+  function portalScreen() {
+    const next = D.AREAS[game.area + 1];
+    const beaten = D.ENEMIES[game.bossId];
+    const missing = game.maxHp(game.core) - game.core.hp;
+    return [h('section', { class: 'panel stack portal-panel' },
+      h('span', { class: 'eyebrow' }, `Area ${game.areaDef().numeral} cleared`),
+      h('h2', {}, `Into ${next.name}`),
+      h('p', {}, `${beaten.name} is down, and the sky has torn open where it fell. Beyond the vortex: ${next.blurb.charAt(0).toLowerCase() + next.blurb.slice(1)}`),
+      h('ul', { class: 'notes' },
+        h('li', {}, 'Every installed module flies through with you.'),
+        h('li', {}, missing > 0 ? `The crossing fully repairs your Core (+${missing}).` : 'The crossing fully repairs your Core.'),
+        h('li', {}, `Its master: ${D.ENEMIES[game.bossIds[game.area + 1]].name}.`)),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: enterPortal }, 'Fly into the portal')))];
+  }
+  function enterPortal() {
+    if (ui.portaling || game.phase !== 'portal') return;
+    ui.portaling = true;
+    ui.selected = null;
+    render();
+    FX.portal({
+      to: game.area + 1,
+      // At the heart of the vortex the next area takes over: new route, new sky, new music.
+      onMid: () => { game.crossPortal(); render(); },
+      onDone: () => { ui.portaling = false; render(); },
+    });
+  }
+
   // ---------- end ----------
   function endScreen() {
     const won = game.phase === 'victory';
@@ -1076,8 +1109,8 @@
       h('section', { class: 'panel stack' },
         h('span', { class: 'eyebrow' }, won ? 'Victory' : 'Run over'),
         h('h2', { style: 'font-size: clamp(40px, 9vw, 72px)' }, won ? `${boss.name.replace('The ', '')} sunk` : 'Core ruptured'),
-        h('p', {}, won ? `Your ${D.CORES[game.core.id].name} brought down ${boss.name}.` : `Your ${D.CORES[game.core.id].name} went down at column ${game.depth} of ${game.maxDepth}.`),
-        h('div', { class: 'stats' }, stat('Encounters', s.encounters), stat('Enemies downed', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Cogs earned', s.cogs), stat('Contracts', s.quests)),
+        h('p', {}, won ? `Your ${D.CORES[game.core.id].name} crossed all three areas and brought down ${boss.name}.` : `Your ${D.CORES[game.core.id].name} went down in ${game.areaDef().name}, at column ${game.depth} of ${game.maxDepth}.`),
+        h('div', { class: 'stats' }, stat('Areas cleared', `${s.areasCleared}/${D.AREAS.length}`), stat('Bosses', s.bossesKilled.length), stat('Encounters', s.encounters), stat('Enemies downed', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Cogs earned', s.cogs), stat('Contracts', s.quests)),
         h('p', { class: 'muted' }, `Seed ${Game.seedCode(game.seed)}. Enter it on the title screen to fly the same route again.`),
         ui.newUnlocks.length ? h('div', { class: 'banner unlock-banner' }, h('span', {}, 'Unlocked: ' + ui.newUnlocks.map((u) => `${u.name} (${u.kind})`).join(', '))) : null,
         h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; meta = Meta.load(); render(); } }, 'New run')),

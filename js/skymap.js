@@ -18,7 +18,7 @@
     unknown: 'M9 9 a3 3 0 1 1 4 2.8 C12.4 12.1 12 12.6 12 13.5 V15 M12 18.5 a0.6 0.6 0 1 0 0.1 0',
     cloud: 'M5 16 a4 4 0 0 1 2-7.5 a5.5 5.5 0 0 1 10 1.5 a3.5 3.5 0 0 1 1 6 Z',
   };
-  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', dusk: '#b04a3a', night: '#26305a', storm: '#3e4a5e', lair: '#5a2a26' };
+  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', dusk: '#b04a3a', night: '#26305a', storm: '#3e4a5e', lair: '#5a2a26', rift: '#5a3a9a', derelict: '#9a4a3a', port: '#c9805a' };
 
   function svgEl(tag, attrs) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -107,11 +107,12 @@
     inner.style.height = H + 'px';
     // The sky shifts through the biome bands from left to right.
     const stops = [];
-    for (let c = 1; c <= cols; c++) stops.push(`${BIOME_SKY[D.BIOME_BANDS.find((b) => c <= b.upTo).biome]} ${(((pad + c * colW) / width) * 100).toFixed(1)}%`);
+    const bands = game.areaDef().bands;
+    for (let c = 1; c <= cols; c++) stops.push(`${BIOME_SKY[bands.find((b) => c <= b.upTo).biome] || BIOME_SKY.night} ${(((pad + c * colW) / width) * 100).toFixed(1)}%`);
     // The painted sky chart sits under a tint of each band's colour.
     const tint = document.createElement('div');
     tint.className = 'map-tint';
-    tint.style.background = `linear-gradient(90deg, ${BIOME_SKY.clear} 0%, ${stops.join(', ')})`;
+    tint.style.background = `linear-gradient(90deg, ${BIOME_SKY[bands[0].biome] || BIOME_SKY.clear} 0%, ${stops.join(', ')})`;
     inner.append(tint);
 
     const r = rng(game.seed);

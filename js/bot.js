@@ -355,6 +355,7 @@
         }
         case 'event': handleEvent(g, rnd); break;
         case 'hangar': if (!g.hangar.roll) g.salvage(); else g.leaveHangar(); break;
+        case 'portal': g.crossPortal(); break;
         case 'shop': shop(g, rnd); break;
         case 'combat': combatTurn(g, rnd); break;
         default: throw new Error('unexpected phase ' + g.phase);

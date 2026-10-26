@@ -374,6 +374,33 @@
   const BIOME_BANDS = [{ upTo: 3, biome: 'clear' }, { upTo: 5, biome: 'smog' }, { upTo: 7, biome: 'sunset' }, { upTo: 9, biome: 'dusk' }, { upTo: 11, biome: 'night' }, { upTo: 99, biome: 'lair' }];
   const PRICES = { common: 32, uncommon: 52, rare: 85, coreRepair: 12, fullRepair: 20, charts: 16 };
 
+  // ---------- Areas ----------
+  // A run crosses three areas, each with its own route and boss. Beating an area's boss tears open
+  // a portal to the next. cols: map columns including the boss column. midCol: a Trading Zeppelin
+  // or Sky Dock is guaranteed there. hp / dmg: how much tougher its pirates are than Area 1's
+  // (Durability multiplier, and + damage per hit); bossHp scales its boss the same way.
+  // tiers / elites / beacon: which enemies fly there. bands: biome bands across its route.
+  const AREAS = [
+    {
+      id: 'skies', name: 'The Open Skies', numeral: 'I', blurb: 'Pirate-held trade lanes over the cloud sea.', cols: 12, midCol: 6, lairFrom: 4,
+      bosses: BOSSES, tiers: ENEMY_TIERS, elites: ELITES, beacon: ['skiff', 'cutter'], nodeWeights: NODE_WEIGHTS, bands: BIOME_BANDS,
+      hp: 1, dmg: 0, bossHp: 1, veteranColumns: [6, 11], bossBiome: 'lair',
+    },
+    {
+      id: 'aurora', name: 'The Aurora Reaches', numeral: 'II', blurb: 'A magical sky of shifting auroras, crystal islands and spell-powered ships.', cols: 11, midCol: 5, lairFrom: 3,
+      bosses: BOSSES, tiers: [{ upTo: 4, pool: ['gunship', 'bomber', 'cutter'] }, { upTo: 99, pool: ['gunship', 'sentinel', 'bomber'] }], elites: ELITES, beacon: ['cutter', 'gunship'], nodeWeights: NODE_WEIGHTS,
+      bands: [{ upTo: 4, biome: 'rift' }, { upTo: 7, biome: 'night' }, { upTo: 99, biome: 'rift' }],
+      hp: 1.6, dmg: 1, bossHp: 1.3, veteranColumns: [6], bossBiome: 'rift',
+    },
+    {
+      id: 'bloodmoon', name: 'The Blood Moon', numeral: 'III', blurb: 'A crimson night under a vast red moon, haunted by gothic wrecks.', cols: 11, midCol: 5, lairFrom: 3,
+      bosses: BOSSES, tiers: [{ upTo: 4, pool: ['gunship', 'sentinel', 'bomber'] }, { upTo: 99, pool: ['sentinel', 'gunship', 'flagship'] }], elites: ELITES, beacon: ['gunship', 'sentinel'], nodeWeights: NODE_WEIGHTS,
+      bands: [{ upTo: 4, biome: 'dusk' }, { upTo: 7, biome: 'lair' }, { upTo: 99, biome: 'dusk' }],
+      hp: 2.1, dmg: 2, bossHp: 1.6, veteranColumns: [6], bossBiome: 'lair',
+    },
+  ];
+  AREAS.forEach((a, i) => { a.index = i; });
+
   // Unlocks earned across runs (meta-progression). Rares not listed here start unlocked.
   const UNLOCKS = [
     { id: 'tesla', kind: 'part', name: 'Tesla Coil', how: 'Reach the boss.' },
@@ -424,9 +451,10 @@
     chargeCap: 8,            // Tempest's most Charge
     maxCalmRun: 2,           // most non-fight map stops in a row on any route
     maxCalm: 5,              // most non-fight map stops on any route (columns 1-11)
+    bossCogs: 30,            // cogs for beating an area's boss (before its portal)
   };
 
-  const data = { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
+  const data = { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);

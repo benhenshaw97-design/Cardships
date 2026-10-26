@@ -457,3 +457,96 @@ function invariants(g) {
     assert.ok(g.combat.steam >= 0, 'steam');
   }
 }
+
+// ---------- areas and portals ----------
+// Drops a run into its current area's boss fight and sinks the boss.
+function sinkBoss(g) {
+  g.lootOffers = []; g.pendingLoot = [];
+  g.enterMap();
+  g.startCombat(g.bossId, { col: g.areaDef().cols, enc: 'boss' });
+  g.damageEnemy(999, { pierce: true });
+  g.checkEnd();
+}
+
+test('a run rolls a different boss for each of the three areas', () => {
+  const D = require('../js/data.js');
+  for (let seed = 1; seed < 30; seed++) {
+    const g = new Game({ seed });
+    g.chooseCore('airship');
+    assert.equal(g.bossIds.length, D.AREAS.length);
+    assert.equal(new Set(g.bossIds).size, g.bossIds.length);
+    assert.equal(g.bossId, g.bossIds[0]);
+    for (let a = 0; a < D.AREAS.length; a++) assert.ok(D.AREAS[a].bosses.includes(g.bossIds[a]));
+  }
+});
+
+test("beating an area's boss opens a portal; crossing keeps every module and repairs the Core", () => {
+  const g = new Game({ seed: 7, boss: 'leviathan' });
+  g.chooseCore('battleship');
+  g.buildShip([['plating', 0, 1], ['cannon', 1, 0], ['repair', 0, -1]]);
+  const uids = g.cards().map((c) => c.uid).sort();
+  g.core.hp = 3;
+  sinkBoss(g);
+  assert.equal(g.phase, 'loot', 'the boss drops spoils first');
+  assert.ok(g.portalReady);
+  assert.deepEqual(g.stats.bossesKilled, ['leviathan']);
+  while (g.lootOffer) g.skipOffer();
+  g.finishLoot();
+  assert.equal(g.phase, 'portal');
+  assert.ok(g.crossPortal());
+  assert.equal(g.area, 1);
+  assert.equal(g.phase, 'map');
+  assert.equal(g.core.hp, g.maxHp(g.core), 'the Core is fully repaired');
+  assert.deepEqual(g.cards().map((c) => c.uid).sort(), uids, 'every module flies through');
+  assert.equal(g.bossId, g.bossIds[1]);
+  assert.equal(g.maxDepth, g.areaDef().cols);
+  const last = Math.max(...g.map.nodes.map((n) => n.col));
+  assert.equal(last, g.areaDef().cols);
+  assert.equal(g.map.nodes.find((n) => n.col === last).enemy, g.bossIds[1]);
+  assert.ok(!g.won);
+});
+
+test('only the third boss wins the run', () => {
+  const g = new Game({ seed: 3 });
+  g.chooseCore('airship');
+  for (let a = 0; a < 2; a++) {
+    sinkBoss(g);
+    while (g.lootOffer) g.skipOffer();
+    g.pendingLoot = [];
+    g.finishLoot();
+    assert.equal(g.phase, 'portal');
+    g.crossPortal();
+  }
+  assert.equal(g.area, 2);
+  sinkBoss(g);
+  assert.equal(g.phase, 'victory');
+  assert.ok(g.won);
+  assert.equal(g.stats.areasCleared, 3);
+});
+
+test('pirates are tougher in later areas', () => {
+  const g = new Game({ seed: 2 });
+  g.chooseCore('airship');
+  g.startCombat('cutter', { col: 3, enc: 'patrol' });
+  const a1 = g.combat.enemy;
+  g.area = 1;
+  g.startCombat('cutter', { col: 3, enc: 'patrol' });
+  const a2 = g.combat.enemy;
+  assert.ok(a2.max > a1.max);
+  assert.ok(a2.dmgBonus > a1.dmgBonus);
+});
+
+test('a run saved in Area 2 resumes there', () => {
+  const g = new Game({ seed: 11 });
+  g.chooseCore('zeppelin');
+  sinkBoss(g);
+  while (g.lootOffer) g.skipOffer();
+  g.pendingLoot = [];
+  g.finishLoot();
+  g.crossPortal();
+  const h = Game.fromJSON(JSON.parse(JSON.stringify(g)));
+  assert.equal(h.area, 1);
+  assert.equal(h.bossId, g.bossId);
+  assert.deepEqual(h.map, g.map);
+  assert.equal(h.rand(), g.rand(), 'same dice from here on');
+});

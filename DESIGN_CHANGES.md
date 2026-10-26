@@ -556,3 +556,19 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - **Log** opens the ship's log. A red count shows how many new lines there are since you last looked.
 - **The log panel beside the view is gone** in this layout. On phones the top bar shrinks to a brand row with icon buttons and a row of stats.
 - **Settings → Screen layout → Classic (scrolling)** brings back the old page.
+
+## Three areas and the portals between them (expansion step 1)
+
+- **A run now crosses three areas, each with its own route and boss:** the Open Skies (Area 1, unchanged: 11 columns and a boss), the Aurora Reaches (Area 2) and the Blood Moon (Area 3), each 10 columns and a boss. Each area rolls a different boss at the start of the run. *Reason: a longer run with a build that has to carry across very different skies.*
+- **Beating an area's boss opens a portal.** First comes a boss bounty (30 cogs) and a pick from 3 elite-grade parts. Then the boss's wreck tears the sky open into a swirling vortex. *Reason: a clear, celebratory break between areas.*
+- **Crossing the portal:**
+  - Your ship is drawn into the vortex. It fills the screen and the view warps in wavering strips.
+  - At its heart the next area takes over: its sky crossfades in and its map music starts.
+  - The vortex then closes behind you.
+  - Every installed module comes along, and the Core is fully repaired.
+  - The portal's colours hint at what's on the other side: emerald and violet for the Aurora Reaches, crimson for the Blood Moon.
+  *Reason: the transition you asked for, and a reward for clearing an area without undoing your build.*
+- **Later areas are tougher:** pirates there have more Durability and hit harder, and bosses have more Durability. The header shows the area's numeral before its route, and the map names the area. *Reason: a carried-over ship needs bigger threats.*
+- **For now Areas 2 and 3 borrow Area 1's pirates and its two other bosses,** scaled up. Steps 3 and 4 give them their own enemies, bosses, mechanics, places and looks.
+- **Fixed:** the screen shake had no cap, so one huge hit could shake the view off its frame for half a minute. It now tops out at 32.
+- **Saves from before the expansion are not loaded** (new save key). *Reason: they have no areas.*

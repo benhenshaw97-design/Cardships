@@ -316,6 +316,7 @@
       if (phaseBanner.life <= 0) phaseBanner = null;
     }
     if (screenFlash > 0) { g.fillStyle = `rgba(255,250,235,${screenFlash})`; g.fillRect(0, 0, v.w, v.h); screenFlash = Math.max(0, screenFlash - dt * 3); }
+    drawWarp(g, v);
   }
 
   // ---------- dice ----------
@@ -615,9 +616,150 @@
     };
     step();
   }
+  // ---------- the portal ----------
+  // Beating an area's boss tears open a vortex where it fell. Flying in plays a short transit: the
+  // ship is drawn into the swirl, the screen warps, and at the heart of it the next area takes over
+  // (its sky crossfades in and its music with it), then the vortex closes behind the ship.
+  // Colours by the area the portal leads to: arms, heart.
+  const PORTAL_INK = {
+    1: { arms: ['#7dffd8', '#b48cff', '#4fe0ff', '#ffe9a8'], heart: '#12062a', glow: '#9c7bff' },
+    2: { arms: ['#ff5a4a', '#c0182a', '#ffb3a0', '#f0e2c8'], heart: '#1a0206', glow: '#ff3030' },
+  };
+  const PORTAL_T = 2.9, PORTAL_MID = 1.35;
+  let portal = null; // the transit in progress: { to, t, onMid, onDone, midDone, sparks }
+  let portalIdleT = 0;
+  const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+  function portalTo() { const g = window.cardships && window.cardships.game; return portal ? portal.to : g ? g.area + 1 : 1; }
+  // Where the vortex sits: off the bow where the boss fell, then (after the crossing) mid-screen.
+  function portalSpot(v) { return portal && portal.midDone ? { x: v.w * 0.5, y: v.h * 0.44 } : { x: v.w * 0.78, y: v.h * 0.42 }; }
+  function vortex(g, x, y, r, spin, ink, alpha) {
+    if (r < 2 || alpha <= 0) return;
+    g.save();
+    g.globalAlpha = alpha;
+    const heart = g.createRadialGradient(x, y, 0, x, y, r);
+    heart.addColorStop(0, ink.heart); heart.addColorStop(0.55, ink.heart + 'cc'); heart.addColorStop(1, ink.heart + '00');
+    g.fillStyle = heart; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+    g.globalCompositeOperation = 'lighter';
+    g.shadowColor = ink.glow; g.shadowBlur = Math.min(30, r * 0.25);
+    for (let a = 0; a < 7; a++) {
+      g.strokeStyle = ink.arms[a % ink.arms.length];
+      g.lineWidth = Math.max(1.5, r * (a % 2 ? 0.035 : 0.06));
+      g.beginPath();
+      for (let i = 0; i <= 48; i++) {
+        const f = i / 48;
+        const rr = r * (0.06 + 0.94 * f);
+        const ang = spin * (a % 2 ? 1.15 : 1) + (a * TAU) / 7 + f * 3.6;
+        const px = x + Math.cos(ang) * rr, py = y + Math.sin(ang) * rr * 0.86;
+        if (i) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+      g.stroke();
+    }
+    g.shadowBlur = 0;
+    const core = g.createRadialGradient(x, y, 0, x, y, r * 0.22);
+    core.addColorStop(0, '#ffffff'); core.addColorStop(1, ink.glow + '00');
+    g.fillStyle = core; g.beginPath(); g.arc(x, y, r * 0.22, 0, TAU); g.fill();
+    g.restore();
+  }
+  // Drawn behind the ships, so the ship flies into it.
+  function drawPortal(g, v) {
+    const game = window.cardships && window.cardships.game;
+    const idle = !portal && game && game.phase === 'portal';
+    if (!idle && !portal) { portalIdleT = 0; return; }
+    const ink = PORTAL_INK[portalTo()] || PORTAL_INK[1];
+    const at = portalSpot(v);
+    const base = Math.min(v.w, v.h) * 0.2;
+    let r = base, alpha = 1;
+    if (idle) { portalIdleT += v.dt; r = base * ease(portalIdleT / 1.2) * (1 + Math.sin(v.t * 2) * 0.04); }
+    else {
+      const t = portal.t, big = Math.hypot(v.w, v.h) * 0.75;
+      if (!portal.midDone) r = base + (big - base) * ease((t - 0.55) / (PORTAL_MID - 0.55));
+      else { const k = (t - PORTAL_MID) / (PORTAL_T - PORTAL_MID); r = big * (1 - ease(k * 1.25)); alpha = 1 - ease((k - 0.6) / 0.4); }
+    }
+    vortex(g, at.x, at.y, r, v.t * (portal ? 5 : 2.2), ink, alpha);
+    // Sparks spiralling in.
+    const S = portal ? portal.sparks : (drawPortal.sparks = drawPortal.sparks || []);
+    while (S.length < (portal ? 60 : 26)) S.push({ a: rand(0, TAU), d: rand(0.8, 1.6), s: rand(0.5, 1.2), c: ink.arms[Math.floor(rand(0, ink.arms.length))] });
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (const p of S) {
+      p.a += v.dt * (3 + 2 / p.d) * p.s; p.d -= v.dt * 0.45 * p.s * (portal ? 2 : 1);
+      if (p.d < 0.08) { p.d = rand(1, 1.6); p.a = rand(0, TAU); }
+      const rr = Math.max(base, r) * p.d;
+      g.fillStyle = p.c; g.globalAlpha = Math.min(1, p.d) * alpha;
+      g.fillRect(at.x + Math.cos(p.a) * rr - 1.5, at.y + Math.sin(p.a) * rr * 0.86 - 1.5, 3, 3);
+    }
+    g.restore();
+  }
+  // Plays the transit; onMid is called at the heart of the vortex, onDone when it closes.
+  function portalTransit(opts) {
+    portal = { to: opts.to, t: 0, onMid: opts.onMid, onDone: opts.onDone, midDone: false, sparks: [] };
+    sfx('whoosh');
+    const s = Scene(); if (s) s.setMode('travel');
+    let last = performance.now();
+    const tick = (now) => {
+      if (!portal) return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      portal.t += dt;
+      const sc = Scene();
+      const v = sc ? { w: sc.w, h: sc.h } : { w: 800, h: 400 };
+      const P = A();
+      if (!portal.midDone) {
+        const k = ease(portal.t / PORTAL_MID);
+        if (P) P.portal = { k, at: portalSpot(v) };
+        if (portal.t >= PORTAL_MID) {
+          portal.midDone = true;
+          flash(0.8); shake(8); sfx('bigHit');
+          try { portal.onMid && portal.onMid(); } catch (e) { console.error(e); }
+          if (sc) sc.setMode('travel');
+        }
+      } else {
+        const k = (portal.t - PORTAL_MID) / (PORTAL_T - PORTAL_MID);
+        if (P) P.portal = { k: 1 - ease(k * 1.1), at: portalSpot(v) };
+        if (k >= 1) {
+          if (P) P.portal = null;
+          const done = portal.onDone;
+          portal = null;
+          drawPortal.sparks = [];
+          try { done && done(); } catch (e) { console.error(e); }
+          return;
+        }
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  // How hard the screen warps right now (0 to 1), peaking at the heart of the crossing.
+  function portalWarp() {
+    if (!portal) return 0;
+    const t = portal.t;
+    return t < PORTAL_MID ? ease((t - 0.3) / (PORTAL_MID - 0.3)) : 1 - ease((t - PORTAL_MID) / (PORTAL_T - PORTAL_MID - 0.4));
+  }
+  // The warp: the finished frame redrawn in wavering horizontal strips.
+  let warpCanvas = null;
+  function drawWarp(g, v) {
+    const k = portalWarp() * (prefs.shake === 'off' ? 0.35 : 1);
+    if (k < 0.02) return;
+    const c = g.canvas;
+    warpCanvas = warpCanvas || document.createElement('canvas');
+    if (warpCanvas.width !== c.width || warpCanvas.height !== c.height) { warpCanvas.width = c.width; warpCanvas.height = c.height; }
+    const wg = warpCanvas.getContext('2d');
+    wg.clearRect(0, 0, c.width, c.height);
+    wg.drawImage(c, 0, 0);
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const strips = 48, sh = Math.ceil(c.height / strips), amp = 26 * k * (c.width / Math.max(1, v.w));
+    for (let i = 0; i < strips; i++) {
+      const y = i * sh;
+      const off = Math.sin(i * 0.45 + v.t * 9) * amp + Math.sin(i * 0.13 - v.t * 5) * amp * 0.5;
+      g.drawImage(warpCanvas, 0, y, c.width, sh, off, y, c.width, sh);
+    }
+    const ink = PORTAL_INK[portalTo()] || PORTAL_INK[1];
+    g.globalAlpha = 0.25 * k; g.fillStyle = ink.glow; g.fillRect(0, 0, c.width, c.height);
+    g.restore();
+  }
+
   function skip() { if (playing) playing.skip = true; }
   const ANIMATED = new Set(Object.keys(HANDLERS));
   function worthPlaying(events) { return events.some((e) => ANIMATED.has(e.type) && e.type !== 'install' && !(e.type === 'roll' && prefs.dice === 'off' && events.every((x) => x.type === 'roll'))); }
 
-  window.CardshipsFX = { drawFx, drawOverlay, play, skip, worthPlaying, isPlaying: () => !!playing, prefs, savePrefs, burst, numberAt };
+  window.CardshipsFX = { drawFx, drawOverlay, play, skip, worthPlaying, isPlaying: () => !!playing, prefs, savePrefs, burst, numberAt, portal: portalTransit, drawPortal, portalActive: () => !!portal };
 })();
