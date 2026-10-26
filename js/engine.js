@@ -563,8 +563,30 @@
       if (!pre.some((n) => n.enc === 'hangar')) Object.assign(this.pick(pre), { enc: 'hangar', enemy: undefined, cloud: false });
       const mid = nodes.filter((n) => n.col === 6);
       if (!mid.some((n) => n.enc === 'trader' || n.enc === 'hangar')) Object.assign(this.pick(mid), { enc: 'trader', enemy: undefined });
+      this.paceFights(nodes);
       for (const n of nodes) if (!n.enemy) delete n.enemy;
       this.map = { nodes, current: 'n0', visited: ['n0'] };
+    }
+    // Every route must keep fighting: along any path, at most BALANCE.maxCalmRun non-fight stops in
+    // a row and BALANCE.maxCalm in all. A stop that would break either becomes a Pirate Patrol (the
+    // guaranteed Sky Dock and mid-route trader stay as they are).
+    paceFights(nodes) {
+      const fight = (n) => ['patrol', 'lair', 'beacon', 'start'].includes(n.enc);
+      const run = { n0: 0 }, calm = { n0: 0 };
+      for (let col = 1; col < BOSS_COL; col++) {
+        for (const n of nodes.filter((x) => x.col === col)) {
+          const parents = nodes.filter((p) => p.edges.includes(n.id));
+          const pr = Math.max(...parents.map((p) => run[p.id])), pc = Math.max(...parents.map((p) => calm[p.id]));
+          const forced = (col === BOSS_COL - 1 && n.enc === 'hangar') || (col === 6 && n.enc === 'trader');
+          if (!fight(n) && !forced && (pr >= BALANCE.maxCalmRun || pc >= BALANCE.maxCalm)) {
+            n.enc = 'patrol';
+            n.enemy = this.pick(ENEMY_TIERS.find((t) => col <= t.upTo).pool);
+            n.biome = BIOME_BANDS.find((b) => col <= b.upTo).biome;
+          }
+          run[n.id] = fight(n) ? 0 : pr + 1;
+          calm[n.id] = pc + (fight(n) ? 0 : 1);
+        }
+      }
     }
     rollNodeType(col) {
       if (col === 1) return this.rand() < 0.75 ? 'patrol' : 'beacon';

@@ -175,3 +175,18 @@ After, at 1,000 runs per Core (the bot flies each Core's suggested ship):
 | Tempest | 44.7% | 43.9% | 47.7% |
 
 The most common part on winning ships is the Repair Bay, at 51–53%. The new Flak Cannon is on 31.5%.
+
+## Map pacing
+
+With routes capped at 2 non-fight stops in a row and 5 in all, the fewest fights on any route rose from 1–7 to 5–7. At +10.5% pirate Durability per column, the Battleship fell to 26–29% and the Zeppelin to 30–31%. At +8%, over 1,000 runs per Core:
+
+| Core | Seed set 1 | Seed set 2 | Seed set 3 |
+| --- | --- | --- | --- |
+| Airship | 47.4% | 48.5% | 48.0% |
+| Battleship | 42.6% | 41.0% | 40.2% |
+| Zeppelin | 41.9% | 37.0% | 37.7% |
+| Clockwork | 46.5% | 46.1% | 42.9% |
+| Privateer | 43.3% | 41.0% | 40.3% |
+| Tempest | 48.3% | 46.4% | 49.4% |
+
+The most common part on winning ships is the Repair Bay, at 53–54%.

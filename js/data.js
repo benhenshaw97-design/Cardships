@@ -398,7 +398,7 @@
 
   // Global difficulty knobs, tuned by simulation (see BALANCE_REPORT.md).
   const BALANCE = {
-    hpPerColumn: 0.105,      // pirate Durability +10.5% per map column
+    hpPerColumn: 0.08,       // pirate Durability +8% per map column
     veteranColumns: [6, 11], // +1 damage per hit from each listed column onward
     bossHp: 1.5,             // boss Durability multiplier
     startCogs: 20,
@@ -411,6 +411,8 @@
     boardDamage: 2,          // Privateer Boarding Party damage (after stripping Block)
     dischargeBase: 3,        // Tempest Arc Discharge: base + Charge, piercing
     chargeCap: 8,            // Tempest's most Charge
+    maxCalmRun: 2,           // most non-fight map stops in a row on any route
+    maxCalm: 5,              // most non-fight map stops on any route (columns 1-11)
   };
 
   const data = { BALANCE, CORES, SHIPS, PARTS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };

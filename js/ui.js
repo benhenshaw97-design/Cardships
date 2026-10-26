@@ -765,7 +765,7 @@
 
     const steam = h('div', { class: 'steam', 'aria-label': `${c.steam} steam` });
     for (let i = 0; i < Math.max(c.steam, game.steamCap()); i++) steam.append(h('i', { class: i < c.steam ? 'on' : '' }));
-    const turn = h('section', { class: 'panel stack' },
+    const turn = h('section', { class: 'panel stack turn-panel' },
       h('div', { class: 'turnbar' },
         h('span', { class: 'turn-state' }, `Round ${c.round}`),
         h('div', { class: 'row' }, h('span', { class: 'hud-label' }, 'Steam'), steam,
@@ -791,7 +791,8 @@
     }
     bar2.append(h('button', { class: `btn ${c.steam > 0 ? '' : 'primary'}`, onclick: act(() => game.endTurn()) }, 'End turn'));
     turn.append(bar2, h('p', { class: 'muted' }, 'Tap a module to swap it with a neighbour (1⚙) or vent its tokens (2⚙).'));
-    return [enemy, targetBanner(), turn, shipView()];
+    // The actions sit right under the flight view, so the shots stay in sight as you click.
+    return [targetBanner(), turn, enemy, shipView()];
   }
 
   // ---------- end ----------

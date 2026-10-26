@@ -457,3 +457,9 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   - **Aether Rift** (Hazard, under the night sky): a lash; a time slip (pay 10 cogs or take 2); an echo (+1 max Durability on a module); a bargain (2 max Core for a rare part); clear sight; or rare treasure.
   *Reason: more variety on the map, with risk-reward choices.*
 - **Balance.** Pirates gain Durability a little faster along the route (+10.5% per column, was 8%), because the new events and weapons made runs easier. A heavier Bulwark hull let the Battleship ram far too hard, so it gives Durability instead. All six classes now win 36–48% over 3 seed sets (BALANCE_REPORT.md).
+
+## Combat buttons by the flight view, and steadier map pacing
+
+- **The round's action buttons sit directly under the flight view.** The enemy's card and next move follow below them. *Reason: you can watch the shots and hits while you click, instead of scrolling between them.*
+- **Every route keeps fighting.** A route could chain traders, guilds and hazards and reach the boss with one or two fights (about 1 map in 5; non-fight runs of up to 10). Now no route has more than 2 non-fight stops in a row (`BALANCE.maxCalmRun`), or more than 5 in all (`BALANCE.maxCalm`). A stop that would break either becomes a Pirate Patrol. The guaranteed mid-route trader and the Sky Dock before the boss stay, so a 3-in-a-row run can still happen through one of them. Over 2,000 maps, every route now has 5–7 fights. *Reason: runs need their fights for cogs, parts and challenge.*
+- **Pirates gain Durability a little slower again** (+8% per column, was 10.5%). The guaranteed fights made runs harder; all six Cores now win 37–49% over 3 seed sets. *Reason: keep the target win rate.*

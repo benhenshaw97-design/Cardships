@@ -396,3 +396,4 @@ body { background: linear-gradient(rgba(16, 11, 8, 0.82), rgba(16, 11, 8, 0.9)),
 .ship-pick.picked { border-color: var(--brass); box-shadow: 0 0 14px -4px rgba(240, 194, 78, 0.6); background: rgba(220, 169, 74, 0.1); }
 .ship-pick .name { font: 400 19px/1.1 var(--f-display); color: var(--brass); }
 .ship-thumb { width: 100%; height: auto; max-height: 96px; object-fit: contain; align-self: center; }
+.turn-panel { padding-top: 10px; padding-bottom: 10px; gap: 8px; }
