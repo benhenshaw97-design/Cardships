@@ -216,40 +216,64 @@ def keyed(path, cuts):
 
 
 def fleet_pieces(max_w=240):
-    """Cuts each ship off its panel: the backdrop is whatever matches the panel's edge colour and
-    touches the edge, plus big pockets of exactly that colour trapped between rigging lines."""
+    """Cuts each ship off its panel. The backdrop is a near-flat dark blue-grey with a little JPEG
+    noise; the ships' outlines are only a little darker, so the tolerance is measured per panel from
+    the noise of an empty corner rather than fixed. Backdrop is what matches it and touches the edge
+    (or sits on the frame's lines), plus big pockets trapped between rigging. Only pieces that reach
+    inside the frame are kept: the sheets have faint silhouettes painted outside the frames."""
     from scipy import ndimage
     pieces = {}
-    for nm, (sheet, panel, tol) in SHIP_CUTS.items():
+    for nm, (sheet, panel, _) in SHIP_CUTS.items():
         A = np.array(Image.open(os.path.join(SRC, 'ships', f'fleet-{sheet}.jpg')).convert('RGB')).astype(int)
         x0, y0, x1, y1 = SHIP_PANELS[panel]
         c = A[y0:y1, x0:x1]
-        bg = np.median(np.concatenate([c[0], c[-1], c[:, 0], c[:, -1]]), axis=0)
-        diff = np.abs(c - bg).max(axis=2)
-        # The panel's frame rectangle sits on the same bands on every sheet; only frame-coloured
-        # pixels on those bands are backdrop, so a ship crossing a band keeps its own pixels.
-        bands = np.zeros(diff.shape, bool)
         (r0, r1), (q0, q1) = FRAME_BANDS[panel]
+        # The frame's interior, in quarter coordinates.
+        fy0, fy1, fx0, fx1 = r0[1] + 2 - y0, r1[0] - 2 - y0, q0[1] + 2 - x0, q1[0] - 2 - x0
+        # Sample the flattest of several empty-looking patches (a ship may overhang any one corner).
+        spots = [(fy0, fx0), (fy0, fx1 - 24), (fy1 - 24, fx0), (fy1 - 24, fx1 - 24), (fy1 + 6, fx0 + 40), (fy1 + 6, fx1 - 64)]
+        patches = [c[max(0, y):max(0, y) + 20, max(0, x):max(0, x) + 24].reshape(-1, 3) for y, x in spots]
+        patches = [p_ for p_ in patches if len(p_) >= 200 and p_.mean() < 80]
+        corner = min(patches, key=lambda p_: p_.std(axis=0).sum())
+        bg = np.median(corner, axis=0)
+        tol = max(8, np.percentile(np.abs(corner - bg).max(axis=1), 99.5) + 3)
+        diff = np.abs(c - bg).max(axis=2)
+        bands = np.zeros(diff.shape, bool)
         for lo, hi in (r0, r1): bands[max(0, lo - 2 - y0):max(0, hi + 3 - y0), :] = True
         for lo, hi in (q0, q1): bands[:, max(0, lo - 2 - x0):max(0, hi + 3 - x0)] = True
-        grey = (c.max(axis=2) - c.min(axis=2) <= 20) & (c.max(axis=2) <= 110)  # the lines vary from sheet to sheet
-        frame = bands & ((np.abs(c - np.array(FRAME_LINE)).max(axis=2) <= 26) | (diff <= tol + 14) | grey)
+        grey = (c.max(axis=2) - c.min(axis=2) <= 20) & (c.max(axis=2) <= 110) & (c.max(axis=2) >= 40)
+        frame = bands & (grey | (diff <= tol + 6))
         lab, _ = ndimage.label((diff <= tol) | frame)
         border = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
         back = np.isin(lab, list(border))
-        pocket = diff <= 12
+        # Pockets of backdrop between rigging lines: a tight match and a good size.
+        pocket = diff <= max(6, tol - 2)
         lab2, n2 = ndimage.label(pocket)
         if n2:
             sizes = ndimage.sum(pocket, lab2, range(1, n2 + 1))
-            back |= np.isin(lab2, [i + 1 for i, sz in enumerate(sizes) if sz >= 80])
+            back |= np.isin(lab2, [i + 1 for i, sz in enumerate(sizes) if sz >= 150])
         solid = ~back
-        lab3, n3 = ndimage.label(solid)
-        if n3:
-            sizes = ndimage.sum(solid, lab3, range(1, n3 + 1))
-            # Drop specks, and thin straight strips (leftovers of the frame lines).
-            boxes = ndimage.find_objects(lab3)
-            keep = [i + 1 for i, (sz, bx) in enumerate(zip(sizes, boxes)) if sz >= 120 and min(bx[0].stop - bx[0].start, bx[1].stop - bx[1].start) > 5]
-            solid = np.isin(lab3, keep)
+        lab3, n3 = ndimage.label(solid, structure=np.ones((3, 3)))
+        # Near the frame lines: the panel's corner marks live there.
+        near = np.zeros(diff.shape, bool)
+        for lo, hi in (r0, r1): near[max(0, lo - 12 - y0):max(0, hi + 13 - y0), :] = True
+        for lo, hi in (q0, q1): near[:, max(0, lo - 12 - x0):max(0, hi + 13 - x0)] = True
+        boxes = ndimage.find_objects(lab3)
+        sizes = ndimage.sum(solid, lab3, range(1, n3 + 1))
+        biggest = max(sizes) if n3 else 0
+        keep = []
+        for i, bx in enumerate(boxes):
+            ys, xs = bx
+            comp = lab3 == i + 1
+            size = sizes[i]
+            inside = ys.stop > fy0 and ys.start < fy1 and xs.stop > fx0 and xs.start < fx1
+            thin = min(ys.stop - ys.start, xs.stop - xs.start) <= 3
+            cy, cx = [v.mean() for v in np.nonzero(comp)]
+            outside = size < biggest and not (fy0 <= cy <= fy1 and fx0 <= cx <= fx1)  # stray art beyond the frame
+            mark = (size < biggest * 0.03 and near[comp].mean() > 0.5) or outside
+            if inside and size >= 25 and not thin and not mark:
+                keep.append(i + 1)
+        solid = np.isin(lab3, keep)
         rgba = np.dstack([c.astype(np.uint8), (solid * 255).astype(np.uint8)])
         ys, xs = np.where(solid)
         im = Image.fromarray(rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 'RGBA')
