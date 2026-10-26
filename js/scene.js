@@ -9,6 +9,9 @@
     engine: 'assets/art/engine-room.jpg',
     cloudsea: 'assets/art/cloud-sea-sunset.jpg',
     night: 'assets/art/night-fleet.jpg',
+    stormMesa: 'assets/art/storm-mesa.jpg',
+    canyonCity: 'assets/art/canyon-city.jpg',
+    railYard: 'assets/art/rail-yard.jpg',
   };
   const images = {};
   for (const [k, src] of Object.entries(ART)) {
@@ -21,12 +24,12 @@
   // Each biome: sky gradient stops, layer colours, weather and which painted art (if any) forms the far layer.
   const BIOMES = {
     clear: { sky: ['#4f8fc4', '#8cc1e2', '#d8ecf3'], far: '#9ab7cc', farRock: '#8098ad', mid: '#6d86a0', cloud: ['#ffffff', '#e3edf3', '#b9cad8'], wisp: 'rgba(255,255,255,0.55)', weather: 'birds', farKind: 'islands' },
-    storm: { sky: ['#1d2533', '#3a4659', '#5c6878'], far: '#2b3443', farRock: '#222a36', mid: '#384353', cloud: ['#77808e', '#5d6573', '#3f4653'], wisp: 'rgba(120,128,140,0.55)', weather: 'rain', farKind: 'peaks', lightning: true },
-    smog: { sky: ['#5e4a38', '#8c7356', '#b59a76'], far: '#6d5944', farRock: '#5a4838', mid: '#4a3c30', cloud: ['#b7a58a', '#988670', '#6f604f'], wisp: 'rgba(120,105,85,0.5)', weather: 'soot', farKind: 'art', art: 'canyon', haze: 'rgba(120,96,70,0.35)', midKind: 'chimneys' },
+    storm: { sky: ['#1d2533', '#3a4659', '#5c6878'], far: '#2b3443', farRock: '#222a36', mid: '#384353', cloud: ['#77808e', '#5d6573', '#3f4653'], wisp: 'rgba(120,128,140,0.55)', weather: 'rain', farKind: 'art', art: 'stormMesa', haze: 'rgba(20,26,44,0.45)', lightning: true },
+    smog: { sky: ['#5e4a38', '#8c7356', '#b59a76'], far: '#6d5944', farRock: '#5a4838', mid: '#4a3c30', cloud: ['#b7a58a', '#988670', '#6f604f'], wisp: 'rgba(120,105,85,0.5)', weather: 'soot', farKind: 'art', art: ['canyon', 'railYard'], haze: 'rgba(120,96,70,0.35)', midKind: 'chimneys' },
     sunset: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: 'sunset', haze: 'rgba(80,40,70,0.18)', midKind: 'airships' },
     dusk: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: 'cloudsea', haze: 'rgba(70,20,30,0.16)', midKind: 'airships' },
     night: { sky: ['#070b1c', '#141d3a', '#26305a'], far: '#1a2240', farRock: '#121933', mid: '#0f1428', cloud: ['#59658a', '#3c4668', '#252c48'], wisp: 'rgba(110,125,170,0.4)', weather: 'motes', farKind: 'art', art: 'night', haze: 'rgba(8,12,30,0.22)', midKind: 'airships' },
-    lair: { sky: ['#160c0e', '#3a1414', '#7a2a1c'], far: '#2a1214', farRock: '#1d0d0f', mid: '#2c1416', cloud: ['#6e4a48', '#4e3232', '#2e1c1e'], wisp: 'rgba(90,50,50,0.5)', weather: 'embers', farKind: 'spires', midKind: 'wrecks' },
+    lair: { sky: ['#160c0e', '#3a1414', '#7a2a1c'], far: '#2a1214', farRock: '#1d0d0f', mid: '#2c1416', cloud: ['#6e4a48', '#4e3232', '#2e1c1e'], wisp: 'rgba(90,50,50,0.5)', weather: 'embers', farKind: 'art', art: 'canyonCity', haze: 'rgba(90,20,14,0.3)', midKind: 'wrecks' },
     dock: { still: 'deck', wisp: 'rgba(255,255,255,0.4)', weather: 'steam' },
     interior: { still: 'engine', wisp: 'rgba(255,240,220,0.35)', weather: 'steam', glow: [0.405, 0.5] },
   };
@@ -300,7 +303,9 @@
     }
     // Painted art as a slow, mirrored, endlessly scrolling far layer.
     drawArt(g, off) {
-      const img = images[this.def.art];
+      // A biome with several paintings picks one each time you fly into it.
+      if (this.artKey == null) { const a = this.def.art; this.artKey = Array.isArray(a) ? a[Math.floor(Math.random() * a.length)] : a; }
+      const img = images[this.artKey];
       if (!img || !img.complete || !img.naturalWidth) return;
       if (!this.artTile || this.artTile.height !== this.h) {
         const scale = (this.h * 1.05) / img.naturalHeight;

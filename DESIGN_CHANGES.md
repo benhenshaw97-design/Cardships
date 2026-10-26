@@ -344,3 +344,44 @@ The cutaway with parts-sheet modules on the hull didn't work, so the two jobs ar
   - Glued modules carry a glob for as long as they stay glued, and a Gummed enemy carries glue splats until it wears off.
   *Reason: makes Glue and Gummed readable in the flight view.*
 - **Housekeeping:** the new uploads are moved to `assets/art/source/` as `fx-sheet-2.png`, `effects-board.jpg` and `arsenal-board.jpg`. The arsenal board isn't used yet.
+
+## The fleet, three new skies and the brass UI kit
+
+- **Every Core and every enemy now flies its own ship.** The ships are cut from your fleet sheets (`assets/art/source/ships/`). In each panel the big ship is lifted off its dark backdrop by flood fill, including the pockets trapped between rigging lines, and packed into `assets/art/ships.png`. *Reason: the sheet's four ships had to be shared, so the Battleship and the Leviathan were the same dreadnought.*
+
+  | Core | Ship |
+  | --- | --- |
+  | Airship | Zephyr Scout |
+  | Battleship | Iron Nautilus |
+  | Zeppelin | Sky Voyager |
+  | Clockwork | Clockwork Caravan |
+
+  | Enemy | Ship |
+  | --- | --- |
+  | Pirate Cutter | Crimson Comet |
+  | Scavenger Skiff | Scarlet Drifter |
+  | Corsair Gunship | Gilded Sparrow |
+  | Bomber Dirigible | Scarlet Caravan |
+  | Clockwork Sentinel | Aether Drill Platform |
+  | Dread Corsair Flagship | Sky Goliath |
+  | Armored Monitor | Celestial Harvester |
+  | Iron Leviathan | Ironclad Leviathan |
+  | Storm Queen | Voltaic Sky-Whale, tesla coils crackling |
+  | Clockwork Colossus | Galleon of Gears |
+
+  The sky-map marker is now your Core's ship.
+- **Three new paintings are skies.** *Reason: the Storm Front and the Lair were still procedural.*
+  - `storm-mesa.jpg`, the cloud-sea mesa with a crackling tesla tower, is now behind every Storm Front, under the rain and lightning flashes.
+  - `canyon-city.jpg`, the fortress city in a canyon at dusk, is the backdrop for Pirate Lairs and the boss fight.
+  - `rail-yard.jpg`, the smoking rail yard, joins the canyon foundry: the smog leg picks one of the two each time.
+- **The brass UI kit** (`assets/art/source/ui-brass-kit.png`, cut to `assets/art/ui/`). *Reason: brings the page itself into the steampunk look.*
+  - Ornate brass corners frame the flight view.
+  - Shipyard cards sit on riveted plates: copper for weapons, iron for defenses and the Core, and a tall plate for the rest.
+  - Rarity tags carry a gem: brown for common, blue for uncommon, red for rare.
+  - The Core's Durability in the header is a brass gauge bar.
+- **Not used yet:**
+  - The six-ship side-view pack. Its painted style doesn't match the pixel fleet.
+  - The black Obsidian ships. They can't be lifted cleanly off their dark panels.
+  - The ships' small animation variants and the crew and item pieces on the fleet sheets.
+  - The UI kit's header bar.
+  - The three UI mock-up boards (`ui-mockup-*.jpg`), which are flattened screens rather than separate pieces.

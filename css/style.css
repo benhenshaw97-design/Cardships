@@ -364,3 +364,20 @@ body.fx-busy .scene-wrap canvas { cursor: progress; }
 .card.linked { outline: 2px dashed #7ff0c0; outline-offset: 2px; }
 .slot-attach.previewing { background: rgba(220, 169, 74, 0.28); border-style: solid; }
 .ship-hint { margin: 0; }
+
+/* Brass UI kit (assets/art/ui): ornate corners on the flight view, riveted plates behind the
+   Shipyard cards, gems on the rarity chips and gauge bars for the Core and Steam. */
+.scene-overlay::before, .scene-overlay::after { content: ""; position: absolute; top: 0; width: clamp(44px, 9vw, 84px); aspect-ratio: 1; background: url(../assets/art/ui/corner.png) center / contain no-repeat; pointer-events: none; z-index: 1; }
+.scene-overlay::after { right: 0; }
+.scene-overlay::before { left: 0; transform: scaleX(-1); }
+.card { background: linear-gradient(180deg, rgba(30, 22, 16, 0.55), rgba(24, 18, 13, 0.82)), var(--plate, url(../assets/art/ui/plate_tall.png)) center / cover; }
+.card.weapon { --plate: url(../assets/art/ui/plate_copper.png); }
+.card.defense, .card.core { --plate: url(../assets/art/ui/plate_iron.png); }
+.card .card-name, .card .card-meta { text-shadow: 0 1px 2px #000; }
+.rarity-chip::before { content: ""; display: inline-block; width: 8px; height: 12px; margin-right: 5px; vertical-align: -2px; background: url(../assets/art/ui/gem_brown.png) center / contain no-repeat; }
+.rarity-chip.uncommon::before { background-image: url(../assets/art/ui/gem_blue.png); }
+.rarity-chip.rare::before { background-image: url(../assets/art/ui/gem_red.png); }
+.meter { position: relative; display: inline-block; width: 92px; height: 18px; vertical-align: middle; background: url(../assets/art/ui/bar_empty.png) center / 100% 100% no-repeat; }
+.meter > i { position: absolute; inset: 0; background: url(../assets/art/ui/bar_hp.png) left center / 92px 18px no-repeat; clip-path: inset(0 calc(100% - var(--fill)) 0 0); }
+.meter.steam > i { background-image: url(../assets/art/ui/bar_steam.png); }
+.hud-meter { display: inline-flex; align-items: center; gap: 6px; }

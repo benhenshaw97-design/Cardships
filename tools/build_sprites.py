@@ -133,6 +133,13 @@ PARTS_AREAS = {
  'motor_a': (384, 642, 485, 732), 'motor_b': (486, 642, 586, 732), 'rudder': (587, 634, 684, 738),
  'fin_a': (706, 638, 784, 740), 'fin_b': (788, 638, 882, 740), 'fin_c': (884, 638, 960, 740),
 }
+# Pieces of the brass UI kit, saved as separate images under assets/art/ui/ for the page's styling.
+UI_AREAS = {
+ 'corner': (1110, 50, 1380, 320), 'header': (30, 50, 1070, 200),
+ 'bar_hp': (700, 640, 880, 676), 'bar_steam': (700, 692, 880, 728), 'bar_empty': (890, 640, 1045, 670),
+ 'plate_iron': (1095, 335, 1220, 410), 'plate_copper': (1095, 418, 1220, 500), 'plate_tall': (1258, 335, 1362, 512),
+ 'gem_red': (862, 422, 906, 492), 'gem_brown': (908, 422, 952, 492), 'gem_green': (954, 422, 998, 492), 'gem_blue': (1000, 422, 1046, 492),
+}
 # The second effects sheet (transparent): flames and a lightning crack.
 FX2_AREAS = {
  'fire_1': (15, 604, 48, 642), 'fire_2': (55, 604, 98, 642), 'fire_3': (100, 604, 146, 642),
@@ -144,6 +151,16 @@ BOARD_CUTS = {
  'bolt_jagged': (412, 470, 610, 516), 'bolt_chain': (412, 545, 610, 602), 'bolt_forked': (412, 625, 610, 676),
  'glue_glob': (650, 468, 708, 522), 'glue_mesh': (728, 468, 792, 522), 'glue_spray': (815, 468, 878, 522),
  'napalm': (650, 545, 708, 604), 'fire_sticky': (732, 545, 790, 604), 'sticky_fire': (650, 625, 708, 682),
+}
+# Ships from the fleet sheets: each sheet has four panels, and the big ship in each is cut off its
+# dark panel by flood fill. name: (sheet, panel, colour tolerance).
+SHIP_PANELS = {'TL': (28, 41, 382, 353), 'TR': (734, 41, 1084, 353), 'BL': (36, 424, 386, 734), 'BR': (734, 424, 1084, 734)}
+SHIP_CUTS = {
+ 'zephyr_scout': ('7678', 'BR', 22), 'iron_nautilus': ('7678', 'TR', 22), 'sky_voyager': ('7678', 'TL', 22), 'gilded_sparrow': ('7678', 'BL', 22),
+ 'celestial_harvester': ('7679', 'TL', 22), 'crimson_comet': ('7679', 'BR', 22), 'aether_alchemist': ('7679', 'BL', 22),
+ 'galleon_of_gears': ('7680', 'TL', 22), 'scarlet_caravan': ('7680', 'BR', 22), 'drill_platform': ('7681', 'BL', 22),
+ 'sky_goliath': ('7682', 'TL', 22), 'scarlet_drifter': ('7683', 'BR', 22), 'clockwork_caravan': ('7684', 'BL', 22),
+ 'sky_whale': ('7687', 'TL', 22), 'ironclad_leviathan': ('7687', 'BR', 9),
 }
 PARTS_CUTS = {'panel_iron': (986, 536, 1124, 638), 'crate_wood': (1132, 536, 1238, 638)}
 
@@ -190,6 +207,38 @@ def keyed(path, cuts):
     return pieces
 
 
+def fleet_pieces(max_w=240):
+    """Cuts each ship off its panel: the backdrop is whatever matches the panel's edge colour and
+    touches the edge, plus big pockets of exactly that colour trapped between rigging lines."""
+    from scipy import ndimage
+    pieces = {}
+    for nm, (sheet, panel, tol) in SHIP_CUTS.items():
+        A = np.array(Image.open(os.path.join(SRC, 'ships', f'fleet-{sheet}.jpg')).convert('RGB')).astype(int)
+        x0, y0, x1, y1 = SHIP_PANELS[panel]
+        c = A[y0:y1, x0:x1]
+        bg = np.median(np.concatenate([c[0], c[-1], c[:, 0], c[:, -1]]), axis=0)
+        diff = np.abs(c - bg).max(axis=2)
+        lab, _ = ndimage.label(diff <= tol)
+        border = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
+        back = np.isin(lab, list(border))
+        lab2, n2 = ndimage.label(diff <= 10)
+        if n2:
+            sizes = ndimage.sum(diff <= 10, lab2, range(1, n2 + 1))
+            back |= np.isin(lab2, [i + 1 for i, sz in enumerate(sizes) if sz >= 120])
+        solid = ~back
+        lab3, n3 = ndimage.label(solid)
+        if n3:
+            sizes = ndimage.sum(solid, lab3, range(1, n3 + 1))
+            solid = np.isin(lab3, [i + 1 for i, sz in enumerate(sizes) if sz >= 60])
+        rgba = np.dstack([c.astype(np.uint8), (solid * 255).astype(np.uint8)])
+        ys, xs = np.where(solid)
+        im = Image.fromarray(rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 'RGBA')
+        if im.width > max_w:
+            im = im.resize((max_w, round(im.height * max_w / im.width)), Image.LANCZOS)
+        pieces[nm] = im
+    return pieces
+
+
 def pack(pieces, path):
     """Shelf-packs pieces into a 1024-wide atlas and returns their frames."""
     order = sorted(pieces, key=lambda n: -pieces[n].size[1])
@@ -211,10 +260,13 @@ def main():
     sheets = [(ship_pieces(), ATLAS),
               ({**area_pieces(os.path.join(SRC, 'fx-sheet.png'), FX_AREAS), **area_pieces(os.path.join(SRC, 'fx-sheet-2.png'), FX2_AREAS),
                 **keyed(os.path.join(SRC, 'effects-board.jpg'), BOARD_CUTS)}, os.path.join(ROOT, 'assets/art/fx.png')),
-              (area_pieces(os.path.join(SRC, 'parts-sheet.png'), PARTS_AREAS, PARTS_CUTS), os.path.join(ROOT, 'assets/art/parts.png'))]
+              (area_pieces(os.path.join(SRC, 'parts-sheet.png'), PARTS_AREAS, PARTS_CUTS), os.path.join(ROOT, 'assets/art/parts.png')),
+              (fleet_pieces(), os.path.join(ROOT, 'assets/art/ships.png'))]
     for i, (pieces, path) in enumerate(sheets):
         for k, f in pack(pieces, path).items():
             frames[k] = f + ((i,) if i else ())
+    for nm, im in area_pieces(os.path.join(SRC, 'ui-brass-kit.png'), UI_AREAS).items():
+        im.save(os.path.join(ROOT, 'assets/art/ui', nm + '.png'), optimize=True)
     rows = ',\n'.join(f"    {k}: [{','.join(str(v) for v in frames[k])}]" for k in sorted(frames))
     js = open(SPRITES_JS).read()
     js = re.sub(r"const FRAMES = \{\n.*?\n  \};", "const FRAMES = {\n" + rows + ",\n  };", js, flags=re.S)

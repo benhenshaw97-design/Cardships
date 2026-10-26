@@ -207,6 +207,11 @@
   }
 
   // ---------- HUD ----------
+  // A brass gauge bar (from the UI kit) with the number beside it.
+  function meterEl(frac, kind, text) {
+    const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+    return h('span', { class: 'hud-meter' }, h('span', { class: `meter ${kind}`, style: `--fill:${pct}%`, 'aria-hidden': 'true' }, h('i')), text);
+  }
   function renderHud() {
     const hud = $('hud');
     if (!game || !game.core) { hud.replaceChildren(); return; }
@@ -219,7 +224,7 @@
     const quest = game.quest && D.QUESTS.find((q) => q.id === game.quest);
     hud.replaceChildren(...[
       item('Route', route),
-      item('Core', `${Math.max(0, game.core.hp)}/${game.maxHp(game.core)}`),
+      item('Core', meterEl(Math.max(0, game.core.hp) / game.maxHp(game.core), 'hp', `${Math.max(0, game.core.hp)}/${game.maxHp(game.core)}`)),
       item('Weight', fmt(game.weight()), 'Lighter ships outpace enemies and dodge cheaply; heavier ships shrug off rams and wind'),
       item('Steam', String(game.steamCap()), 'Steam per turn'),
       item('Cogs', String(game.cogs), 'Spend cogs at Trading Zeppelins'),

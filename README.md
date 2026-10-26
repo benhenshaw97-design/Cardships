@@ -1,6 +1,6 @@
 # Cardships
 
-A steampunk skyship roguelike played with cards. Build a two-deck airship out from a Core, read each enemy's telegraphed move, and fly a branching cloud route to one of three bosses. Strictly 2D: side-on pixel-art ships from the ship sheet over parallax skies, with a Shipyard card grid for building.
+A steampunk skyship roguelike played with cards. Build a two-deck airship out from a Core, read each enemy's telegraphed move, and fly a branching cloud route to one of three bosses. Strictly 2D: side-on pixel-art ships (a different ship for every Core and enemy) over painted parallax skies, with a Shipyard card grid for building.
 
 ## Play
 
@@ -47,7 +47,7 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `js/skymap.js` | The scrolling, parallax sky map |
 | `js/scene.js` | Parallax flight scene and biomes |
 | `js/sprites.js` | Sprite atlas frames and drawing helpers |
-| `js/shipart.js` | Pixel-art ships: whole sheet ships for you and the enemies, with module points for effects |
+| `js/shipart.js` | Pixel-art ships: a fleet ship for every Core and enemy, with module points for effects |
 | `js/actors.js` | Places the ships, intent plate, arrows, synergy links, taps |
 | `js/fx.js` | Event playback, particles, dice, effect settings |
 | `js/audio.js` | Music cues, crossfades, boss intensity, synthesised sound effects |
@@ -60,7 +60,11 @@ TUNE='{"BALANCE":{"bossHp":1.5}}' BRIEF=1 node tools/simulate.js 500   # try a c
 | `assets/art/cloud-sea-sunset.jpg` | Title screen and the far layer of the red dusk biome |
 | `assets/art/sunset-sky-city.jpg` | Far layer of the golden sunset biome |
 | `assets/art/night-fleet.jpg` | Far layer of the night biome, the last leg before the boss |
-| `assets/art/canyon-foundry.jpg` | Far layer of the industrial smog biome |
+| `assets/art/canyon-foundry.jpg`, `assets/art/rail-yard.jpg` | Far layer of the industrial smog biome (one of the two each time) |
+| `assets/art/storm-mesa.jpg` | Far layer of the Storm Front biome |
+| `assets/art/canyon-city.jpg` | Far layer of the Pirate Lair and boss biome |
+| `assets/art/ships.png` | Ship atlas cut from the fleet sheets in `assets/art/source/ships/`: every Core's ship and every enemy's |
+| `assets/art/ui/*.png` | Pieces of `assets/art/source/ui-brass-kit.png`: flight-view corners, card plates, rarity gems, gauge bars |
 | `assets/art/sky-deck.jpg` | Sky Dock backdrop |
 | `assets/art/engine-room.jpg` | Trading Zeppelin backdrop (the merchant's engine room) |
 | `assets/art/ship-parts.png` | Sprite atlas cut from `assets/art/source/ship-parts-sheet.png` (rebuild with `python3 tools/build_sprites.py`): the four full ships (yours and the pirates'), flags, map marker, clouds, smoke trail |

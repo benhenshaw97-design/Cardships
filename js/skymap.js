@@ -144,14 +144,15 @@
     ship.className = 'map-ship';
     const cp = pos(cur);
     ship.style.transform = `translate(${cp.x}px, ${cp.y}px)`;
-    // The marker is the little striped airship from the sprite sheet (vector fallback until it loads).
-    const F = window.CardshipsSprites && window.CardshipsSprites.FRAMES.balloon_stripe_blue;
+    // The marker is your own ship from the fleet sheet, bow to the right (vector fallback until it loads).
+    const look = window.CardshipsShipArt && game.core && window.CardshipsShipArt.playerSprite(game.core.id);
+    const F = look && window.CardshipsSprites && window.CardshipsSprites.FRAMES[look.name];
     if (F) {
-      const k = 0.5;
+      const k = 64 / F[2];
       const bobber = document.createElement('div');
       bobber.className = 'map-ship-sprite';
       const icon = document.createElement('div');
-      icon.style.cssText = `width:${F[2] * k}px;height:${F[3] * k}px;background:url(assets/art/ship-parts.png) -${F[0] * k}px -${F[1] * k}px / ${1024 * k}px auto no-repeat;transform:scaleX(-1)`;
+      icon.style.cssText = `width:${F[2] * k}px;height:${F[3] * k}px;background:url(${window.CardshipsSprites.sources[F[4] || 0]}) -${F[0] * k}px -${F[1] * k}px / ${1024 * k}px auto no-repeat;image-rendering:pixelated;${look.flip ? 'transform:scaleX(-1)' : ''}`;
       bobber.append(icon);
       ship.append(bobber);
     } else ship.append(shipIcon());

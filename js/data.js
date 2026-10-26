@@ -270,7 +270,7 @@
   // ---------- Encounters (sky map node types) ----------
   const ENCOUNTERS = {
     patrol: { name: 'Pirate Patrol', kind: 'Combat', text: 'Sky pirates on the hunt. Win for cogs and a pick of parts.' },
-    lair: { name: 'Pirate Lair', kind: 'Elite', text: 'A fortified hideout guarded by a heavy warship. Better loot: uncommon and rare parts.' },
+    lair: { name: 'Pirate Lair', kind: 'Elite', biome: 'lair', text: 'A fortified hideout guarded by a heavy warship. Better loot: uncommon and rare parts.' },
     storm: {
       name: 'Storm Front', kind: 'Hazard', biome: 'storm',
       text: 'Fly through the squall. Roll a d6.',

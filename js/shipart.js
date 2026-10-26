@@ -88,48 +88,58 @@
 
 
   // ---------- the ships ----------
-  // Sprite, art width, and where its decks sit as fractions of the sprite's height from the top:
-  // hull (the lower deck, where hull modules and the Core are) and upper (the upper deck).
+  // Ships from the fleet sheets: sprite, art width, which way its bow points in the sheet, and where
+  // its decks sit as fractions of the sprite's height from the top (hull: the gondola's lower deck,
+  // where hull modules and the Core are; upper: the gondola's upper deck).
   const HULLS = {
-    pirate: { sprite: 'ship_pirate', w: 120, hull: 0.8, upper: 0.62, span: 0.36 },
-    ironclad: { sprite: 'ship_ironclad', w: 140, hull: 0.78, upper: 0.6, span: 0.38 },
-    galleon: { sprite: 'ship_galleon', w: 140, hull: 0.82, upper: 0.66, span: 0.34 },
-    dreadnought: { sprite: 'ship_dreadnought', w: 170, hull: 0.78, upper: 0.6, span: 0.4 },
+    zephyr_scout: { w: 118, faces: 'R', hull: 0.86, upper: 0.7, span: 0.36 },
+    iron_nautilus: { w: 150, faces: 'L', hull: 0.82, upper: 0.66, span: 0.4 },
+    sky_voyager: { w: 130, faces: 'R', hull: 0.84, upper: 0.7, span: 0.36 },
+    clockwork_caravan: { w: 140, faces: 'R', hull: 0.82, upper: 0.66, span: 0.4 },
+    crimson_comet: { w: 118, faces: 'R', hull: 0.8, upper: 0.66, span: 0.38 },
+    scarlet_drifter: { w: 104, faces: 'R', hull: 0.82, upper: 0.68, span: 0.34 },
+    gilded_sparrow: { w: 136, faces: 'R', hull: 0.84, upper: 0.68, span: 0.38 },
+    scarlet_caravan: { w: 132, faces: 'R', hull: 0.8, upper: 0.64, span: 0.34 },
+    drill_platform: { w: 122, faces: 'R', hull: 0.5, upper: 0.32, span: 0.36 },
+    sky_goliath: { w: 160, faces: 'R', hull: 0.8, upper: 0.64, span: 0.38 },
+    celestial_harvester: { w: 156, faces: 'R', hull: 0.78, upper: 0.64, span: 0.36 },
+    ironclad_leviathan: { w: 200, faces: 'R', hull: 0.78, upper: 0.62, span: 0.4 },
+    sky_whale: { w: 196, faces: 'R', hull: 0.74, upper: 0.6, span: 0.38 },
+    galleon_of_gears: { w: 190, faces: 'R', hull: 0.8, upper: 0.66, span: 0.38 },
   };
   // Your Core decides your ship; it grows a little with every module you bolt on.
   const PLAYER = {
-    airship: { hull: 'pirate', flag: 'flag_cross' },
-    battleship: { hull: 'dreadnought', flag: 'flag_blue' },
-    zeppelin: { hull: 'galleon', flag: 'flag_green' },
-    clockwork: { hull: 'ironclad', flag: 'flag_star', wash: 'rgba(200,120,50,0.22)' },
+    airship: { hull: 'zephyr_scout' },
+    battleship: { hull: 'iron_nautilus' },
+    zeppelin: { hull: 'sky_voyager' },
+    clockwork: { hull: 'clockwork_caravan' },
   };
-  // Pirates fly the same sheet's ships in their own liveries, scales and colours.
+  // Every pirate and boss has a ship of its own.
   const ENEMIES = {
-    cutter: { hull: 'pirate', w: 112, flag: 'flag_jolly' },
-    skiff: { hull: 'pirate', w: 92, flag: 'flag_jolly', wash: 'rgba(90,60,30,0.28)' },
-    gunship: { hull: 'ironclad', w: 136, flag: 'flag_jolly', wash: 'rgba(140,40,30,0.2)' },
-    bomber: { hull: 'galleon', w: 132, flag: 'flag_jolly', wash: 'rgba(80,100,60,0.3)' },
-    sentinel: { hull: 'ironclad', w: 118, flag: 'flag_star', wash: 'rgba(210,160,60,0.3)' },
-    flagship: { hull: 'galleon', w: 156, flag: 'flag_jolly', wash: 'rgba(30,20,20,0.18)' },
-    monitor: { hull: 'ironclad', w: 156, flag: 'flag_red', wash: 'rgba(40,50,60,0.25)' },
-    leviathan: { hull: 'dreadnought', w: 196, flag: 'flag_star' },
-    stormqueen: { hull: 'galleon', w: 186, flag: 'flag_blue', wash: 'rgba(40,70,150,0.35)', storm: true },
-    colossus: { hull: 'dreadnought', w: 190, flag: 'flag_red', wash: 'rgba(190,100,40,0.3)' },
+    cutter: { hull: 'crimson_comet' },
+    skiff: { hull: 'scarlet_drifter' },
+    gunship: { hull: 'gilded_sparrow' },
+    bomber: { hull: 'scarlet_caravan' },
+    sentinel: { hull: 'drill_platform' },
+    flagship: { hull: 'sky_goliath' },
+    monitor: { hull: 'celestial_harvester' },
+    leviathan: { hull: 'ironclad_leviathan' },
+    stormqueen: { hull: 'sky_whale', storm: true },
+    colossus: { hull: 'galleon_of_gears' },
   };
 
-  // Draws a ship sprite with its bottom centre at (0, 0) into an art context; returns its size.
-  function paintShip(a, spec, w, flip, extra = {}) {
+  // Draws a ship sprite with its bottom centre at (0, 0) into an art context, its bow to the right
+  // (player) or the left (enemy); returns its size.
+  function paintShip(a, spec, w, bowRight, extra = {}) {
     const H = HULLS[spec.hull];
-    const c = pixelSprite(H.sprite, w, w, { flip, wash: spec.wash || extra.wash });
+    const flip = (H.faces === 'R') !== bowRight;
+    const c = pixelSprite(spec.hull, w, w, { flip, wash: spec.wash || extra.wash });
     if (!c) return null;
     a.drawImage(c, Math.round(-c.width / 2), -c.height);
-    if (extra.tint) {
-      const t = pixelSprite(H.sprite, w, w, { flip, tint: extra.tint });
+    if (extra.tint && extra.tintAlpha > 0) {
+      const t = pixelSprite(spec.hull, w, w, { flip, tint: extra.tint });
       a.save(); a.globalAlpha = extra.tintAlpha; a.drawImage(t, Math.round(-t.width / 2), -t.height); a.restore();
     }
-    // The ensign on the stern rail.
-    const fx = (flip ? -1 : 1) * c.width * 0.36;
-    if (spec.flag) stand(a, spec.flag, fx, -c.height * 0.62, 14, 12, { flip });
     return { w: c.width, h: c.height };
   }
   // Fire and smoke puffs, as pixel squares.
@@ -286,7 +296,7 @@
       this.look = look; this.flash = 0; this.recoil = 0; this.phase = 0; this.phaseFlash = 0; this.smoke = []; this.wound = 0;
       this.x = 0; this.y = 0; this.P = 2; this.sinking = 0;
       this.spec = ENEMIES[look] || ENEMIES.cutter;
-      this.artW = this.spec.w;
+      this.artW = HULLS[this.spec.hull].w;
       this.halfW = this.artW / 2;
       this.size = { w: this.artW, h: this.artW * 0.7 };
       this.art = canvas(1, 1);
@@ -339,5 +349,8 @@
     hitTest(x, y) { return Math.abs(x - this.x) < this.halfW * this.P && y < this.y && y > this.y - this.size.h * this.P; }
   }
 
-  window.CardshipsShipArt = { PlayerShip, EnemyShip };
+  // Your Core's ship, and whether it must be mirrored to point its bow right (for the map marker).
+  const playerSprite = (coreId) => { const name = (PLAYER[coreId] || PLAYER.airship).hull; return { name, flip: HULLS[name].faces !== 'R' }; };
+
+  window.CardshipsShipArt = { PlayerShip, EnemyShip, playerSprite };
 })();
