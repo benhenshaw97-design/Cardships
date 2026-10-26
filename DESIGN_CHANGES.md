@@ -517,4 +517,5 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - Part offers fly a pennant for the part's type (rocket for weapons, tower for defence, wrench for support, gear for utility) and a banner in the rarity colour (grey, blue, red, matching the gems).
   - Locked Cores show a padlock.
   - The Settings button has the brass gear.
+- **Map icons, repainted.** The new sheet is in full colour and shows skyships, not sea ships. The ring centres moved on it, so the cutter now finds each brass ring by fitting a circle. Nodes are a little larger on desktop to show the detail.
 - **Still missing:** enemy portraits, enemy move icons and a full-size distant-airships layer.

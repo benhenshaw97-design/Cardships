@@ -25,13 +25,13 @@ CARD_ORDER = [
     'telescope', 'gasbag', 'propeller', 'lightningrod', 'cargo', 'autoloader', 'gyro',
 ]
 CORE_ORDER = ['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest']
-# Map icons: ring centres on the sheet.
+# Map icons: ring centres on the sheet (found by fitting the brass ring).
 ICON_CENTRES = {
-    'patrol': (172, 178), 'lair': (478, 178), 'storm': (768, 178), 'smog': (1060, 178), 'trader': (1366, 178),
-    'beacon': (172, 492), 'guild': (478, 492), 'hangar': (768, 492), 'derelict': (1063, 492), 'rift': (1366, 492),
-    'boss': (446, 808), 'unknown': (768, 808), 'cloud': (1090, 808),
+    'patrol': (166, 164), 'lair': (474, 164), 'storm': (770, 166), 'smog': (1066, 164), 'trader': (1370, 166),
+    'beacon': (168, 482), 'guild': (472, 484), 'hangar': (768, 486), 'derelict': (1065, 486), 'rift': (1372, 486),
+    'boss': (474, 798), 'unknown': (768, 800), 'cloud': (1062, 800),
 }
-ICON_R = 104  # the brass ring's outer radius (the compass spikes beyond it are dropped)
+ICON_R = 119  # the brass ring's outer radius (the compass spikes beyond it are dropped)
 
 
 def boxes(img, min_area):
