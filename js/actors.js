@@ -27,7 +27,7 @@
       const c = game.combat;
       if (c && game.phase === 'combat') {
         const key = c.enemyId + ':' + game.depth;
-        if (this.enemyKey !== key) { this.enemy = new EnemyShip(D.ENEMIES[c.enemyId].look); this.enemyKey = key; this.enemy.phase = c.enemy.phase; this.enemy.hpFrac = 1; }
+        if (this.enemyKey !== key) { this.enemy = new EnemyShip(D.ENEMIES[c.enemyId].look + (c.elite ? '_elite' : '')); this.enemyKey = key; this.enemy.phase = c.enemy.phase; this.enemy.hpFrac = 1; }
       }
     },
     // Called after every UI render with the latest game state.
@@ -39,7 +39,7 @@
       const c = game.combat;
       if (c && game.phase === 'combat') {
         const key = c.enemyId + ':' + game.depth;
-        if (this.enemyKey !== key) { this.enemy = new EnemyShip(D.ENEMIES[c.enemyId].look); this.enemyKey = key; this.enemy.phase = c.enemy.phase; }
+        if (this.enemyKey !== key) { this.enemy = new EnemyShip(D.ENEMIES[c.enemyId].look + (c.elite ? '_elite' : '')); this.enemyKey = key; this.enemy.phase = c.enemy.phase; }
         this.enemy.hpFrac = c.enemy.hp / c.enemy.max;
         this.enemy.phase = c.enemy.phase;
         this.enemy.wound = c.enemy.wound;

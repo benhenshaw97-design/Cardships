@@ -313,7 +313,7 @@
     return h('section', { class: 'panel stack', id: 'ship-picker' },
       h('span', { class: 'eyebrow' }, core.name),
       h('h2', {}, 'Choose your ship'),
-      h('p', { class: 'muted' }, `Three ships fly the ${core.name.replace(' Core', '')} Core. Each has one trait.`),
+      h('p', { class: 'muted' }, `${['', 'One', 'Two', 'Three', 'Four'][Game.shipsFor(ui.pickCore).length] || Game.shipsFor(ui.pickCore).length} ships fly the ${core.name.replace(' Core', '')} Core. Each has one trait.`),
       h('div', { class: 'ships' }, ships),
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: () => newRun(ui.pickCore, ui.pickShip) }, `Launch the ${D.SHIPS[ui.pickShip].name}`),
@@ -542,7 +542,7 @@
       h('section', { class: 'panel stack' }, h('h3', {}, 'Honours'),
         h('div', { class: 'unlocks' }, D.ACHIEVEMENTS.map((a) => {
           const got = meta.achievements.includes(a.id);
-          return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('img', { class: 'badge', src: `assets/art/bits/badge${D.ACHIEVEMENTS.indexOf(a) % 8}.png`, alt: '' }), h('div', { class: 'stack', style: 'gap:2px' }, h('b', {}, a.name), h('span', {}, a.how), h('span', { class: 'muted' }, `Reward: ${C[a.reward[0]][a.reward[1]].name} ${{ paint: 'hull paint', balloon: 'balloon', skin: 'Core skin' }[a.reward[0]]}`)));
+          return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('img', { class: 'badge', src: `assets/art/bits/honour-${a.id}.png`, alt: '' }), h('div', { class: 'stack', style: 'gap:2px' }, h('b', {}, a.name), h('span', {}, a.how), h('span', { class: 'muted' }, `Reward: ${C[a.reward[0]][a.reward[1]].name} ${{ paint: 'hull paint', balloon: 'balloon', skin: 'Core skin' }[a.reward[0]]}`)));
         }))),
     ];
   }

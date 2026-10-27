@@ -821,3 +821,29 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
 - **The Legendary Vault** uses your vault room as its header, with the plaque on it. Each unlocked legendary sits in the gold-lit pedestal frame; sealed ones show the chained frame.
 - **Portals** spin your painted vortex over the drawn swirl: the Aurora vortex into Area II, the Blood Moon vortex into Area III.
 - **Filed for later.** The originals are in `assets/art/source/uploads/` under descriptive names. Not used yet: the FX sheets (explosions, weapons, shields, weather, aurora ribbons and blood effects), the third UI kit, the second hangar picture, and the three pirate and airship sheets. Those three sheets sit on a painted checkerboard rather than a keyed colour, so they need their backgrounds removed by hand before they can be cut.
+
+## Main menu, tutorial, travel, and the rest of your uploads
+
+- **Main menu.** The game opens on a clean menu over your hangar, with the last ship you flew berthed on the platform. Buttons: Continue (with a way to abandon the saved run), New run, Workshop, How to play and Settings, with your lifetime records underneath. The Workshop and the Core and ship choice are now their own pages, each with a way back to the menu.
+- **Meta progression.** The Workshop is reached from the menu, and a finished run offers both "Return to the Workshop" and "Main menu".
+- **The guided first flight.** A short coach card walks a first-time captain through eight moments:
+  1. Choosing a Core.
+  2. Installing the first part.
+  3. Reading the sky route.
+  4. Reading the enemy's telegraphed move.
+  5. Firing and spending Steam.
+  6. Evading, swapping and ending the turn.
+  7. Taking the spoils.
+  8. The loop of areas, portals and Blueprints.
+
+  Each tip appears when its moment comes. You can fold it to a pill, step through it or skip it, and How to play replays it. In fights it sits over open sky instead of covering the enemy's move.
+- **Travel between places.** After the marker flies the leg on the chart, the chart steps aside and your ship sails through the destination's sky for about 1.7 seconds. A banner reads "En route to …" with a progress line, then the place opens.
+- **The rest of your uploads:**
+  - **FX sheet.** Its explosion, magic-burst (blue, purple, green) and shield (rise and break) sequences are cut into frame strips by `tools/build_fx_strips.py`. They play for explosions, spells, rune strikes, Wards rising and breaking, and braced Deflector Vanes.
+  - **Aurora and blood sheet.** Painted aurora ribbons drift over the Aurora Reaches. Blood mist rolls through the Blood Moon. The blood ring burns around the eclipsed moon, and a blood swirl marks Bleed on the enemy.
+  - **Weather sheet.** Its painted lightning bolts now strike in Storm Front skies.
+  - **Second hangar picture.** It is the backdrop for every Sky Dock.
+  - **Pirate and airship sheets.** `tools/unchecker.py` replaces their painted checkerboards with a green key.
+    - **Elite hulls.** A lair's guardian now fights in a grander pirate ship from your sheet: the Elite Cutter flies a red-sailed galleon, the Elite Gunship a black skull warship, and so on, including bone and kraken ships for Area 3's elites.
+    - **Fourth ships.** Each of the first six Cores gains a fourth ship from the airship sheets, each with its own trait: Striped Skylark, Cargo Dreadnought, Grey Whale, Steam Crane, Jolly Scrapper and Teal Swift.
+  - **Third UI kit.** Its icons become the nine honour badges (anchor, skull, gem, star, wheel, chest, shells, tornado, gold star), and its water drop, turned red, becomes the Bleed token. `tools/build_ui_kit3.py` makes them.

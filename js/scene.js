@@ -33,7 +33,7 @@
   // Painted effect pieces from your aurora-and-blood sheet: ribbons for the Aurora Reaches, mist and
   // the eclipse ring for the Blood Moon.
   const FXART = {};
-  for (const n of ['ribbon-1', 'ribbon-2', 'ribbon-wave', 'blood-mist-1', 'blood-mist-2', 'blood-ring']) { const im = new Image(); im.src = `assets/art/fx/${n}.png`; FXART[n] = im; }
+  for (const n of ['ribbon-1', 'ribbon-2', 'ribbon-wave', 'blood-mist-1', 'blood-mist-2', 'blood-ring', 'bolt-blue', 'bolt-violet']) { const im = new Image(); im.src = `assets/art/fx/${n}.png`; FXART[n] = im; }
   const fxReady = (n) => FXART[n] && FXART[n].complete && FXART[n].naturalWidth > 0;
   const GULLS = Array.from({ length: 8 }, (_, i) => { const im = new Image(); im.src = `assets/art/bits/gull${i}.png`; return im; });
   for (const [k, src] of Object.entries(ART)) {
@@ -380,7 +380,7 @@
       }
       if (def.lightning) {
         this.nextBolt -= dt;
-        if (this.nextBolt <= 0) { this.flash = 1; this.bolt = this.makeBolt(); this.nextBolt = rand(3, 8); }
+        if (this.nextBolt <= 0) { this.flash = 1; this.bolt = this.makeBolt(); this.boltArt = null; this.nextBolt = rand(3, 8); }
         this.flash = Math.max(0, this.flash - dt * 2.2);
       }
       if (this.stacks) {
@@ -420,8 +420,18 @@
       if (this.flash > 0 && this.bolt) {
         g.save();
         g.globalAlpha = this.flash * 0.45; g.fillStyle = '#dfe9ff'; g.fillRect(0, 0, w, h);
-        g.globalAlpha = Math.min(1, this.flash * 1.6); g.strokeStyle = '#f4f8ff'; g.lineWidth = 2.5; g.shadowColor = '#a9c4ff'; g.shadowBlur = 12;
-        g.beginPath(); this.bolt.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+        g.globalAlpha = Math.min(1, this.flash * 1.6);
+        // Your painted bolts from the weather sheet; the drawn bolt stands in until they load.
+        const [bx, by] = this.bolt[0];
+        const art = this.boltArt || (this.boltArt = Math.random() < 0.5 ? 'bolt-blue' : 'bolt-violet');
+        if (fxReady(art)) {
+          const im = FXART[art], bh = h * 0.55, bw = bh * im.naturalWidth / im.naturalHeight;
+          g.globalCompositeOperation = 'lighter';
+          g.drawImage(im, bx - bw / 2, by, bw, bh);
+        } else {
+          g.strokeStyle = '#f4f8ff'; g.lineWidth = 2.5; g.shadowColor = '#a9c4ff'; g.shadowBlur = 12;
+          g.beginPath(); this.bolt.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+        }
         g.restore();
       }
       if (def.aurora) this.drawAurora(g);

@@ -618,7 +618,7 @@ body.area-3 .skymap-inner::after { background-image: radial-gradient(circle, rgb
 @keyframes ash-fall { to { background-position: -43px 94px, -40px 127px; } }
 body.area-3 .win-title { text-shadow: 0 0 10px rgba(255, 40, 40, 0.35); }
 /* Bleed: a blood drop with its stack count. */
-.tok-blood { display: inline-grid; place-items: center; width: 16px; height: 18px; clip-path: path('M8 0 C10 5 16 9 16 12.5 A8 6 0 0 1 0 12.5 C0 9 6 5 8 0 Z'); background: radial-gradient(circle at 40% 60%, #e0303a, #8a0010); color: #ffe6e6; font: 700 9px/1 var(--f-mono); padding-top: 6px; }
+.tok-blood { display: inline-grid; place-items: center; width: 18px; height: 18px; background: url(../assets/art/ui/tok-bleed.png) center / contain no-repeat; image-rendering: pixelated; color: #fff; font: 700 9px/1 var(--f-mono); padding-top: 5px; text-shadow: 0 0 2px #000, 0 0 2px #000; }
 .tok.bleed { --tok: #e0142c; }
 .chip.blood { background: #e2a0a6; color: #3a0006; }
 /* The Blood Moon gauge: a disc that reddens and six pips. */
@@ -757,3 +757,6 @@ body.no-run .layout { grid-template-columns: 1fr; }
 .coach-fold { min-width: 36px; min-height: 32px; border: 1px solid var(--rule); border-radius: 4px; background: none; color: var(--ink-2); cursor: pointer; }
 @media (max-width: 640px) { body.coaching .layout { padding-bottom: 240px; } }
 @media (min-width: 641px) { .coach.in-battle { top: auto; right: auto; left: 64%; translate: -50% 0; bottom: 96px; width: min(360px, calc(100vw - 32px)); } }
+
+.unlock .badge { image-rendering: pixelated; }
+.unlock:not(.got) .badge { filter: grayscale(1) brightness(0.6); }

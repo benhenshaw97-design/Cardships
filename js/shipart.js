@@ -148,6 +148,21 @@
     k_eclipse: { w: 136, faces: 'R', hull: 0.8, upper: 0.6, span: 0.36 },
     k_eclipse2: { w: 140, faces: 'R', hull: 0.8, upper: 0.6, span: 0.36 },
     k_eclipse3: { w: 140, faces: 'R', hull: 0.82, upper: 0.62, span: 0.38 },
+    // Elite hulls.
+    k_e_cutter: { w: 150, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_e_skiff: { w: 150, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_e_gunship: { w: 160, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_e_bomber: { w: 150, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_e_sentinel: { w: 160, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_e_bonegalleon: { w: 170, faces: 'R', hull: 0.82, upper: 0.6, span: 0.4 },
+    k_e_cultist: { w: 170, faces: 'R', hull: 0.82, upper: 0.6, span: 0.4 },
+    // The fourth ship of each first-six Core.
+    k_skylark: { w: 136, faces: 'R', hull: 0.82, upper: 0.62, span: 0.36 },
+    k_cargodread: { w: 150, faces: 'R', hull: 0.8, upper: 0.58, span: 0.4 },
+    k_greywhale: { w: 150, faces: 'R', hull: 0.82, upper: 0.62, span: 0.38 },
+    k_steamcrane: { w: 140, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_scrapper: { w: 140, faces: 'R', hull: 0.82, upper: 0.6, span: 0.38 },
+    k_tealswift: { w: 136, faces: 'R', hull: 0.82, upper: 0.62, span: 0.36 },
   };
   // Your ship is the one you picked (data SHIPS); it grows a little with every module you bolt on.
   const shipSprite = (game) => { const D = window.CardshipsData; const sh = D.SHIPS[game.ship] || D.SHIPS[window.CardshipsEngine.Game.defaultShip(game.core.id)]; return sh.sprite; };
@@ -175,6 +190,11 @@
     bonegalleon: { hull: 'k_bonegalleon', wash: 'rgba(230,215,180,0.22)', rim: '#ff5a4a' },
     cultist: { hull: 'k_cultist', wash: 'rgba(150,0,20,0.3)', rim: '#ff2a3a', light: '#ff3040' },
     sovereign: { hull: 'k_sovereign', wash: 'rgba(110,0,16,0.3)', rim: '#ff2a2a', light: '#ff2030' },
+    // Elite versions (a lair's guardian): grander hulls from your pirate sheet.
+    cutter_elite: { hull: 'k_e_cutter' }, skiff_elite: { hull: 'k_e_skiff' }, gunship_elite: { hull: 'k_e_gunship' },
+    bomber_elite: { hull: 'k_e_bomber' }, sentinel_elite: { hull: 'k_e_sentinel' },
+    bonegalleon_elite: { hull: 'k_e_bonegalleon', wash: 'rgba(230,215,180,0.18)', rim: '#ff5a4a' },
+    cultist_elite: { hull: 'k_e_cultist', wash: 'rgba(150,0,20,0.25)', rim: '#ff2a3a', light: '#ff3040' },
   };
 
   // Draws a ship sprite with its bottom centre at (0, 0) into an art context, its bow to the right
@@ -366,7 +386,7 @@
     constructor(look) {
       this.look = look; this.flash = 0; this.recoil = 0; this.phase = 0; this.phaseFlash = 0; this.smoke = []; this.wound = 0;
       this.x = 0; this.y = 0; this.P = 2; this.sinking = 0;
-      this.spec = ENEMIES[look] || ENEMIES.cutter;
+      this.spec = ENEMIES[look] || ENEMIES[String(look).replace(/_elite$/, '')] || ENEMIES.cutter;
       this.artW = HULLS[this.spec.hull].w;
       this.halfW = this.artW / 2;
       this.size = { w: this.artW, h: this.artW * 0.7 };

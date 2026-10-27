@@ -220,6 +220,13 @@ KEYED_CUTS = {
  'k_arcanist': ('magic', 1), 'k_arcanist2': ('magic', 10), 'k_arcanist3': ('magic', 11),
  'k_sanguine': ('ghost', 11), 'k_sanguine2': ('ghost', 2), 'k_sanguine3': ('ghost', 7),
  'k_eclipse': ('ghost', 4), 'k_eclipse2': ('undead', 10), 'k_eclipse3': ('undead', 8),
+ # Elite hulls: a lair's guardian fights as an Elite in a grander ship (uploaded pirate sheet,
+ # checkerboard removed by tools/unchecker.py).
+ 'k_e_cutter': ('pirates2', 2), 'k_e_skiff': ('pirates2', 8), 'k_e_gunship': ('pirates2', 0), 'k_e_bomber': ('pirates2', 11),
+ 'k_e_sentinel': ('pirates2', 10), 'k_e_bonegalleon': ('pirates2', 4), 'k_e_cultist': ('pirates2', 6),
+ # A fourth ship for each of the first six Cores (uploaded airship sheets).
+ 'k_skylark': ('airships', 1), 'k_cargodread': ('airships', 15), 'k_greywhale': ('airships', 19),
+ 'k_steamcrane': ('airships', 9), 'k_scrapper': ('pirateparts', 0), 'k_tealswift': ('airships', 23),
 }
 
 
@@ -248,7 +255,10 @@ def keyed_ships(sheet):
         out[..., 2] = np.where(edge, b - spill, b)
     lab, _ = ndimage.label(ndimage.binary_dilation(alpha > 0.5, iterations=7))
     ships = []
-    for i, o in enumerate(ndimage.find_objects(lab)):
+    objs = ndimage.find_objects(lab)
+    sizes = sorted(o[0].stop - o[0].start for i, o in enumerate(objs) if ((lab[o] == i + 1) & (alpha[o] > 0.02)).sum() >= 3000)
+    typical = sizes[len(sizes) // 2] if sizes else 290
+    for i, o in enumerate(objs):
         m = (lab[o] == i + 1) & (alpha[o] > 0.02)
         if m.sum() < 3000:
             continue
@@ -257,9 +267,10 @@ def keyed_ships(sheet):
         # Ships stacked close in a column can join through their rigging glow: split a cut taller
         # than any single ship at its emptiest horizontal bands.
         bands = [(0, a.shape[0])]
-        if a.shape[0] > 450:
+        tall = max(450, typical * 1.7) if typical > 200 else typical * 1.7
+        if a.shape[0] > tall:
             rows = (a > 40).sum(axis=1)
-            n = round(a.shape[0] / 290)
+            n = max(2, round(a.shape[0] / max(typical, 1)))
             cuts = []
             for k in range(1, n):
                 c = int(a.shape[0] * k / n)
