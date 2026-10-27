@@ -637,3 +637,68 @@ body.eclipse { --accent: #ff2a2a; }
 body.eclipse .stage { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 40px -6px #ff1a1a !important; }
 body.eclipse .battle-bar { background: linear-gradient(180deg, rgba(60, 0, 6, 0.95), rgba(20, 0, 2, 0.95)); }
 @media (prefers-reduced-motion: reduce) { body.area-3 .skymap-inner::after, .bb-moon.full .moon-disc, .hud-moon.full .moon-disc { animation: none; } }
+
+/* ---------- The Workshop ---------- */
+.bp { display: inline-flex; align-items: center; gap: 5px; font: 700 15px/1 var(--f-mono); color: #9fd2ff; }
+.bp i { width: 14px; height: 14px; border-radius: 2px; background: linear-gradient(135deg, #2a5a9a, #123060); border: 1px solid #9fd2ff; box-shadow: inset 0 0 0 2px rgba(159, 210, 255, 0.25); background-image: linear-gradient(#9fd2ff 1px, transparent 1px), linear-gradient(90deg, #9fd2ff 1px, transparent 1px); background-size: 4px 4px; background-color: #1a3a6a; }
+.btn .bp { font-size: 13px; color: inherit; }
+.ws-head { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: center; }
+.ws-display { position: relative; display: grid; place-items: center; min-height: 210px; border-radius: 4px; border: 1.5px solid var(--brass-2);
+  background: radial-gradient(ellipse at 50% 85%, rgba(255, 210, 140, 0.28), transparent 60%), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0 2px, transparent 2px 48px), linear-gradient(180deg, #2a2018, #120c08); }
+.ws-display::after { content: ""; position: absolute; left: 10%; right: 10%; bottom: 18px; height: 10px; border-radius: 50%; background: rgba(0, 0, 0, 0.45); filter: blur(4px); }
+.ws-display .ship-thumb { position: relative; z-index: 1; image-rendering: pixelated; animation: berth-bob 4s ease-in-out infinite; }
+.ws-display.small { min-height: 170px; }
+.ws-caption { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; font: 600 12px/1.3 var(--f-body); color: var(--ink-2); z-index: 2; padding: 0 8px; }
+.ws-empty { color: var(--ink-2); padding: 20px; text-align: center; max-width: 280px; }
+@keyframes berth-bob { 50% { transform: translateY(-5px); } }
+.ws-bp { display: flex; align-items: center; gap: 10px; }
+.ws-bp .bp { font-size: 30px; }
+.ws-bp .bp i { width: 24px; height: 24px; }
+.ws-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ws-tab { font: 400 17px/1 var(--f-display); color: var(--ink-2); padding: 10px 16px; min-height: 44px; border: 1.5px solid var(--rule); background: var(--panel); border-radius: 4px 4px 0 0; cursor: pointer; }
+.ws-tab.on { color: var(--brass); border-color: var(--brass-2); background: var(--panel-2); box-shadow: inset 0 -3px 0 var(--brass); }
+.ws-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.ws-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1.5px solid var(--brass-2); border-radius: 4px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); }
+.ws-card .ws-name { font: 400 22px/1.1 var(--f-display); color: var(--brass); }
+.ws-card.owned { border-color: #5db394; }
+.tag.owned { background: #5db394; color: #0e1a14; align-self: flex-start; }
+.ws-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.ws-list.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.ws-part { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border: 1px solid var(--rule); border-radius: 4px; background: rgba(0, 0, 0, 0.18); }
+.ws-part img { width: 84px; height: 70px; object-fit: cover; border-radius: 3px; border: 1px solid var(--brass-2); }
+.ws-part.owned { border-color: #5db394; }
+.ws-part.legendary { border: 1.5px solid var(--legendary, #ffd36a); box-shadow: 0 0 14px -4px rgba(255, 211, 106, 0.6); }
+.ws-part .btn { align-self: flex-start; margin-top: 4px; }
+.ws-rule { font-size: 13px; color: var(--ink-2); }
+.ws-rule b { color: var(--ink); }
+.ws-lore { font: italic 14px/1.4 var(--f-body); color: #e8d7b0; border-left: 2px solid var(--brass-2); padding-left: 8px; }
+.ws-log { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 4px; background: rgba(0, 0, 0, 0.18); }
+.ws-log.boss { border-color: var(--brass-2); }
+.ws-log.unknown { opacity: 0.55; border-style: dashed; }
+.ws-log .btn { align-self: flex-start; }
+.vault-row h4 { font: 400 20px/1.1 var(--f-display); color: var(--brass); margin: 6px 0 0; }
+.vault-locked { opacity: 0.6; border-style: dashed; }
+.vault-sil { width: 84px; height: 70px; display: grid; place-items: center; font-size: 34px; color: #6a5a3a; border: 1px dashed #6a5a3a; border-radius: 3px; }
+.tier-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tier-pick { min-height: 40px; padding: 6px 14px; border: 1.5px solid var(--rule); border-radius: 4px; background: var(--panel); color: var(--ink-2); font: 600 13px/1 var(--f-body); cursor: pointer; }
+.tier-pick.on { border-color: var(--brass); color: var(--brass); background: var(--panel-2); }
+.tier-mods { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+.tier-best { font: 600 12px/1 var(--f-mono); color: #9fd2ff; }
+.core-pick.locked { opacity: 0.85; cursor: default; }
+.core-pick.locked > :not(.lock):not(.row) { filter: grayscale(0.7); opacity: 0.7; }
+.core-pick .ship-thumb { align-self: center; image-rendering: pixelated; }
+.ws-livery { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 10px; border: 1.5px solid var(--rule); border-radius: 4px; background: var(--panel); color: var(--ink-2); font: 600 13px/1 var(--f-body); cursor: pointer; }
+.swatch i { width: 16px; height: 16px; border-radius: 50%; background: var(--sw); border: 1px solid rgba(0, 0, 0, 0.5); }
+.swatch.on { border-color: var(--brass); color: var(--brass); }
+.swatch:disabled { opacity: 0.5; cursor: not-allowed; }
+.bp-ledger { display: flex; flex-direction: column; gap: 4px; max-width: 420px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 4px; background: rgba(0, 0, 0, 0.2); }
+.bp-ledger .total { border-top: 1px solid var(--rule); padding-top: 4px; margin-top: 2px; }
+/* The hangar berth on the title scene. */
+.hangar-berth { position: absolute; right: 6%; bottom: 8%; width: min(300px, 32vw); aspect-ratio: 300 / 170; filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); animation: berth-bob 4s ease-in-out infinite; pointer-events: none; }
+.hangar-berth .ship-thumb { image-rendering: pixelated; width: 100%; height: 100%; }
+/* The Core's skin: its badge and glow take the skin's colour. */
+.mod-mark.core { border-color: var(--core-skin, var(--brass)); box-shadow: 0 0 10px -2px var(--core-skin, transparent); }
+@media (max-width: 760px) { .ws-head, .ws-livery { grid-template-columns: 1fr; } .hangar-berth { display: none; } .ws-list { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .ws-display .ship-thumb, .hangar-berth { animation: none; } }

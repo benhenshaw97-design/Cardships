@@ -965,3 +965,91 @@ test('Blood Altar, Crypt Wreck and Moon Well', () => {
   g.chooseOption('search');
   assert.equal(g.event.rolls.length, 1);
 });
+
+// ---------- The Workshop ----------
+const Meta = require('../js/meta.js');
+const D = require('../js/data.js');
+global.localStorage = global.localStorage || { store: {}, getItem(k) { return this.store[k] ?? null; }, setItem(k, v) { this.store[k] = String(v); }, removeItem(k) { delete this.store[k]; } };
+
+test('a run pays Blueprints by areas, bosses and contracts, and losing still pays', () => {
+  const m = Meta.blank();
+  const g = new Game({ seed: 3 });
+  g.chooseCore('airship');
+  g.stats.areasCleared = 1; g.stats.bossesKilled = ['leviathan']; g.stats.quests = 2;
+  g.phase = 'gameover';
+  const out = Meta.recordRun(m, g);
+  const B = D.BLUEPRINTS;
+  assert.equal(out.blueprints.total, B.base + B.area + B.boss + B.firstBoss + 2 * B.quest);
+  assert.equal(m.blueprints, out.blueprints.total);
+  assert.deepEqual(out.legendaries, ['leviplating', 'dreadnought']);
+  assert.ok(m.achievements.includes('firstflight') && m.achievements.includes('giantslayer'));
+  assert.equal(m.lastShip.core, 'airship');
+});
+
+test('Blueprints buy Cores, parts, upgrades and lore; locked parts stay out of the loot', () => {
+  const m = Meta.blank();
+  m.blueprints = 200;
+  assert.ok(!Meta.coreUnlocked(m, 'arcanist'));
+  assert.ok(Meta.buyUnlock(m, 'arcanist'));
+  assert.ok(Meta.coreUnlocked(m, 'arcanist'));
+  assert.equal(m.blueprints, 140);
+  assert.ok(!Meta.buyLore(m, 'leviathan'), 'cannot read lore of what you have not met');
+  m.seen.enemies.push('leviathan');
+  assert.ok(Meta.buyLore(m, 'leviathan'));
+  assert.ok(Meta.buyUpgrade(m, 'reroll'));
+  const g = new Game({ seed: 4, unlocked: Meta.runPool(m) });
+  g.chooseCore('airship');
+  for (let i = 0; i < 300; i++) assert.ok(!['tesla', 'manalens', 'sniper'].includes(g.randomPart('elite')));
+  Meta.buyUnlock(m, 'tesla');
+  assert.ok(Meta.runPool(m).includes('tesla'));
+});
+
+test('starting upgrades: a spare part, first-turn Steam, and a reroll per area', () => {
+  const g = new Game({ seed: 8, upgrades: { extraPart: true, steam: true, reroll: true } });
+  g.chooseCore('airship');
+  assert.equal(g.pendingLoot.length, 1, 'a spare part waits to be installed');
+  assert.ok(g.canReroll());
+  const before = g.lootOffer.ids.slice();
+  assert.ok(g.rerollOffer());
+  assert.equal(g.rerolls, 0);
+  assert.equal(g.lootOffer.ids.length, before.length);
+  assert.ok(!g.canReroll());
+  g.lootOffers = []; g.pendingLoot = []; g.enterMap();
+  const cap = g.steamCap();
+  g.startCombat('cutter', { col: 1, enc: 'patrol' });
+  assert.ok(g.combat.steam >= cap + 1, '+1 Steam on the first turn');
+});
+
+test('Storm Tiers stack their modifiers, and a win opens the next tier', () => {
+  const base = new Game({ seed: 9 }); base.chooseCore('airship'); base.lootOffers = []; base.pendingLoot = []; base.enterMap();
+  const hard = new Game({ seed: 9, tier: 6 }); hard.chooseCore('airship'); hard.lootOffers = []; hard.pendingLoot = []; hard.enterMap();
+  assert.equal(hard.maxHp(hard.core), base.maxHp(base.core) - 3);
+  assert.equal(hard.cogs, base.cogs - 10);
+  base.startCombat('gunship', { col: 1, enc: 'patrol' }); hard.startCombat('gunship', { col: 1, enc: 'patrol' });
+  assert.ok(hard.combat.enemy.max > base.combat.enemy.max);
+  assert.equal(hard.combat.enemy.block, 3);
+  assert.equal(hard.combat.enemy.dmgBonus, base.combat.enemy.dmgBonus + 1);
+  const m = Meta.blank();
+  hard.phase = 'victory';
+  Meta.recordRun(m, hard);
+  assert.equal(m.tierCleared.airship, 6);
+  const w = new Game({ seed: 10 }); w.chooseCore('battleship'); w.phase = 'victory';
+  const m2 = Meta.blank();
+  assert.equal(Meta.recordRun(m2, w).tier, 1);
+});
+
+test('the Workshop Cores: Attuned, Bloodletting and Umbral Strike', () => {
+  const a = fight('arcanist', [['harpoon', 0, 1]], 'gunship', idle());
+  assert.ok(a.isArcane(at(a, 0, 1)), 'every module is arcane');
+  a.useCore();
+  assert.equal(at(a, 0, 1).res, 1);
+  const s = fight('sanguinist', [['harpoon', 0, 1]], 'gunship', idle());
+  const st = s.combat.steam, hp = s.core.hp;
+  assert.ok(s.useCore());
+  assert.equal(s.combat.steam, st + 3); assert.equal(s.core.hp, hp - 2);
+  const e = fight('eclipse', [['harpoon', 0, 1]], 'gunship', idle());
+  e.combat.enemy.bleed = 3; e.combat.enemy.block = 5;
+  const ehp = e.combat.enemy.hp;
+  assert.ok(e.useCore());
+  assert.equal(e.combat.enemy.hp, ehp - 5, '2 + 0 Resonance + 3 Bleed, piercing');
+});

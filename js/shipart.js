@@ -14,7 +14,7 @@
   const cache = new Map();
   function canvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
   function pixelSprite(name, maxW, maxH, opts = {}) {
-    const key = `${name}|${maxW}|${maxH}|${opts.flip ? 1 : 0}|${opts.tint || ''}|${opts.wash || ''}|${opts.outline === false ? 0 : 1}`;
+    const key = `${name}|${maxW}|${maxH}|${opts.flip ? 1 : 0}|${opts.tint || ''}|${opts.wash || ''}|${opts.balloon || ''}|${opts.outline === false ? 0 : 1}`;
     if (cache.has(key)) return cache.get(key);
     const sp = SPR();
     if (!sp || !sp.ready(name) || !sp.FRAMES[name]) return null;
@@ -43,6 +43,12 @@
     if (opts.tint) { hg.globalCompositeOperation = 'source-in'; hg.fillStyle = opts.tint; hg.fillRect(0, 0, w, h); }
     // A colour wash over the sprite: the same ship in another livery.
     if (opts.wash) { hg.globalCompositeOperation = 'source-atop'; hg.fillStyle = opts.wash; hg.fillRect(0, 0, w, h); }
+    // A balloon colour: the same wash over the top of the ship (the gasbag), fading out below it.
+    if (opts.balloon) {
+      const gr = hg.createLinearGradient(0, 0, 0, h * 0.62);
+      gr.addColorStop(0, opts.balloon); gr.addColorStop(0.75, opts.balloon); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      hg.globalCompositeOperation = 'source-atop'; hg.fillStyle = gr; hg.fillRect(0, 0, w, h * 0.62);
+    }
     const out = canvas(w + pad * 2, h + pad * 2);
     const og = out.getContext('2d');
     if (pad) {
@@ -176,7 +182,7 @@
   function paintShip(a, spec, w, bowRight, extra = {}) {
     const H = HULLS[spec.hull];
     const flip = (H.faces === 'R') !== bowRight;
-    const c = pixelSprite(spec.hull, w, w, { flip, wash: spec.wash || extra.wash });
+    const c = pixelSprite(spec.hull, w, w, { flip, wash: spec.wash || extra.wash, balloon: spec.balloon });
     if (!c) return null;
     a.drawImage(c, Math.round(-c.width / 2), -c.height);
     if (extra.tint && extra.tintAlpha > 0) {
@@ -210,7 +216,8 @@
       this.size = { w: 120, h: 90 };
       this.count = 0;
     }
-    spec() { return { hull: HULLS[this.sprite] ? this.sprite : 'k_airship' }; }
+    // The Workshop's livery: hull paint and balloon colour (window.CardshipsShipArt.livery).
+    spec() { const L = api.livery || {}; return { hull: HULLS[this.sprite] ? this.sprite : 'k_airship', wash: L.paint || undefined, balloon: L.balloon || undefined }; }
     artWidth() { return HULLS[this.spec().hull].w + Math.min(8, this.count) * 5; }
     sync(game) {
       this.coreId = game.core.id;
@@ -513,7 +520,7 @@
   // Your ship's sprite, and whether it must be mirrored to point its bow right (for the map marker).
   const playerSprite = (game) => { const name = shipSprite(game); return { name, flip: HULLS[name].faces !== 'R' }; };
   // A ship picture for the ship picker, fitted into w x h, crisp.
-  function thumb(name, w, h) {
+  function thumb(name, w, h, livery = null) {
     const c = canvas(w, h);
     c.className = 'ship-thumb';
     c.setAttribute('aria-hidden', 'true');
@@ -524,12 +531,20 @@
         const k = Math.min(w / f[2], h / f[3]);
         const g = c.getContext('2d');
         g.clearRect(0, 0, w, h);
-        g.drawImage(sp.sheet(f[4] || 0), f[0], f[1], f[2], f[3], (w - f[2] * k) / 2, (h - f[3] * k) / 2, f[2] * k, f[3] * k);
+        const dx = (w - f[2] * k) / 2, dy = (h - f[3] * k) / 2;
+        g.drawImage(sp.sheet(f[4] || 0), f[0], f[1], f[2], f[3], dx, dy, f[2] * k, f[3] * k);
+        if (livery && (livery.paint || livery.balloon)) {
+          g.save(); g.globalCompositeOperation = 'source-atop';
+          if (livery.paint) { g.fillStyle = livery.paint; g.fillRect(0, 0, w, h); }
+          if (livery.balloon) { const gr = g.createLinearGradient(0, dy, 0, dy + f[3] * k * 0.62); gr.addColorStop(0, livery.balloon); gr.addColorStop(0.75, livery.balloon); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, dy, w, f[3] * k * 0.62); }
+          g.restore();
+        }
       } else if (tries > 0) setTimeout(() => paint(tries - 1), 250);
     };
     paint(20);
     return c;
   }
 
-  window.CardshipsShipArt = { PlayerShip, EnemyShip, playerSprite, thumb };
+  const api = { PlayerShip, EnemyShip, playerSprite, thumb, livery: null };
+  window.CardshipsShipArt = api;
 })();

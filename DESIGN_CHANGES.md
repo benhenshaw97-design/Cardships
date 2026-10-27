@@ -709,3 +709,48 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - **Crypt Wreck:** search it and roll a d6. On a 1–2 a Bone Galleon or a Bat Swarm ambushes you, with salvage if you win. A 3 bleeds a module but offers a pick of 3 parts; 4 gives cogs, 5 an armory pick, and 6 a rare part.
   - **Moon Well:** the moon wanes to 0, and its water mends the Core by 2.
 - **Art in code.** Card art for the five parts and two legendaries, plus map icons and banners for the three places, are painted in `js/artgen.js`. The ships are cut from your keyed sheets.
+
+## The Workshop (expansion step 5)
+
+- **A hub between runs.** The title screen is now the Workshop:
+  - The hangar deck painting, with your last ship berthed on it, gently bobbing.
+  - A display bay shows the same ship, with how its run ended.
+  - Your Blueprints and lifetime records.
+  - Tabs: Hangar, Upgrades, Parts, Logbook, Legendary Vault, and Livery & honours.
+
+  *Reason: "a hangar scene with your last ship on display".*
+- **Blueprints** come from every run, win or lose:
+  - 5 for flying.
+  - +15 per area cleared.
+  - +10 per boss sunk, and +10 more for a boss's first kill.
+  - +4 per contract and +1 per elite.
+  - +10 for a victory, and +5 more per Storm Tier.
+
+  The end screen shows the ledger line by line.
+- **Spending Blueprints:**
+  - **Three new Cores** (60, 60 and 80), each with three ships cut from your keyed sheets:
+    - **Arcanist** (Resonance). Every module is arcane. Harmonic Pulse adds 1 Resonance to every module.
+    - **Sanguine** (Blood). Each weapon hit heals the Core 1 (up to 2 a turn). Bloodletting pays 2 Core for 3 Steam.
+    - **Eclipse** (both). Every spell gives the enemy 2 Bleed. Umbral Strike deals 2 plus your Resonance plus the enemy's Bleed, piercing.
+
+    The Clockwork Core is now bought too (40).
+  - **Parts.** New captains start with a smaller pool. 16 parts must be drafted (12–30 each) before they appear in loot, shops and salvage: the old milestone unlocks, the stronger rares, and half of each later area's parts.
+  - **Starting upgrades:**
+    - Spare Crate: an extra common part at the start.
+    - Pressurised Boilers: +1 Steam on the first turn of every fight.
+    - Quartermaster's Ledger: reroll one loot offer per area.
+
+    *Reason: we read "+1 starting steam" as first-turn Steam, because +1 every turn would dwarf the other upgrades.*
+  - **The Logbook.** Every enemy and boss met gets an entry: area, stats, times sunk, and its gimmick. Every part seen gets its card. Lore is deciphered for 3 Blueprints an entry, for enemies, bosses and legendaries.
+- **The Legendary Vault** shows each boss's pair. Sealed ones say which boss to sink. Unlocked ones show their card, and their lore can be deciphered.
+- **Achievements → cosmetics.** Nine honours unlock:
+  - Hull paints: Soot Black, Verdigris, Gilded.
+  - Balloon colours: Crimson, Aurora, Stormcloud.
+  - Core skins: Blood Moon, Sovereign Gold, Starlit.
+
+  Paint washes the whole ship sprite, the balloon colour washes its upper part, and the Core skin recolours the Core's badge and glow. All of them show in flight, on the map marker and in the Workshop.
+- **Storm Tiers.**
+  - A first full clear opens Tier 1, and each victory at a tier opens the next.
+  - Each tier adds one modifier on top of the ones before it: Squall (+10% enemy Durability), Lean Holds (−10 cogs, shops +15%), Hardened Crews (+1 enemy damage), Dread Captains (bosses +20%), Thin Hulls (−3 Core), Black Storm (enemies start behind 3 Block).
+  - Each Core's card shows the best tier it has cleared.
+- **Saving.** Meta progress is saved under `cardships.meta.v3`, separately from the run save. An old v2 record carries over: its runs, unlocks and legendaries, plus starting Blueprints for its runs and wins.

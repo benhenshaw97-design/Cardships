@@ -42,6 +42,9 @@
       this.maxDepth = AREAS[0].cols;
       this.unlocked = opts.unlocked || null; // ids unlocked by meta-progression; null = everything
       this.legendaries = opts.legendaries || []; // legendaries unlocked by beating their boss before: very rare loot
+      this.upgrades = opts.upgrades || {}; // Workshop starting upgrades: { extraPart, steam, reroll }
+      this.tier = opts.tier || 0; // Storm Tier: each tier adds one modifier (data STORM_TIERS)
+      this.rerolls = 0; // loot rerolls left in this area (Quartermaster's Ledger)
       this.nextUid = 1;
       this.log = [];
       this.logId = 0;
@@ -76,7 +79,7 @@
       this.swapAvailable = false;
       this.pendingChoice = null;
       this.won = false;
-      this.stats = { encounters: 0, kills: 0, dmgDealt: 0, dmgTaken: 0, parts: 0, quests: 0, cogs: 0, elites: 0, reachedBoss: false, areasCleared: 0, bossesFought: [], bossesKilled: [] };
+      this.stats = { encounters: 0, kills: 0, dmgDealt: 0, dmgTaken: 0, parts: 0, quests: 0, cogs: 0, elites: 0, reachedBoss: false, areasCleared: 0, bossesFought: [], bossesKilled: [], seenEnemies: [], seenParts: [], killed: {} };
     }
 
     // ---------- save / load ----------
@@ -153,9 +156,13 @@
         const id = this.randomPart(tier, filter);
         if (!ids.includes(id) || guard > 40) ids.push(id);
       }
+      ids.forEach((id) => this.seePart(id));
       return ids;
     }
+    // The Logbook remembers every part a run has met.
+    seePart(id) { if (this.stats.seenParts && !this.stats.seenParts.includes(id)) this.stats.seenParts.push(id); }
     makeCard(id) {
+      this.seePart(id);
       return { uid: 'p' + this.nextUid++, id, hp: PARTS[id].hp, bonusMax: 0, tokens: noTokens(), fired: 0, reload: 0 };
     }
     def(card) { return PARTS[card.id]; }
@@ -413,21 +420,27 @@
     }
 
     // ---------- run setup ----------
+    // Storm Tier modifiers are cumulative: tier 3 has the modifiers of tiers 1, 2 and 3.
+    storm(n) { return this.tier >= n; }
     chooseCore(id, shipId = null) {
       if (this.phase !== 'coreSelect') return;
       const c = CORES[id];
       this.ship = SHIPS[shipId] && SHIPS[shipId].core === id ? shipId : Game.defaultShip(id);
       const sh = this.shipDef();
-      const hp = c.hp + (sh.hp || 0);
+      const hp = c.hp + (sh.hp || 0) - (this.storm(5) ? 3 : 0);
       this.core = { uid: 'core', id, name: c.name, weight: c.weight, hp, baseMax: hp, bonusMax: 0, tokens: noTokens(), pressure: 0, charge: 0 };
-      this.cogs += sh.cogs || 0;
+      this.cogs += (sh.cogs || 0) - (this.storm(2) ? 10 : 0);
+      this.rerolls = this.upgrades.reroll ? 1 : 0;
       this.buildShip(c.start);
       this.say(`${c.name} aboard the ${sh.name}. Starting modules: ${c.start.map(([p]) => PARTS[p].name).join(', ')}.`, 'sys');
       this.rollBosses();
       this.bossId = this.bossIds[0];
       this.generateMap();
       this.say(`${AREAS[0].name}. Your charts mark the first threat: ${ENEMIES[this.bossId].name}.`, 'warn');
-      this.openLoot('Starter draft', { ids: this.partOffer(3, 'normal', (p) => p.rarity === 'common'), keep: 1 }, []);
+      if (this.tier) this.say(`Storm Tier ${this.tier}: ${D.STORM_TIERS.filter((t) => t.tier <= this.tier).map((t) => t.name).join(', ')}.`, 'warn');
+      const spare = this.upgrades.extraPart ? [this.randomPart('normal', (p) => p.rarity === 'common')] : [];
+      if (spare.length) this.say(`From the Workshop's spare crate: a ${PARTS[spare[0]].name}.`, 'good');
+      this.openLoot('Starter draft', { ids: this.partOffer(3, 'normal', (p) => p.rarity === 'common'), keep: 1 }, spare);
     }
 
     // ---------- loot ----------
@@ -442,6 +455,18 @@
       this.queueOffer(offer);
       this.pendingLoot.push(...parts);
       this.phase = 'loot';
+    }
+    // Quartermaster's Ledger: once per area, roll a fresh set of parts for a loot offer.
+    canReroll() { const o = this.lootOffer; return this.phase === 'loot' && !!o && !o.legendary && this.rerolls > 0; }
+    rerollOffer() {
+      if (!this.canReroll()) return false;
+      const o = this.lootOffer;
+      this.rerolls--;
+      const rare = o.ids.some((id) => PARTS[id].rarity === 'rare');
+      o.ids = this.partOffer(o.ids.length, rare ? 'elite' : 'normal');
+      this.emit('reroll', {});
+      this.say(`The quartermaster finds something else: ${o.ids.map((id) => PARTS[id].name).join(', ')}.`, 'good');
+      return true;
     }
     pickOffer(i) {
       const o = this.lootOffer;
@@ -564,6 +589,7 @@
       this.sightMoves = 0;
       this.bossCharted = false;
       this.moon = 0;
+      this.rerolls = this.upgrades.reroll ? 1 : 0;
       this.maxDepth = this.areaDef().cols;
       this.generateMap();
       this.emit('portal', { area: this.area });
@@ -1118,7 +1144,7 @@
     }
 
     // ---------- Trading Zeppelin ----------
-    price(id) { return Math.round(PRICES[PARTS[id].rarity] * (this.core && this.core.id === 'privateer' ? 0.85 : 1)); }
+    price(id) { return Math.round((PRICES[PARTS[id].rarity] || 120) * (this.core && this.core.id === 'privateer' ? 0.85 : 1) * (this.storm(2) ? 1.15 : 1)); }
     enterShop(node) {
       const stock = [
         ...this.partOffer(2, 'normal', (p) => p.rarity === 'common'),
@@ -1394,7 +1420,7 @@
     // ---------- Resonance (Area 2) ----------
     // Arcane modules build Resonance when used or hit; it flows into touching modules at the start
     // of your turn; a module that fills up casts its spell and empties.
-    isArcane(card) { return !!card && card !== this.core && (!!this.def(card).arcane || !!card.enchanted); }
+    isArcane(card) { return !!card && card !== this.core && (!!this.def(card).arcane || !!card.enchanted || (!!this.core && this.core.id === 'arcanist')); }
     resonate(uid, n = 1) {
       const loc = this.locate(uid);
       if (!loc || loc.card === this.core || !this.combat || this.combat.over) return;
@@ -1413,6 +1439,7 @@
       if (!c.lensUsed && this.touching(card.uid, 'manalens')) { mult = 2; c.lensUsed = true; }
       this.emit('spell', { uid: card.uid, kind: type, mult });
       this.say(`Your ${this.def(card).name} resonates and casts ${spell.name}${mult > 1 ? ', doubled by the Mana Lens' : ''}!`, 'good');
+      if (this.core.id === 'eclipse' && !c.over) { c.enemy.bleed += 2; this.say('Twilight: the spell opens a wound. The enemy gains 2 Bleed.', 'good'); }
       if (type === 'weapon') this.damageEnemy(2 * mult, { pierce: true, source: 'spell' });
       else if (type === 'defense') { for (const x of [card, ...this.neighbors(card.uid)]) this.healCard(x, mult); }
       else if (c.active === 'player') { c.steam += mult; this.emit('steam', { steam: c.steam }); }
@@ -1519,12 +1546,13 @@
       // A lair's guardian that isn't an elite by nature fights as an elite version of itself.
       const elite = !e.elite && !e.boss && node.enc === 'lair';
       const hpScale = (e.boss ? BALANCE.bossHp * A.bossHp : (1 + BALANCE.hpPerColumn * (col - 1)) * A.hp) * (elite ? BALANCE.eliteHp : 1);
-      const hp = Math.round(e.hp * hpScale);
-      const dmgBonus = (e.boss ? (this.area ? A.dmg : 0) : A.dmg + A.veteranColumns.filter((c) => col >= c).length) + (elite ? BALANCE.eliteDmg : 0);
+      const hp = Math.round(e.hp * hpScale * (this.storm(1) ? 1.1 : 1) * (e.boss && this.storm(4) ? 1.2 : 1));
+      if (!this.stats.seenEnemies.includes(enemyId)) this.stats.seenEnemies.push(enemyId);
+      const dmgBonus = (this.storm(3) ? 1 : 0) + (e.boss ? (this.area ? A.dmg : 0) : A.dmg + A.veteranColumns.filter((c) => col >= c).length) + (elite ? BALANCE.eliteDmg : 0);
       this.event = null;
       this.combat = {
         enc: node.enc || 'patrol', enemyId, col, elite,
-        enemy: { id: enemyId, name: elite ? `Elite ${e.name}` : e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, ward: 0, armor: e.armor || 0, burn: 0, bleed: 0, risen: false, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
+        enemy: { id: enemyId, name: elite ? `Elite ${e.name}` : e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: (opts.block || 0) + (this.storm(6) ? 3 : 0), ward: 0, armor: e.armor || 0, burn: 0, bleed: 0, risen: false, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
         galeSide: 'bow', turnDamage: 0, rodCharge: 0, spring: 0, firedThisRound: false,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
@@ -1542,6 +1570,7 @@
       if (e.gimmick) this.say(e.gimmick, 'warn');
       if (this.combat.enemy.block) this.say(`It starts behind ${this.combat.enemy.block} Block.`, 'warn');
       if (this.moonActive()) this.say(`The Blood Moon stands at ${this.moon}/${BALANCE.moonMax} (${this.moonName()}).`, this.moon >= 2 ? 'warn' : 'sys');
+      if (this.upgrades.steam) this.combatBonusSteam += 1;
       const lighter = this.weight() < e.weight;
       if (lighter) { this.combatBonusSteam += 1; this.say(`Your ship is lighter (${fmt(this.weight())} vs ${e.weight}): you outpace it for +1 Steam on your first turn.`, 'good'); }
       this.rollIntent();
@@ -1732,7 +1761,7 @@
       c.firedThisRound = false;
       for (const x of this.cards()) { x.fired = 0; if (x.reload > 0) x.reload--; }
       c.evadeUsed = false; c.freeSwapUsed = false; c.galeSwaps = 0; c.gyroUsed = false; c.overclock = false; c.abilityUsed = false;
-      c.lensUsed = false; c.prism = false; c.auroraChosen = false; c.chalice = 0; c.sanguineUsed = false;
+      c.lensUsed = false; c.prism = false; c.auroraChosen = false; c.chalice = 0; c.sanguineUsed = false; c.pact = 0;
       if (c.surge) { c.steam += c.surge; this.say(`Banked Surges: +${c.surge} Steam.`, 'good'); c.surge = 0; }
       this.emit('steam', { steam: c.steam });
       this.say(`Round ${c.round}: ${c.steam} Steam.`, 'sys');
@@ -2039,6 +2068,7 @@
       const c = this.combat;
       c.over = true;
       this.stats.kills++;
+      if (this.stats.killed) this.stats.killed[c.enemyId] = (this.stats.killed[c.enemyId] || 0) + 1;
       this.emit('victory', { enemyId: c.enemyId });
       this.say(`${theName(c.enemy.name)} goes down in flames!`, 'good');
       for (const x of [this.core, ...this.cards()]) { x.tokens = noTokens(); x.fired = 0; x.reload = 0; }
@@ -2187,6 +2217,7 @@
           this.combat.prism = false;
           const landed = this.damageEnemy(dmg, { pierce, pierceLayers: d.pierceLayers || 0, prism, source: card.id });
           if (d.lifesteal && landed > 0 && !this.coreDead()) this.healCore(Math.ceil(landed * d.lifesteal));
+          if (this.core.id === 'sanguinist' && landed > 0 && (this.combat.pact || 0) < 2 && !this.coreDead()) { this.combat.pact = (this.combat.pact || 0) + 1; this.healCore(1); }
         }
         if (d.flak) { this.combat.flak = Math.min(4, (this.combat.flak || 0) + d.flak); this.say(`Flak fills the sky: its next attack deals ${this.combat.flak} less.`, 'good'); }
         if (d.burn) { en.burn += d.burn; this.say(`It catches fire: Burn ${en.burn}.`, 'good'); }
@@ -2207,6 +2238,7 @@
       else if (this.combat && this.combat.steam < a.cost) blocked = 'Not enough Steam';
       else if (a.id === 'bombard' && this.core.pressure < 1) blocked = 'No Pressure';
       else if (a.id === 'discharge' && !(this.core.charge > 0)) blocked = 'No Charge';
+      else if (a.id === 'bloodlet' && this.core.hp <= 2) blocked = 'Core too weak to bleed';
       let summary = '';
       if (a.id === 'strafe') summary = `${this.weaponsInstalled()} dmg`;
       if (a.id === 'ram') summary = `${this.ramDamage()} dmg · bow takes 1`;
@@ -2214,8 +2246,12 @@
       if (a.id === 'overclock') summary = 'next weapon fires twice';
       if (a.id === 'board') summary = `strip Block · ${BALANCE.boardDamage} piercing`;
       if (a.id === 'discharge') summary = `${BALANCE.dischargeBase + (this.core.charge || 0)} piercing · Charge ${this.core.charge || 0}`;
+      if (a.id === 'pulse') summary = '+1 Resonance on every module';
+      if (a.id === 'bloodlet') summary = 'pay 2 Core · +3 Steam';
+      if (a.id === 'umbra') summary = `${this.umbraDamage()} piercing`;
       return { ability: a, blocked, summary, cost: a.cost };
     }
+    umbraDamage() { return 2 + this.totalResonance() + (this.combat ? this.combat.enemy.bleed || 0 : 0); }
     ramDamage() { return 2 + Math.floor(Math.max(0, this.weight()) / 2); }
     useCore() {
       if (!this.canAct()) return false;
@@ -2241,6 +2277,9 @@
       if (a.id === 'bombard') { const p = this.core.pressure; this.core.pressure = 0; this.damageEnemy(Math.floor(BALANCE.bombardPerPressure * p), { pierce: true, source: 'bombard' }); }
       if (a.id === 'overclock') { this.combat.overclock = true; this.say('Gears whir: your next weapon fires twice.', 'good'); }
       if (a.id === 'board') { const en = this.combat.enemy; if (en.block > 0) this.say(`Your boarders tear away ${en.block} Block.`, 'good'); en.block = 0; this.emit('ram', { player: true }); this.damageEnemy(BALANCE.boardDamage, { pierce: true, source: 'board' }); }
+      if (a.id === 'pulse') { this.emit('pulse', {}); for (const x of this.cards()) if (!this.combat.over && this.locate(x.uid)) this.resonate(x.uid, 1); }
+      if (a.id === 'bloodlet') { this.payBlood(2, 'the Sanguine Core'); this.combat.steam += 3; this.emit('steam', { steam: this.combat.steam }); this.emit('bloodburn', { uid: 'core' }); }
+      if (a.id === 'umbra') { const n = this.umbraDamage(); this.emit('discharge', { charge: n, umbra: true }); this.damageEnemy(n, { pierce: true, source: 'umbra' }); }
       if (a.id === 'discharge') { const q = this.core.charge; this.core.charge = 0; this.emit('discharge', { charge: q }); this.damageEnemy(BALANCE.dischargeBase + q, { pierce: true, source: 'discharge' }); }
       this.checkEnd();
       return true;

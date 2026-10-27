@@ -6,7 +6,7 @@ The current brief, so a fresh session can pick up mid-way. Build in this order a
 2. Legendaries: **done** (Area 1 pools; the Archon's and Sovereign's come in steps 3 and 4)
 3. Area 2: The Aurora Reaches: **done**
 4. Area 3: The Blood Moon: **done**
-5. The Workshop (meta-progression)
+5. The Workshop (meta-progression): **done**
 6. Balance pass
 
 Update this file after each step: mark the step done and note anything left for later steps.
@@ -171,37 +171,44 @@ Update this file after each step: mark the step done and note anything left for 
   - `skymap.js` labels now use `game.encName` (area names).
 - **Tests:** 65 pass, including 10 for Area 3.
 
-## Workshop plan (step 5)
+## The Workshop (step 5): where things are
 
-- **Meta save.** `cardships.meta.v3` is separate from the run save; migrate the v2 fields. It holds:
-  - `blueprints`
-  - `unlockedParts`, `unlockedCores`, `upgrades: {extraPart, steam, reroll}`
-  - `legendaries`
-  - `seen: {enemies, parts, bosses}`, `lore` (deciphered entries)
-  - `achievements`, `cosmetics: {paint, balloon, skin}`
-  - `tiersCleared: {coreId: tier}`, `firstClear`
-  - `lastShip` (a snapshot for the hangar display)
-- **Blueprints per run:**
-  - 5 base.
-  - +15 per area cleared, +10 per boss killed (+10 more on a first kill).
-  - +4 per contract done, +1 per elite.
-  - Losing still earns the base and the per-area rewards.
-- **Workshop hub.** A new title-screen panel over the 'dock' scene, with the last ship drawn by `Actors` in hangar mode. Tabs:
-  - **Cores:** 3 new Cores, ships k_arcanist*, k_sanguine* and k_eclipse* (already in the atlas and HULLS).
-    - Arcanist: Resonance, starts with arcane parts. Its ability, Attune, puts +2 Resonance on a module.
-    - Sanguine: Blood. Its ability, Bloodletting, pays 2 Core for 3 Steam; lifesteal on all weapons, 1.
-    - Eclipse: a hybrid. Its ability deals damage equal to the moon or Resonance plus 2.
-  - **Parts:** new players start with a smaller pool. Unlock the rest, including the Area 2 and Area 3 parts, for Blueprints.
-  - **Upgrades:** an extra starting part, +1 starting Steam, and one reroll of a loot offer per area.
-  - **Logbook:** an entry for every enemy, part, legendary and boss seen, with stats (fought, killed). Lore is deciphered for Blueprints.
-  - **Legendary Vault:** every legendary, locked or unlocked.
-  - **Cosmetics** from achievements: hull paint (tint the player sprite), balloon colour, Core skin.
-  - **Storm Tiers:** unlocked after a first full clear. Each tier adds one modifier, for example enemies +10% hp, −1 starting Steam, elites more common, the moon starting at 2, fewer shops, or the boss starting with Block. Show the best tier cleared per Core.
+- **Data** (`js/data.js`):
+  - `CORES.arcanist/sanguinist/eclipse`, all `locked`, and their ships in `SHIPS`.
+  - `UNLOCKS`: Cores and parts with a Blueprint `cost`. Anything not listed is in the starting pool.
+  - `UPGRADES`, `BLUEPRINTS` (the payout and the lore price), `STORM_TIERS`, `COSMETICS`, `ACHIEVEMENTS` (with a `reward: [slot, id]`), and `LORE`.
+- **Meta** (`js/meta.js`):
+  - Key `cardships.meta.v3`, migrated from v2.
+  - `recordRun` returns `{blueprints: {lines, total}, legendaries, achievements, tier}`.
+  - Also: `buyUnlock`, `buyUpgrade`, `buyLore`, `wear`, `cosmeticOpen`, `setTier`, `runPool` (the drafted part ids passed as `unlocked`), and `unlockCost`.
+- **Engine** (`js/engine.js`):
+  - Options: `upgrades` and `tier`. `storm(n)` applies the cumulative modifiers in `chooseCore` (Core hp, cogs), `startCombat` (hp, boss hp, damage, Block) and `price`.
+  - `rerolls`, `canReroll`, `rerollOffer`.
+  - Stats: `seenEnemies`, `seenParts` (`seePart` in `makeCard` and `partOffer`) and `killed`.
+  - Core abilities `pulse`, `bloodlet` and `umbra` (`umbraDamage`). The Arcanist passive is in `isArcane`, the Sanguine passive in `fire` (`combat.pact`), and the Eclipse passive in `castSpell`.
+- **UI:**
+  - `ui.js`: `titleScreen` is the Workshop, with `workshopHeader` and the tabs `hangarTab`, `upgradesTab`, `partsTab`, `logbookTab`, `vaultTab` and `liveryTab`.
+  - `ui.js`: `applyLivery` sets `CardshipsShipArt.livery` and `--core-skin`. `endScreen` shows the Blueprints ledger. The loot screen has a Reroll button.
+  - `shipart.js`: `pixelSprite` takes `balloon`; `thumb(name, w, h, livery)`.
+  - CSS lives under "The Workshop".
+- **Bot:** scores the new Core abilities.
+- **Tests:** 70 pass.
+
+## Balance pass (step 6): what to do
+
+- Run `node tools/simulate.js 300` (all 9 Cores, tier 0, everything unlocked). Targets: Area 1 clear about 60%, Area 2 about 35%, full win 15–25%.
+- Levers:
+  - `AREAS[n].hp/dmg/bossHp`, enemy base hp, `BALANCE.moonMax/moonWane/beamDamage`.
+  - The Sovereign and Archon hp.
+  - Core stats for Sanguine and Eclipse (weak in Area 1 at step 5: about 25%).
+- At step 5, Area 3 is far too hard (wins about 3%). Look at deaths by enemy, and at whether the bot handles Bleed and the Wraith.
+- Update BALANCE_REPORT.md with per-Core tables, per-boss win rates, and Storm Tier 1–6 results for a couple of Cores.
 
 ## Status
 
 - Step 1 is done: run structure, portals, the simulator, and tests.
 - Step 2 is done: legendaries for the Area 1 bosses, enemy defence layers, generated card art. 47 tests pass.
 - Step 3 is done: the Aurora Reaches, the Archon and its pool. 55 tests pass, and a 300-run fuzz through all areas holds its invariants.
+- Step 5 is done: the Workshop hub, Blueprints, 3 new Cores, part drafting, upgrades, Logbook, Vault, cosmetics and Storm Tiers. 70 tests pass.
 - Step 4 is done: the Blood Moon, the Crimson Sovereign and its pool. 65 tests pass, and the fuzz holds. Sim at step 4 (60 runs per Core): Area 1/Area 2 as before; full wins are about 0–5%, so Area 3 is too hard for now. Step 6 tunes.
 - Sim at step 3 (60 runs per Core, Area 1 clear / Area 2 clear / win): airship 58/33/20, battleship 52/5/0, zeppelin 45/27/2, clockwork 43/35/15, privateer 45/32/8, tempest 58/35/20. Area 3 is still a scaled placeholder. Step 6 tunes; the battleship needs help in Area 2.

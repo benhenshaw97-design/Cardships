@@ -67,6 +67,7 @@
 
   let game = null;
   let meta = Meta.load();
+  applyLivery();
   const ui = { insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
   const SAVE_KEY = 'cardships.run.v5'; // v5: three-area runs // v4: two-deck grid
   function loadSave() { try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
@@ -86,7 +87,7 @@
   }
   function newRun(coreId, shipId) {
     const seed = Game.seedFromCode(ui.seedCode);
-    game = new Game({ unlocked: meta.unlocked, legendaries: meta.legendaries, seed: seed == null ? undefined : seed });
+    game = new Game({ unlocked: Meta.runPool(meta), legendaries: meta.legendaries, upgrades: meta.upgrades, tier: meta.tier || 0, seed: seed == null ? undefined : seed });
     Actors.reset();
     game.chooseCore(coreId, shipId);
     ui.pickCore = null; ui.pickShip = null;
@@ -152,11 +153,14 @@
     wrap.classList.toggle('battle', !!game && game.phase === 'combat' && FX.prefs.battle !== 'classic');
     syncMusic();
     if (!game) {
-      scene.setBiome('dusk'); scene.setMode('title');
+      // The Workshop: the hangar deck, with your last ship berthed on display.
+      scene.setBiome('dock'); scene.setMode('docked');
+      const L = meta.lastShip;
       overlay.replaceChildren(h('div', { class: 'title-hero' },
-        h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike'),
+        h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike · The Workshop'),
         h('h1', {}, 'Cardships'),
-        h('p', {}, 'Bolt modules onto a Core, read the enemy\'s next move, and fly the cloud routes to the boss.')));
+        h('p', {}, 'Bolt modules onto a Core, read the enemy\'s next move, and fly through three skies to the Crimson Sovereign.')),
+        L && D.SHIPS[L.ship] ? h('div', { class: 'hangar-berth' }, window.CardshipsShipArt.thumb(D.SHIPS[L.ship].sprite, 300, 170, window.CardshipsShipArt.livery)) : null);
       return;
     }
     overlay.replaceChildren();
@@ -248,7 +252,6 @@
   // Status and stat icons (assets/art/status), event banners (assets/art/scenes), unlock badges.
   const ico = (name, cls = 'ico') => h('img', { class: cls, src: `assets/art/status/${name}.png`, alt: '', 'aria-hidden': 'true', onerror: (e) => e.target.remove() });
   const banner = (enc) => h('img', { class: 'scene-banner', src: ArtGen && ArtGen.hasBanner(enc) ? ArtGen.banner(enc) : `assets/art/scenes/${enc}.jpg`, alt: '', onerror: (e) => e.target.remove() });
-  const BADGES = { tesla: 0, overpressure: 1, gyro: 3, autoloader: 4, clockwork: 7 };
   const TOKEN_KINDS = ['fire', 'glue', 'gas', 'hex', 'bleed'];
   // Bleed shows its stack count in a blood drop.
   const tokIco = (k, cls = 'tok-ico', card = null) => (k === 'hex' ? h('span', { class: `${cls} tok-rune`, 'aria-hidden': 'true' }, '✶') : k === 'bleed' ? h('span', { class: `${cls} tok-blood`, 'aria-hidden': 'true' }, card ? String(card.tokens.bleed) : '') : ico(k, cls));
@@ -314,35 +317,86 @@
         h('button', { class: 'btn primary', onclick: () => newRun(ui.pickCore, ui.pickShip) }, `Launch the ${D.SHIPS[ui.pickShip].name}`),
         h('button', { class: 'btn', onclick: () => { ui.pickCore = null; render(); } }, 'Back')));
   }
+  // ---------- the Workshop (between runs) ----------
+  // Applies the Workshop's livery: hull paint and balloon colour on your ship, the Core skin's glow.
+  function applyLivery() {
+    const C = D.COSMETICS, c = meta.cosmetics;
+    window.CardshipsShipArt.livery = { paint: (C.paint[c.paint] || C.paint.standard).color, balloon: (C.balloon[c.balloon] || C.balloon.standard).color };
+    document.body.style.setProperty('--core-skin', (C.skin[c.skin] || C.skin.standard).color);
+  }
+  const bp = (n) => h('span', { class: 'bp' }, h('i', { 'aria-hidden': 'true' }), String(n));
+  const buyBtn = (cost, onBuy, label = 'Buy') => h('button', { class: 'btn small primary', disabled: meta.blueprints < cost || null, onclick: () => { if (onBuy()) { FX.sfx && FX.sfx('ratchet'); render(); } } }, `${label} · `, bp(cost));
+  // A part as a short entry: its picture, name and rules.
+  function partEntry(id, extra = null, cls = '') {
+    const d = D.PARTS[id];
+    return h('div', { class: `ws-part ${d.rarity === 'legendary' ? 'legendary' : ''} ${cls}` },
+      h('img', { src: cardSrc(id), alt: '', onerror: (e) => e.target.remove() }),
+      h('div', { class: 'stack', style: 'gap:3px' },
+        h('div', { class: 'row', style: 'gap:6px' }, h('b', {}, d.name), h('span', { class: `tag ${d.type}` }, d.type), h('span', { class: 'muted' }, d.rarity)),
+        d.rules.map(([k, t]) => h('span', { class: 'ws-rule' }, h('b', {}, k + ': '), t)),
+        extra));
+  }
+  function workshopHeader() {
+    const L = meta.lastShip;
+    const ship = L && D.SHIPS[L.ship];
+    const display = h('div', { class: 'ws-display' },
+      ship ? window.CardshipsShipArt.thumb(ship.sprite, 320, 190, window.CardshipsShipArt.livery) : h('div', { class: 'ws-empty' }, 'The display bay is empty. Fly a run, and your ship will be berthed here.'),
+      ship ? h('span', { class: 'ws-caption' }, `${ship.name} · ${D.CORES[L.core].name} · ${L.won ? 'brought home a victory' : `went down in ${D.AREAS[L.area || 0].name}`}`) : null);
+    const best = Object.entries(meta.tierCleared).map(([c, t]) => `${D.CORES[c].name.replace(' Core', '')} ${t}`).join(' · ');
+    return h('section', { class: 'panel ws-head' },
+      display,
+      h('div', { class: 'stack ws-stats' },
+        h('span', { class: 'eyebrow' }, 'The Workshop'),
+        h('h2', {}, 'Your hangar'),
+        h('div', { class: 'ws-bp' }, bp(meta.blueprints), h('span', { class: 'muted' }, 'Blueprints')),
+        statline(`Runs ${meta.runs}`, `Wins ${meta.wins}`, `Bosses sunk ${meta.bossesBeaten.length}/${Object.values(D.ENEMIES).filter((e) => e.boss).length}`, `Legendaries ${meta.legendaries.length}/${Object.keys(D.LEGENDARY_POOLS).length * 2}`),
+        meta.tierUnlocked ? h('span', { class: 'muted' }, `Storm Tiers open: ${meta.tierUnlocked}. Best cleared: ${best || 'none yet'}.`) : h('span', { class: 'muted' }, 'Clear all three areas to open the Storm Tiers.'),
+        h('span', { class: 'muted' }, 'Every run earns Blueprints: more for each area cleared, boss sunk and contract fulfilled. Spend them here.')));
+  }
+  // Cores with painted card art; the Workshop's newer Cores show their ship instead.
+  const CORE_ART = new Set(['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest']);
+  const WS_TABS = [['hangar', 'Hangar'], ['upgrades', 'Upgrades'], ['parts', 'Parts'], ['logbook', 'Logbook'], ['vault', 'Legendary Vault'], ['livery', 'Livery & honours']];
   function titleScreen() {
+    const tab = ui.wsTab || 'hangar';
+    const tabs = h('nav', { class: 'ws-tabs', role: 'tablist' }, WS_TABS.map(([id, label]) => h('button', { class: `ws-tab ${tab === id ? 'on' : ''}`, role: 'tab', 'aria-selected': tab === id ? 'true' : 'false', onclick: () => { ui.wsTab = id; ui.pickCore = null; render(); } }, label)));
+    const body = { hangar: hangarTab, upgrades: upgradesTab, parts: partsTab, logbook: logbookTab, vault: vaultTab, livery: liveryTab }[tab]();
+    return [workshopHeader(), tabs, ...body];
+  }
+  function hangarTab() {
     const cores = Object.values(D.CORES).map((c) => {
       const open = Meta.coreUnlocked(meta, c.id);
-      const how = D.UNLOCKS.find((u) => u.id === c.id);
-      return h('button', { class: `core-pick${ui.pickCore === c.id ? ' picked' : ''}`, disabled: open ? null : true, onclick: () => { ui.pickCore = c.id; ui.pickShip = Game.defaultShip(c.id); render(); requestAnimationFrame(() => { const el = document.getElementById('ship-picker'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); } },
-        !open ? h('span', { class: 'lock' }, h('img', { src: 'assets/art/ui/padlock.png', alt: '' }), `Locked · ${how.how}`) : null,
-        h('img', { class: 'core-art', src: `assets/art/cores/${c.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }),
+      const cost = Meta.unlockCost(c.id);
+      const best = meta.tierCleared[c.id];
+      const pick = () => { ui.pickCore = c.id; ui.pickShip = Game.defaultShip(c.id); render(); requestAnimationFrame(() => { const el = document.getElementById('ship-picker'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); };
+      return h('div', { class: `core-pick${ui.pickCore === c.id ? ' picked' : ''}${open ? '' : ' locked'}`, role: open ? 'button' : null, tabindex: open ? '0' : null, onclick: open ? pick : null, onkeydown: open ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } } : null },
+        !open ? h('span', { class: 'lock' }, h('img', { src: 'assets/art/ui/padlock.png', alt: '' }), 'Locked in the Workshop') : null,
+        CORE_ART.has(c.id) ? h('img', { class: 'core-art', src: `assets/art/cores/${c.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }) : window.CardshipsShipArt.thumb(D.SHIPS[Game.defaultShip(c.id)].sprite, 260, 120),
         h('span', { class: 'eyebrow' }, c.style),
         h('span', { class: 'name' }, c.name.replace(' Core', '')),
         statline(`Weight ${fmt(c.weight)}`, `Durability ${c.hp}`, `Steam ${c.steam}`),
         h('span', {}, h('b', {}, c.passive.name + '. '), c.passive.text),
         h('span', {}, h('b', {}, `${c.ability.name} (${c.ability.cost} Steam). `), c.ability.text),
         h('span', { class: 'muted' }, c.blurb),
-      );
+        best != null ? h('span', { class: 'tier-best' }, `Best clear: Storm Tier ${best}`) : null,
+        !open && cost != null ? h('div', { class: 'row' }, buyBtn(cost, () => Meta.buyUnlock(meta, c.id), 'Build')) : null);
     });
-    const unlocks = h('div', { class: 'unlocks' }, D.UNLOCKS.map((u) => {
-      const got = meta.unlocked.includes(u.id);
-      return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('img', { class: 'badge', src: `assets/art/bits/badge${BADGES[u.id] ?? 7}.png`, alt: '' }), h('div', { class: 'stack', style: 'gap:2px' }, h('b', {}, u.name), h('span', {}, got ? `Unlocked ${u.kind}` : u.how)));
-    }));
     const saved = loadSave();
     const seedBox = h('div', { class: 'row seed-row' },
       h('label', { for: 'seed-input', class: 'hud-label' }, 'Seed'),
       h('input', { id: 'seed-input', class: 'seed-input', placeholder: 'Random', value: ui.seedCode, maxlength: '16', autocomplete: 'off', oninput: (e) => { ui.seedCode = e.target.value; } }),
       h('span', { class: 'muted' }, 'Enter a code (letters or numbers) to replay or share a run.'));
+    // Storm Tiers: pick a difficulty once the first full clear opens them.
+    const tiers = meta.tierUnlocked ? h('section', { class: 'panel stack' },
+      h('h3', {}, 'Storm Tier'),
+      h('p', { class: 'muted' }, 'Each tier adds one modifier on top of the ones before it. Victories at higher tiers pay more Blueprints.'),
+      h('div', { class: 'tier-row' }, [0, ...D.STORM_TIERS.filter((t) => t.tier <= meta.tierUnlocked).map((t) => t.tier)].map((n) => h('button', { class: `tier-pick ${meta.tier === n ? 'on' : ''}`, onclick: () => { Meta.setTier(meta, n); render(); } }, n ? `Tier ${n}` : 'Calm skies'))),
+      meta.tier ? h('ul', { class: 'tier-mods' }, D.STORM_TIERS.filter((t) => t.tier <= meta.tier).map((t) => h('li', {}, h('b', {}, `${t.name}: `), t.text))) : h('span', { class: 'muted' }, 'No modifiers.')) : null;
     return [
       saved && saved.core ? h('div', { class: 'panel row', style: 'justify-content:space-between' },
         h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, 'Autosaved run'),
-          h('b', {}, `${D.CORES[saved.core.id].name} · Area ${D.AREAS[saved.area || 0].numeral}, column ${saved.depth} of ${saved.maxDepth} · seed ${Game.seedCode(saved.seed)}`)),
+          h('b', {}, `${D.CORES[saved.core.id].name} · Area ${D.AREAS[saved.area || 0].numeral}, column ${saved.depth} of ${saved.maxDepth} · seed ${Game.seedCode(saved.seed)}${saved.tier ? ` · Storm Tier ${saved.tier}` : ''}`)),
         h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => continueRun(saved) }, 'Continue run'), h('button', { class: 'btn', onclick: () => { clearSave(); render(); } }, 'Abandon'))) : null,
+      tiers,
       h('div', { class: 'cores' }, cores),
       shipPicker(),
       seedBox,
@@ -353,16 +407,76 @@
           h('div', {}, h('b', {}, 'Firing'), h('span', {}, 'Straight guns fire from the front of a deck: the prow of the hull, or the foremost upper module. Mortars and Tesla Coils arc from any slot with open sky above.')),
           h('div', {}, h('b', {}, 'Intents'), h('span', {}, 'The enemy\'s next move and target are shown before you act. Answer it: swap modules, Evade, cleanse, or kill it first.')),
           h('div', {}, h('b', {}, 'Steam'), h('span', {}, 'Refills every turn and pays for everything. Durability is only health.')),
-          h('div', {}, h('b', {}, 'Targeting'), h('span', {}, 'Direct fire comes in along a deck from the bow and meets the front module first; armor at the front catches it. Bombs and lightning drop onto a column and hit whatever is on top. A bare bow, or a bare side with no bridge, exposes the Core.')),
+          h('div', {}, h('b', {}, 'Three areas'), h('span', {}, 'Sink each area\'s boss to tear open a portal to the next: the Open Skies, the Aurora Reaches, then the Blood Moon. Your ship flies through intact, and the Core is fully repaired.')),
           h('div', {}, h('b', {}, 'Weight'), h('span', {}, 'Lighter than the enemy: +1 Steam on turn one and cheap Evades. Heavier: rams and crosswinds hurt less.')),
           h('div', {}, h('b', {}, 'Dice'), h('span', {}, 'Everything rolls a d6. Results with a downside give you a choice.')),
-        ),
-      ),
-      h('div', { class: 'panel stack' },
-        h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, 'Hangar records'),
-          h('span', { class: 'statline' }, `Runs ${meta.runs}`, `Wins ${meta.wins}`, `Bosses sunk ${meta.bossesBeaten.length}/3`)),
-        h('p', { class: 'muted' }, 'Reach milestones to unlock new Cores and rare parts for future runs.'),
-        unlocks),
+        )),
+    ];
+  }
+  function upgradesTab() {
+    return [h('section', { class: 'panel stack' },
+      h('h3', {}, 'Starting upgrades'),
+      h('p', { class: 'muted' }, 'Bought once, fitted to every ship you launch.'),
+      h('div', { class: 'ws-grid' }, D.UPGRADES.map((u) => h('div', { class: `ws-card ${meta.upgrades[u.id] ? 'owned' : ''}` },
+        h('b', { class: 'ws-name' }, u.name), h('span', {}, u.text),
+        meta.upgrades[u.id] ? h('span', { class: 'tag owned' }, 'Fitted') : buyBtn(u.cost, () => Meta.buyUpgrade(meta, u.id))))))];
+  }
+  function partsTab() {
+    const parts = D.UNLOCKS.filter((u) => u.kind === 'part');
+    const locked = parts.filter((u) => !meta.unlocked.includes(u.id)).length;
+    const pool = Object.values(D.PARTS).filter((p) => p.rarity !== 'legendary').length;
+    return [h('section', { class: 'panel stack' },
+      h('h3', {}, 'Blueprint drafting'),
+      h('p', { class: 'muted' }, `Your loot pool holds ${pool - locked} of ${pool} parts. Draft a blueprint to add a part to every future run's loot, shops and salvage.`),
+      h('div', { class: 'ws-list' }, parts.map((u) => partEntry(u.id, meta.unlocked.includes(u.id) ? h('span', { class: 'tag owned' }, 'In your pool') : buyBtn(u.cost, () => Meta.buyUnlock(meta, u.id), 'Draft'), meta.unlocked.includes(u.id) ? 'owned' : ''))))];
+  }
+  function logbookTab() {
+    const tab = ui.logTab || 'enemies';
+    const sub = h('div', { class: 'tier-row' }, [['enemies', 'Ships & bosses'], ['parts', 'Parts']].map(([id, l]) => h('button', { class: `tier-pick ${tab === id ? 'on' : ''}`, onclick: () => { ui.logTab = id; render(); } }, l)));
+    let list;
+    if (tab === 'enemies') {
+      list = Object.values(D.ENEMIES).map((e) => {
+        const met = meta.seen.enemies.includes(e.id);
+        if (!met) return h('div', { class: 'ws-log unknown' }, h('b', {}, '???'), h('span', { class: 'muted' }, `Not yet met. ${D.AREAS[e.area || 0].name}.`));
+        const lore = D.LORE[e.id];
+        return h('div', { class: `ws-log ${e.boss ? 'boss' : ''}` },
+          h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, e.name), h('span', { class: 'muted' }, `${D.AREAS[e.area || 0].name}${e.boss ? ' · Boss' : ''}`)),
+          statline(`Durability ${e.hp}`, `Weight ${e.weight}`, `Sunk ${meta.killed[e.id] || 0}`, `Phases ${e.phases.length}`),
+          e.gimmick ? h('span', { class: 'ws-rule' }, e.gimmick) : null,
+          lore ? (meta.lore.includes(e.id) ? h('i', { class: 'ws-lore' }, lore) : buyBtn(D.BLUEPRINTS.lore, () => Meta.buyLore(meta, e.id), 'Decipher the lore')) : null);
+      });
+    } else {
+      list = Object.values(D.PARTS).filter((p) => p.rarity !== 'legendary').map((p) => meta.seen.parts.includes(p.id) ? partEntry(p.id) : h('div', { class: 'ws-log unknown' }, h('b', {}, '???'), h('span', { class: 'muted' }, `An unseen ${p.rarity} part.`)));
+    }
+    return [h('section', { class: 'panel stack' }, h('h3', {}, "Captain's Logbook"), h('p', { class: 'muted' }, 'Every ship and part you meet is entered here. Spend Blueprints to decipher the lore of what you have fought.'), sub, h('div', { class: 'ws-list' }, list))];
+  }
+  function vaultTab() {
+    const rows = Object.entries(D.LEGENDARY_POOLS).map(([boss, ids]) => h('div', { class: 'stack vault-row' },
+      h('h4', {}, D.ENEMIES[boss].name, h('span', { class: 'muted' }, ` · ${D.AREAS[D.ENEMIES[boss].area || 0].name}`)),
+      h('div', { class: 'ws-list two' }, ids.map((id) => meta.legendaries.includes(id)
+        ? partEntry(id, meta.lore.includes(id) ? h('i', { class: 'ws-lore' }, D.LORE[id]) : buyBtn(D.BLUEPRINTS.lore, () => Meta.buyLore(meta, id), 'Decipher the lore'))
+        : h('div', { class: 'ws-part vault-locked' }, h('div', { class: 'vault-sil', 'aria-hidden': 'true' }, '★'), h('div', { class: 'stack' }, h('b', {}, 'Sealed'), h('span', { class: 'muted' }, `Sink ${D.ENEMIES[boss].name} to unlock it.`)))))));
+    return [h('section', { class: 'panel stack' }, h('h3', {}, 'The Legendary Vault'), h('p', { class: 'muted' }, 'Each boss\'s first defeat unlocks its two legendaries. Once unlocked they can turn up as very rare loot on any run.'), rows)];
+  }
+  function liveryTab() {
+    const C = D.COSMETICS;
+    const L = meta.lastShip;
+    const sprite = D.SHIPS[(L && L.ship) || Game.defaultShip('airship')].sprite;
+    const slot = (key, label) => h('fieldset', { class: 'set-group' }, h('legend', {}, label),
+      h('div', { class: 'swatches' }, Object.entries(C[key]).map(([id, c]) => {
+        const open = Meta.cosmeticOpen(meta, key, id);
+        return h('button', { class: `swatch ${meta.cosmetics[key] === id ? 'on' : ''}`, disabled: open ? null : true, title: open ? c.name : `Locked: ${(D.ACHIEVEMENTS.find((a) => a.reward[0] === key && a.reward[1] === id) || {}).how}`, onclick: () => { Meta.wear(meta, key, id); applyLivery(); render(); } },
+          h('i', { style: `--sw:${c.color || (key === 'skin' ? c.color : '#b08a50')}` }), open ? c.name : '🔒 ' + c.name);
+      })));
+    return [
+      h('section', { class: 'panel ws-livery' },
+        h('div', { class: 'ws-display small' }, window.CardshipsShipArt.thumb(sprite, 260, 150, window.CardshipsShipArt.livery)),
+        h('div', { class: 'stack' }, h('h3', {}, 'Livery'), slot('paint', 'Hull paint'), slot('balloon', 'Balloon colour'), slot('skin', 'Core skin'))),
+      h('section', { class: 'panel stack' }, h('h3', {}, 'Honours'),
+        h('div', { class: 'unlocks' }, D.ACHIEVEMENTS.map((a) => {
+          const got = meta.achievements.includes(a.id);
+          return h('div', { class: `unlock ${got ? 'got' : ''}` }, h('img', { class: 'badge', src: `assets/art/bits/badge${D.ACHIEVEMENTS.indexOf(a) % 8}.png`, alt: '' }), h('div', { class: 'stack', style: 'gap:2px' }, h('b', {}, a.name), h('span', {}, a.how), h('span', { class: 'muted' }, `Reward: ${C[a.reward[0]][a.reward[1]].name} ${{ paint: 'hull paint', balloon: 'balloon', skin: 'Core skin' }[a.reward[0]]}`)));
+        }))),
     ];
   }
 
@@ -585,7 +699,7 @@
       appendAll(panel, h('h2', {}, o.legendary ? 'Choose a legendary' : o.keep > 1 ? `Keep ${o.keep}` : 'Choose a part'),
         h('p', { class: 'muted' }, o.legendary ? 'Torn from the boss\'s wreck. Each one can define a build: take one, or leave both.' : 'Take one, or leave them all if none fit your ship.'),
         h('div', { class: 'choices' }, o.ids.map((id, i) => partSheet(id, h('button', { class: 'btn primary', onclick: act(() => game.pickOffer(i)) }, 'Take')))),
-        h('div', { class: 'row' }, h('button', { class: 'btn', onclick: act(() => game.skipOffer()) }, 'Take nothing')));
+        h('div', { class: 'row' }, h('button', { class: 'btn', onclick: act(() => game.skipOffer()) }, 'Take nothing'), game.canReroll() ? h('button', { class: 'btn', title: "Quartermaster's Ledger: once in each area", onclick: act(() => game.rerollOffer()) }, `Reroll (${game.rerolls} left in this area)`) : null));
     } else if (game.pendingLoot.length) {
       const id = game.pendingLoot[0];
       const full = !game.installSlots().length;
@@ -1155,18 +1269,24 @@
   function endScreen() {
     const won = game.phase === 'victory';
     const s = game.stats;
-    if (ui.recorded !== game) { ui.recorded = game; ui.newUnlocks = Meta.recordRun(meta, game); }
+    if (ui.recorded !== game) { ui.recorded = game; ui.earned = Meta.recordRun(meta, game); }
+    const E = ui.earned || { blueprints: { lines: [], total: 0 }, legendaries: [], achievements: [], tier: null };
     const boss = D.ENEMIES[game.bossId];
     const stat = (label, v) => h('div', { class: 'stat' }, h('b', {}, v), h('span', { class: 'hud-label' }, label));
     return [
       h('section', { class: 'panel stack' },
-        h('span', { class: 'eyebrow' }, won ? 'Victory' : 'Run over'),
+        h('span', { class: 'eyebrow' }, won ? `Victory${game.tier ? ` · Storm Tier ${game.tier}` : ''}` : 'Run over'),
         h('h2', { style: 'font-size: clamp(40px, 9vw, 72px)' }, won ? `${boss.name.replace('The ', '')} sunk` : 'Core ruptured'),
         h('p', {}, won ? `Your ${D.CORES[game.core.id].name} crossed all three areas and brought down ${boss.name}.` : `Your ${D.CORES[game.core.id].name} went down in ${game.areaDef().name}, at column ${game.depth} of ${game.maxDepth}.`),
         h('div', { class: 'stats' }, stat('Areas cleared', `${s.areasCleared}/${D.AREAS.length}`), stat('Bosses', s.bossesKilled.length), stat('Encounters', s.encounters), stat('Enemies downed', s.kills), stat('Damage dealt', s.dmgDealt), stat('Damage taken', s.dmgTaken), stat('Cogs earned', s.cogs), stat('Contracts', s.quests)),
-        h('p', { class: 'muted' }, `Seed ${Game.seedCode(game.seed)}. Enter it on the title screen to fly the same route again.`),
-        ui.newUnlocks.length ? h('div', { class: 'banner unlock-banner' }, h('span', {}, 'Unlocked: ' + ui.newUnlocks.map((u) => `${u.name} (${u.kind})`).join(', '))) : null,
-        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; meta = Meta.load(); render(); } }, 'New run')),
+        h('div', { class: 'bp-ledger' }, h('span', { class: 'eyebrow' }, 'Blueprints earned'),
+          E.blueprints.lines.map(([k, v]) => h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', {}, k), bp(v))),
+          h('div', { class: 'row total', style: 'justify-content:space-between' }, h('b', {}, 'Total'), bp(E.blueprints.total))),
+        E.legendaries.length ? h('div', { class: 'banner unlock-banner' }, h('span', {}, 'Legendary Vault: ' + E.legendaries.map((id) => D.PARTS[id].name).join(', ') + ' can now turn up as loot.')) : null,
+        E.achievements.length ? h('div', { class: 'banner unlock-banner' }, h('span', {}, 'Honours: ' + E.achievements.map((a) => `${a.name} (${D.COSMETICS[a.reward[0]][a.reward[1]].name})`).join(', '))) : null,
+        E.tier ? h('div', { class: 'banner unlock-banner' }, h('span', {}, `Storm Tier ${E.tier} is open: ${D.STORM_TIERS[E.tier - 1].name}.`)) : null,
+        h('p', { class: 'muted' }, `Seed ${Game.seedCode(game.seed)}. Enter it in the Workshop to fly the same route again.`),
+        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; ui.wsTab = 'hangar'; meta = Meta.load(); applyLivery(); render(); } }, 'Return to the Workshop')),
       ),
       shipView({ title: 'Final ship' }),
     ];

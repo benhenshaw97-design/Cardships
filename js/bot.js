@@ -200,6 +200,9 @@
       if (a === 'bombard') { const dmg = Math.floor(D.BALANCE.bombardPerPressure * g.core.pressure); s = (g.core.pressure >= 5 || dmg >= en.hp) ? dmg * 2 + killBonus(dmg) : -1; }
       if (a === 'board') s = (D.BALANCE.boardDamage + Math.min(en.block, 5)) * 2 - 1 + killBonus(D.BALANCE.boardDamage);
       if (a === 'discharge') { const dmg = D.BALANCE.dischargeBase + (g.core.charge || 0); s = (g.core.charge >= D.BALANCE.chargeCap - 2 || dmg >= en.hp) ? dmg * 2 + killBonus(dmg) : -1; }
+      if (a === 'pulse') s = g.cards().reduce((n, x) => n + ((x.res || 0) === 2 ? 2.5 : 0.6), 0);
+      if (a === 'bloodlet') { const want = g.cards().some((x) => { const i = g.fireInfo(x.uid); return i && i.blocked === 'Not enough Steam'; }); s = want && g.core.hp > 7 ? 3 : -1; }
+      if (a === 'umbra') { const dmg = g.umbraDamage(); s = (dmg >= 5 || dmg >= en.hp) && !g.phasedOut() ? dmg * 2 + killBonus(dmg) : -1; }
       if (a === 'overclock') s = g.cards().some((x) => { const i = g.fireInfo(x.uid); return i && !i.blocked && g.combat.steam - 1 >= i.cost; }) ? 4 : -1;
       acts.push({ score: s - core.cost * steamWorth, run: () => g.useCore() });
     }

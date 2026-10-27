@@ -52,6 +52,31 @@
       ability: { id: 'discharge', name: 'Arc Discharge', cost: 1, text: 'Spend all Charge: deal 3 damage plus 1 per Charge, ignoring Block.' },
       start: [['sprinkler', 0, -1], ['rockets', 0, 1]],
     },
+    // The Workshop's Cores, built around the later areas' mechanics (bought with Blueprints).
+    arcanist: {
+      id: 'arcanist', name: 'Arcanist Core', weight: 1, hp: 9, steam: 4,
+      style: 'Spellwright', locked: true,
+      blurb: 'A humming crystal heart. Every module it touches sings with Resonance.',
+      passive: { name: 'Attuned', text: 'All of your modules are arcane: they build Resonance when used or hit, and cast spells when full.' },
+      ability: { id: 'pulse', name: 'Harmonic Pulse', cost: 2, text: 'Every module gains 1 Resonance.' },
+      start: [['manalens', 0, -1], ['runecannon', 0, 1]],
+    },
+    sanguinist: {
+      id: 'sanguinist', name: 'Sanguine Core', weight: 2, hp: 12, steam: 3,
+      style: 'Bloodletter', locked: true,
+      blurb: 'A beating iron heart that runs on its own blood, and drinks the enemy\'s.',
+      passive: { name: 'Blood Pact', text: 'Each time one of your weapons deals damage, your Core heals 1 (up to 2 a turn).' },
+      ability: { id: 'bloodlet', name: 'Bloodletting', cost: 0, text: 'Pay 2 Core Durability: +3 Steam.' },
+      start: [['thornhull', 0, -1], ['bloodharpoon', 0, 1]],
+    },
+    eclipse: {
+      id: 'eclipse', name: 'Eclipse Core', weight: 1, hp: 10, steam: 4,
+      style: 'Twilight', locked: true,
+      blurb: 'Starlight and blood in one black sphere. Its spells open wounds.',
+      passive: { name: 'Twilight', text: 'Whenever one of your modules casts a spell, the enemy gains 2 Bleed.' },
+      ability: { id: 'umbra', name: 'Umbral Strike', cost: 2, text: 'Deal 2 damage, plus all the Resonance on your ship and the enemy\'s Bleed, ignoring Block and Armor.' },
+      start: [['crystalward', 0, -1], ['runecannon', 0, 1]],
+    },
   };
 
   // ---------- Ships ----------
@@ -76,6 +101,15 @@
     stormrider: { name: 'Stormrider', sprite: 'k_tempest', core: 'tempest', trait: 'Insulated: lightning deals 1 less damage to you.', insulated: true },
     crystal: { name: 'Crystal Pagoda', sprite: 'k_crystal', core: 'tempest', trait: 'Aether crystal: +1 Steam on the first turn of every fight.', jump: 1 },
     starpagoda: { name: 'Star Pagoda', sprite: 'k_starpagoda', core: 'tempest', trait: 'Star globe: +2 Core Durability.', hp: 2 },
+    runeweaver: { name: 'Runeweaver', sprite: 'k_arcanist', core: 'arcanist', trait: 'Star-glass lookout: +1 sight on the sky map.', sight: 1 },
+    prismara: { name: 'Prismara', sprite: 'k_arcanist2', core: 'arcanist', trait: 'Prism sails: +1 Steam on the first turn of every fight.', jump: 1 },
+    starloom: { name: 'Starloom', sprite: 'k_arcanist3', core: 'arcanist', trait: 'Woven hull: +2 Core Durability.', hp: 2 },
+    bloodbarque: { name: 'Blood Barque', sprite: 'k_sanguine', core: 'sanguinist', trait: 'Leech crew: repair 1 Core after every fight.', mendAfter: 1 },
+    vampyre: { name: 'Vampyre', sprite: 'k_sanguine2', core: 'sanguinist', trait: 'Bat-wing sails: −1 Weight.', weight: -1 },
+    redwake: { name: 'Red Wake', sprite: 'k_sanguine3', core: 'sanguinist', trait: 'Grave robbers: every win pays 4 more cogs.', salvage: 4 },
+    duskblade: { name: 'Duskblade', sprite: 'k_eclipse', core: 'eclipse', trait: 'Night engines: +1 Steam on the first turn of every fight.', jump: 1 },
+    nightglass: { name: 'Nightglass', sprite: 'k_eclipse2', core: 'eclipse', trait: 'Obsidian plating: +2 Core Durability.', hp: 2 },
+    umbra: { name: 'Umbra', sprite: 'k_eclipse3', core: 'eclipse', trait: 'Moon-glass lens: +1 sight on the sky map.', sight: 1 },
   };
   for (const [id, sh] of Object.entries(SHIPS)) sh.id = id;
 
@@ -652,14 +686,99 @@
   ];
   AREAS.forEach((a, i) => { a.index = i; });
 
-  // Unlocks earned across runs (meta-progression). Rares not listed here start unlocked.
+  // ---------- The Workshop (meta-progression) ----------
+  // Parts and Cores a new captain must buy with Blueprints before they appear. Everything not
+  // listed is in the starting pool.
   const UNLOCKS = [
-    { id: 'tesla', kind: 'part', name: 'Tesla Coil', how: 'Reach the boss.' },
-    { id: 'autoloader', kind: 'part', name: 'Autoloader', how: 'Defeat a Pirate Lair.' },
-    { id: 'gyro', kind: 'part', name: 'Gyro Stabilizer', how: 'Complete 3 contracts (across runs).' },
-    { id: 'clockwork', kind: 'core', name: 'Clockwork Core', how: 'Win a run.' },
-    { id: 'overpressure', kind: 'part', name: 'Overpressure Valve', how: 'Defeat two different bosses.' },
+    { id: 'clockwork', kind: 'core', name: 'Clockwork Core', cost: 40 },
+    { id: 'arcanist', kind: 'core', name: 'Arcanist Core', cost: 60 },
+    { id: 'sanguinist', kind: 'core', name: 'Sanguine Core', cost: 60 },
+    { id: 'eclipse', kind: 'core', name: 'Eclipse Core', cost: 80 },
+    { id: 'sniper', kind: 'part', name: 'Sniper Rifle', cost: 15 },
+    { id: 'gatling', kind: 'part', name: 'Gatling Gun', cost: 15 },
+    { id: 'lightningrod', kind: 'part', name: 'Lightning Rod', cost: 12 },
+    { id: 'boiler', kind: 'part', name: 'Auxiliary Boiler', cost: 15 },
+    { id: 'hatch', kind: 'part', name: 'Supply Hatch', cost: 12 },
+    { id: 'heart', kind: 'part', name: 'Clockwork Heart', cost: 20 },
+    { id: 'tesla', kind: 'part', name: 'Tesla Coil', cost: 30 },
+    { id: 'autoloader', kind: 'part', name: 'Autoloader', cost: 25 },
+    { id: 'gyro', kind: 'part', name: 'Gyro Stabilizer', cost: 25 },
+    { id: 'overpressure', kind: 'part', name: 'Overpressure Valve', cost: 30 },
+    { id: 'starsail', kind: 'part', name: 'Star Sail', cost: 15 },
+    { id: 'prism', kind: 'part', name: 'Prism Array', cost: 18 },
+    { id: 'manalens', kind: 'part', name: 'Mana Lens', cost: 25 },
+    { id: 'sanguine', kind: 'part', name: 'Sanguine Engine', cost: 15 },
+    { id: 'moonmortar', kind: 'part', name: 'Moon Mortar', cost: 18 },
+    { id: 'crimsonaltar', kind: 'part', name: 'Crimson Altar', cost: 25 },
   ];
+  // Starting upgrades, bought once and active on every run.
+  const UPGRADES = [
+    { id: 'extraPart', name: 'Spare Crate', cost: 30, text: 'Start every run with one extra common part to install.' },
+    { id: 'steam', name: 'Pressurised Boilers', cost: 40, text: '+1 Steam on the first turn of every fight.' },
+    { id: 'reroll', name: "Quartermaster's Ledger", cost: 35, text: 'Once in each area, reroll a loot offer.' },
+  ];
+  // Blueprints earned from a run (losing still pays the base and what you cleared).
+  const BLUEPRINTS = { base: 5, area: 15, boss: 10, firstBoss: 10, quest: 4, elite: 1, win: 10, lore: 3 };
+  // Storm Tiers: unlocked by a first full clear. Each tier adds one modifier on top of the ones before.
+  const STORM_TIERS = [
+    { tier: 1, name: 'Squall', text: 'Enemies have 10% more Durability.' },
+    { tier: 2, name: 'Lean Holds', text: 'Start with 10 fewer cogs; Trading Zeppelins charge 15% more.' },
+    { tier: 3, name: 'Hardened Crews', text: 'Every enemy deals +1 damage.' },
+    { tier: 4, name: 'Dread Captains', text: 'Bosses have 20% more Durability.' },
+    { tier: 5, name: 'Thin Hulls', text: 'Your Core has 3 less max Durability.' },
+    { tier: 6, name: 'Black Storm', text: 'Every enemy starts each fight behind 3 Block.' },
+  ];
+  // Cosmetics, unlocked by achievements. Paint tints the hull, balloon tints the gasbag, a Core
+  // skin recolours the Core's glow and badge.
+  const COSMETICS = {
+    paint: { standard: { name: 'Shipwright Brass', color: null }, soot: { name: 'Soot Black', color: 'rgba(20,16,22,0.42)' }, verdigris: { name: 'Verdigris', color: 'rgba(60,170,140,0.32)' }, gilded: { name: 'Gilded', color: 'rgba(255,200,80,0.34)' } },
+    balloon: { standard: { name: 'Canvas', color: null }, crimson: { name: 'Crimson', color: 'rgba(200,30,40,0.42)' }, aurora: { name: 'Aurora', color: 'rgba(90,240,200,0.38)' }, storm: { name: 'Stormcloud', color: 'rgba(70,90,150,0.45)' } },
+    skin: { standard: { name: 'Brass Heart', color: '#f0cf84' }, bloodmoon: { name: 'Blood Moon', color: '#ff3a4a' }, starlit: { name: 'Starlit', color: '#9fe8ff' }, gold: { name: 'Sovereign Gold', color: '#ffd84a' } },
+  };
+  const ACHIEVEMENTS = [
+    { id: 'firstflight', name: 'First Flight', how: 'Finish a run.', reward: ['paint', 'soot'] },
+    { id: 'giantslayer', name: 'Giant Slayer', how: 'Sink a boss.', reward: ['balloon', 'crimson'] },
+    { id: 'lights', name: 'Through the Lights', how: 'Clear the Aurora Reaches.', reward: ['balloon', 'aurora'] },
+    { id: 'sovereign', name: 'Moonfall', how: 'Win a run.', reward: ['skin', 'bloodmoon'] },
+    { id: 'veteran', name: 'Veteran Captain', how: 'Fly 10 runs.', reward: ['paint', 'verdigris'] },
+    { id: 'collector', name: 'Collector', how: 'Unlock 5 legendaries.', reward: ['skin', 'gold'] },
+    { id: 'admiral', name: 'Fleet Admiral', how: 'Win with 3 different Cores.', reward: ['paint', 'gilded'] },
+    { id: 'stormeye', name: 'Eye of the Storm', how: 'Win at Storm Tier 3 or higher.', reward: ['balloon', 'storm'] },
+    { id: 'starlit', name: 'Starlit', how: 'Win with the Arcanist or Eclipse Core.', reward: ['skin', 'starlit'] },
+  ];
+  // Logbook lore: deciphered with Blueprints once the entry has been met.
+  const LORE = {
+    cutter: 'Cheap, quick and everywhere: the cutter is how most pirates start, and how most of them end.',
+    skiff: 'A rowboat with a balloon and a grudge. Skiff crews bait wrecks and wait.',
+    gunship: 'The pirate fleets\' workhorse, bought second-hand from navies that pretend not to notice.',
+    bomber: 'Its holds are packed with firepots. Its captains are rarely the cautious sort.',
+    sentinel: 'Once a customs cutter. Its plating outlived the honest crew that bolted it on.',
+    flagship: 'A pirate lord\'s pride. Every gun on it was taken from someone who had a bad day.',
+    monitor: 'A floating battery that never moves far from its lair, and never needs to.',
+    leviathan: 'Riveted together from forty sunk warships. Its engine room is said to have its own weather.',
+    stormqueen: 'She was a weather-witch for the trade guild, until she learned what the storms were worth.',
+    colossus: 'The Colossus was built to wind the clocks of a city. The city is gone; the winding never stopped.',
+    wisp: 'Not a ship so much as a lantern that learned to hunt. It drinks light, and Resonance is light.',
+    corvette: 'Hexcraft is cheaper than cannon shot, and the corvette captains are nothing if not thrifty.',
+    barge: 'The barge mines the crystal islands and wears its spoils: every turn the crystals grow back thicker.',
+    mirage: 'Only one of the galleons is there. Sailors argue for hours about which one it was.',
+    archon: 'The aurora itself, taught to steer. Its convergence has unmade whole flotillas in one bright breath.',
+    bats: 'Iron-winged bats, bred in the bell towers of drowned cathedrals. They hunt by the smell of rust and blood.',
+    wraith: 'A clipper that sank in the first eclipse and refused to stay sunk. It is only half here.',
+    bonegalleon: 'Built from the ribs of something vast. Sink it, and its bones remember how to float.',
+    cultist: 'The cult sails to the moon and feeds it. What it bleeds out of you, it keeps.',
+    sovereign: 'Queen of a night that never ends. Her flagship eclipses the moon itself, and drinks the sky red.',
+    leviplating: 'Plate stripped from the Leviathan\'s own hull. It still hates being struck, and strikes back.',
+    dreadnought: 'The Leviathan\'s main gun. Its shells were cast to punch through a fortress, or two.',
+    galeengine: 'The Storm Queen\'s heart-wind, caged in brass. It wants to move, and it hates to wait.',
+    stormheart: 'A shard of the storm she ruled. It answers every blow with lightning.',
+    mainspring: 'The Colossus\'s great spring. It never forgot how to wind tighter.',
+    titanfist: 'The Colossus\'s fist, which ground cities to rubble. Heavier ships hit harder with it.',
+    auroracrown: 'The Archon\'s crown of living light. Whoever wears it tells the sky what colour to be.',
+    archonlance: 'A lance of gathered starlight. It drinks every note of Resonance and spends it at once.',
+    chalice: 'The Sovereign drank from this every night of her reign. It still thirsts.',
+    eclipseblade: 'Forged in the moment the moon went black. Every wound near it opens a little wider.',
+  };
 
   // ---------- Contracts (rolled on a d6; you sign one of two) ----------
   const QUESTS = [
@@ -718,7 +837,7 @@
     chaliceCap: 3,           // Sovereign's Chalice: most Core healed per turn
   };
 
-  const data = { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RESONANCE, AURORA, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
+  const data = { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RESONANCE, AURORA, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, UPGRADES, BLUEPRINTS, STORM_TIERS, COSMETICS, ACHIEVEMENTS, LORE, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);
