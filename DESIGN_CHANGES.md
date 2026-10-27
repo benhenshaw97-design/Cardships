@@ -852,3 +852,19 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
   - Core art for the Arcanist, Sanguine and Eclipse Cores.
   - The bat-wing ship is now the Bat Swarm, rimmed in pale moonlight so it stands out against the red sky.
   - `js/artgen.js` stays as a fallback for any future part without a picture: list it in `DRAWN_ONLY` in `ui.js`.
+
+## Once-over and tidy-up
+
+- **Skies.** Your latest seven paintings give every Aurora and Blood Moon stretch, the Archon's lair and the Sovereign's eclipse their own painted sky; none borrows Area 1 art now. The drawn background clouds are dropped over these darker paintings, so only low foreground banks drift across them.
+- **Fixes:**
+  - The main menu showed a stray "null" for new players, who have no last ship to park in the hangar.
+  - On phones, the enemy's move plate sat under its name tag in fights.
+- **Clean-up:**
+  - Removed the procedural sky painters (every sky is painted now) and other dead code.
+  - Added a `.gitignore` and stopped tracking Python caches.
+  - Rewrote the README for the current game.
+  - Condensed the NEXT_STEPS.md status.
+- **Checked:**
+  - The 70 rules tests.
+  - 300 bot-played fuzz runs through all three areas.
+  - Repeated click-through playthroughs of real runs at desktop and phone sizes (menu, launch, loot, map and its sailing leg, events, fights, defeat, back to the menu), with no errors and no sideways scrolling.

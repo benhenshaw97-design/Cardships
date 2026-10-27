@@ -147,7 +147,8 @@
       const sub = stunned ? 'loses this move' : copy ? `${text} · copies ${D.AURORA[copy].name}` : text;
       const w = Math.max(110, Math.min(v.w * 0.46, Math.max(measure(g, '400 15px "IM Fell English SC", Georgia, serif', title), measure(g, '600 11px "IBM Plex Mono", monospace', sub)) + 40));
       const px = Math.max(w / 2 + 6, Math.min(v.w - w / 2 - 6, ep.x));
-      const py = Math.max(8, ep.y - ep.r * 0.95 - 50);
+      // On a phone the enemy's tag sits at the top centre: keep the plate below it.
+      const py = Math.max(v.w <= 560 ? 66 : 8, ep.y - ep.r * 0.95 - 50);
       const color = stunned || (evading && attack) ? '#93a6b3' : it.kind === 'grand' || it.kind === 'channel' ? '#b98cff' : it.kind === 'beam' || it.kind === 'drain' || it.bleed || it.token === 'bleed' || it.bats ? '#ff3a4a' : attack ? '#ec5f3f' : it.kind === 'block' ? '#93a6b3' : it.kind === 'ward' || it.kind === 'siphon' ? '#6ff0d0' : it.kind === 'repair' ? '#5db394' : '#f0b85c';
       // Arrows first, so the plate sits on top.
       if (attack && !evading && !stunned) {

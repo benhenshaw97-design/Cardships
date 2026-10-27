@@ -158,7 +158,7 @@
       scene.setBiome('workshop'); scene.setMode('docked');
       const L = meta.lastShip;
       const berth = L && D.SHIPS[L.ship] ? h('div', { class: 'hangar-berth' }, window.CardshipsShipArt.thumb(D.SHIPS[L.ship].sprite, 300, 170, window.CardshipsShipArt.livery)) : null;
-      overlay.replaceChildren(...(menuOpen() ? [mainMenu(), berth] : [berth]));
+      overlay.replaceChildren(...[menuOpen() ? mainMenu() : null, berth].filter(Boolean));
       return;
     }
     overlay.replaceChildren(...(ui.enroute ? enrouteScreen() : []));
