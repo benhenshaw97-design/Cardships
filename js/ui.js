@@ -229,8 +229,8 @@
     if (ui.enroute) return []; // the sky is the whole picture; the banner rides on the scene
     if (game.pendingChoice) {
       const pc = game.pendingChoice;
-      ui.targeting = { prompt: pc.prompt, eligible: pc.eligible, onPick: (uid) => game.resolveChoice(uid), cancelable: false };
-    }
+      ui.targeting = { prompt: pc.prompt, eligible: pc.eligible, onPick: (uid) => game.resolveChoice(uid), cancelable: false, choice: true };
+    } else if (ui.targeting && ui.targeting.choice) ui.targeting = null; // the choice was settled elsewhere: drop its prompt
     switch (game.phase) {
       case 'loot': return lootScreen();
       case 'map': return mapScreen();

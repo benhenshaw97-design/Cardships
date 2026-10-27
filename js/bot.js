@@ -395,35 +395,40 @@
     g.leaveShop();
   }
 
+  // The bot's choice of map node: the best-scored next stop (a little noise breaks ties).
+  function pickNode(g, rnd) {
+    let best = null, bs = -Infinity;
+    for (const n of g.mapChoices()) {
+      const s = (rnd ? rnd() * 3 : g.rand() * 0.5) + (g.nodeKnown(n) ? encounterScore(g, n.enc) : 1);
+      if (s > bs) { bs = s; best = n; }
+    }
+    return best;
+  }
+  // One decision in whatever phase the run is in (used by playRun, and by browser checks that
+  // let the real interface handle the map and portals).
+  function step(g, rnd = null) {
+    if (g.pendingChoice) { handleChoice(g); return; }
+    switch (g.phase) {
+      case 'loot': handleLoot(g, rnd); break;
+      case 'map': g.travel(pickNode(g, rnd).id); break;
+      case 'event': handleEvent(g, rnd); break;
+      case 'hangar': if (!g.hangar.roll) g.salvage(); else g.leaveHangar(); break;
+      case 'portal': g.crossPortal(); break;
+      case 'shop': shop(g, rnd); break;
+      case 'combat': combatTurn(g, rnd); break;
+      default: throw new Error('unexpected phase ' + g.phase);
+    }
+  }
   function playRun(g, coreId, opts = {}) {
     const rnd = opts.random ? () => g.rand() : null;
     g.chooseCore(coreId);
-    for (let step = 0; step < 20000; step++) {
+    for (let i = 0; i < 20000; i++) {
       if (opts.check) opts.check(g);
       if (g.phase === 'gameover' || g.phase === 'victory') return g;
-      if (g.pendingChoice) { handleChoice(g); continue; }
-      switch (g.phase) {
-        case 'loot': handleLoot(g, rnd); break;
-        case 'map': {
-          const choices = g.mapChoices();
-          let best = choices[0], bs = -Infinity;
-          for (const n of choices) {
-            const s = (rnd ? rnd() * 3 : g.rand() * 0.5) + (g.nodeKnown(n) ? encounterScore(g, n.enc) : 1);
-            if (s > bs) { bs = s; best = n; }
-          }
-          g.travel(best.id);
-          break;
-        }
-        case 'event': handleEvent(g, rnd); break;
-        case 'hangar': if (!g.hangar.roll) g.salvage(); else g.leaveHangar(); break;
-        case 'portal': g.crossPortal(); break;
-        case 'shop': shop(g, rnd); break;
-        case 'combat': combatTurn(g, rnd); break;
-        default: throw new Error('unexpected phase ' + g.phase);
-      }
+      step(g, rnd);
     }
     throw new Error(`run ${g.seed} did not finish`);
   }
 
-  return { playRun, layoutScore, bestPlacement, moduleValue, threat, encounterScore };
+  return { playRun, step, pickNode, layoutScore, bestPlacement, moduleValue, threat, encounterScore };
 });
