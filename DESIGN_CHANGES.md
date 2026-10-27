@@ -597,3 +597,60 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - In flight, a golden aura with circling motes where the module sits on your ship.
   *Reason: you asked for a unique frame and a glowing installed visual.*
 - **Card art drawn in code.** None of the legendaries had card art, so each gets an illustration painted in code (`js/artgen.js`) in the cards' style: an outlined brass-and-iron emblem on a ray-lit backdrop. Gas Grenadiers, the one part that had no picture, now has one too. *Reason: build matching visuals in code where there's no art.*
+
+## Area 2: the Aurora Reaches (expansion step 3)
+
+- **The area.** Ten columns of emerald, teal and violet night sky:
+  - Aurora curtains overhead, crystal islands, slowly turning rune circles and drifting star-dust.
+  - The sky chart turns aurora-blue, and the UI accent turns teal.
+  - The map and dock music shift to the menu theme, and the combat and boss music are tuned for the area.
+  - Patrols are "Spell Patrols", lairs are "Arcane Bastions", and beacons are "Glimmering Lures".
+  - Area 1 parts can still drop, but Area 2's own parts are weighted ×4 in its loot.
+
+  *Reason: the brief's palette and presentation for each area.*
+- **Resonance.**
+  - Arcane modules (every Area 2 part, plus the Archon's legendaries) gain 1 Resonance when used or hit.
+  - At the start of each of your turns, Resonance spreads: a module with 2 or more passes 1 to each arcane neighbour that has less.
+  - When a module reaches 3, it casts its spell and drops back to 0:
+    - Weapons cast **Arcane Bolt**: 2 damage that ignores Block and Armor.
+    - Defense modules cast **Aegis**: repair 1 on itself and every module touching it.
+    - Supports and utilities cast **Surge**: +1 Steam.
+  - Pips above each module show its Resonance.
+
+  *Reason: "builds when used or hit, flows to adjacent modules, a fully resonant module casts a bonus spell". Adjacency matters on a two-deck grid, so where you place arcane parts is the puzzle.*
+- **The aurora.** In every Area 2 fight, the aurora rolls a colour at the start of your turn. The sky's curtains take that colour, and a chip on the battle bar says what it does:
+  - **Emerald:** weapons deal +1.
+  - **Teal:** defense modules take 1 less from every hit.
+  - **Violet:** supports and utilities cost 1 less Steam, and each gains 1 Resonance.
+- **Parts.**
+
+  | Part | What it does |
+  | --- | --- |
+  | Rune Cannon | 2 Steam, arcs. Deals 1, plus all the Resonance on the modules touching it (up to 7). |
+  | Crystal Ward | Armor that cuts every hit on it by 1. Every hit throws a 1-damage shard at the enemy, and its destruction throws 3. |
+  | Star Sail | +1 Steam a turn for each neighbour with 2+ Resonance (up to +2). Weight −1. |
+  | Mana Lens | Once a turn, doubles the next spell cast by a module touching it. |
+  | Prism Array | 1 Steam. Your next shot this turn splits across every layer: it shatters all Wards and illusions, strips all Block and ignores Armor. |
+
+- **Enemies.** Each has full d6 tables for every phase, and each has its own pixel ship and a glowing magical wash.
+
+  | Enemy | What it does |
+  | --- | --- |
+  | Glimmer Wisp | Fragile (13). It shimmers behind a new Ward every turn (up to 2), and Siphon Light steals your Resonance. |
+  | Arcane Corvette | Hex tokens invert a module until the end of your next turn: a hexed weapon heals the enemy, hexed armor takes +1, a hexed repair wounds, and a hexed boiler drains Steam. Venting clears a Hex. |
+  | Crystal Barge | A tank. It starts with Armor 1 and grows 1 more each turn (up to 4), shown as crystal spikes. |
+  | Mirage Galleon | Conjures illusion copies (ghost ships beside it). Each illusion takes one whole hit before the real ship can be struck. |
+
+- **The Aurora Archon** (boss, 3 phases):
+  1. **Runefall:** runes strike every module on a telegraphed deck, past armor.
+  2. **Prismatic Shift:** the aurora turns twice a round. It rolls on your turn, then the Archon copies whatever is empowered on its own turn: Emerald gives its attack +2, Teal gives +5 Block, Violet heals 3 and adds a Ward. Its intent plate shows what it will copy.
+  3. **Grand Convergence:** it charges for 2 turns behind 4 focus crystals. Breaking every crystal collapses the spell and stuns it. Otherwise the blast hits every module (Evade dodges it).
+
+  Its pool:
+  - **Aurora Crown:** an aurora follows you into every fight, and you choose its colour each turn.
+  - **Archon's Lance:** deals all the Resonance on your ship (at least 3) as piercing damage, then spends it.
+- **Points of interest:**
+  - **Aurora Shrine:** offer a module to the aurora for a run-long blessing, by the module's type. A weapon gives +1 weapon damage, defense gives +4 max Core Durability, and anything else gives +1 Steam a turn.
+  - **Enchanter's Spire:** enchant a module. It gains +1 max Durability and starts every fight with 2 Resonance, and it becomes arcane if it wasn't.
+  - **Star Chart:** reveals the whole area's route and the Archon's tactics table. In later areas the boss's tactics stay hidden until charted.
+- **Art in code.** The Area 2 parts, the Archon's legendaries, and the three new place icons and banners are painted in `js/artgen.js`. The Area 2 ships are cut from your keyed ship sheets.

@@ -234,9 +234,62 @@
       rules: [['Fire · 2 Steam', 'Deal damage equal to your ship\'s Weight (at least 3).'], ['Braced Frame', 'Rams against you deal 2 less.']],
     },
   });
+  // ---------- Area 2: the Aurora Reaches ----------
+  // arcane: builds Resonance when used or hit (see RESONANCE). area: the area whose loot favours it
+  // (and the first area it can drop in).
+  Object.assign(PARTS, {
+    runecannon: {
+      name: 'Rune Cannon', abbr: 'RUN', type: 'weapon', rarity: 'uncommon', area: 1, arcane: true, weight: 1, hp: 3, cost: 2, dmg: 1, arc: true,
+      rules: [['Fire · 2 Steam · Arcs', 'Deal 1 damage plus all the Resonance on modules touching it (up to 7). Fires from any slot with open sky above it.'], ['Arcane', 'Builds Resonance when fired or hit.']],
+    },
+    crystalward: {
+      name: 'Crystal Ward', abbr: 'CRY', type: 'defense', rarity: 'uncommon', area: 1, arcane: true, weight: 1, hp: 4,
+      rules: [['Crystal Armor', 'Every hit on it deals 1 less. At the front of a deck it catches every direct shot along it.'], ['Shatter', 'Every hit on it throws shards: 1 damage to the enemy, ignoring Block. When destroyed, 3.'], ['Arcane', 'Builds Resonance when hit.']],
+    },
+    starsail: {
+      name: 'Star Sail', abbr: 'SAL', type: 'utility', rarity: 'uncommon', area: 1, arcane: true, weight: -1, hp: 2,
+      rules: [['Starlight', 'At the start of your turn, +1 Steam for each module touching it with 2+ Resonance (up to +2).'], ['Light', 'Weight −1.'], ['Arcane', 'Builds Resonance when hit.']],
+    },
+    manalens: {
+      name: 'Mana Lens', abbr: 'LNS', type: 'utility', rarity: 'rare', area: 1, arcane: true, weight: 1, hp: 2,
+      rules: [['Focus', 'Once a turn, the next spell cast by a module touching it is doubled.'], ['Arcane', 'Builds Resonance when hit.']],
+    },
+    prism: {
+      name: 'Prism Array', abbr: 'PRS', type: 'support', rarity: 'uncommon', area: 1, arcane: true, weight: 1, hp: 3, cost: 1,
+      rules: [['Refract · 1 Steam', 'Your next weapon shot this turn splits across every enemy layer: it shatters all Wards and illusions, strips all Block and ignores Armor.'], ['Arcane', 'Builds Resonance when used or hit.']],
+    },
+    auroracrown: {
+      name: 'Aurora Crown', abbr: 'CRN', type: 'utility', rarity: 'legendary', boss: 'archon', arcane: true, weight: 1, hp: 4,
+      rules: [['Living Sky', 'An aurora follows your ship into every fight, and at the start of each of your turns you choose its colour.'], ['Arcane', 'Builds Resonance when hit.']],
+    },
+    archonlance: {
+      name: "Archon's Lance", abbr: 'LNC', type: 'weapon', rarity: 'legendary', boss: 'archon', arcane: true, weight: 1, hp: 4, cost: 2, arc: true,
+      rules: [['Fire · 2 Steam · Arcs', 'Deal damage equal to all the Resonance on your ship (at least 3), ignoring Block and Armor. Then every module\'s Resonance is spent.'], ['Arcane', 'Builds Resonance when hit.']],
+    },
+  });
   for (const [id, p] of Object.entries(PARTS)) p.id = id;
   // Each boss's legendaries.
-  const LEGENDARY_POOLS = { leviathan: ['leviplating', 'dreadnought'], stormqueen: ['galeengine', 'stormheart'], colossus: ['mainspring', 'titanfist'] };
+  const LEGENDARY_POOLS = { leviathan: ['leviplating', 'dreadnought'], stormqueen: ['galeengine', 'stormheart'], colossus: ['mainspring', 'titanfist'], archon: ['auroracrown', 'archonlance'] };
+
+  // ---------- Resonance and the aurora (Area 2) ----------
+  // Arcane modules gain 1 Resonance when used or hit. At the start of your turn, every module with
+  // 2+ Resonance sends 1 into each touching module that has less. A module that reaches 3 casts its
+  // bonus spell and drops to 0: weapons an Arcane Bolt, defenses an Aegis, the rest a Surge.
+  const RESONANCE = {
+    max: 3,
+    spells: {
+      weapon: { name: 'Arcane Bolt', text: '2 damage to the enemy, ignoring Block and Armor' },
+      defense: { name: 'Aegis', text: 'repair 1 on it and every module touching it' },
+      support: { name: 'Surge', text: '+1 Steam' },
+      utility: { name: 'Surge', text: '+1 Steam' },
+    },
+  };
+  // The aurora over the Aurora Reaches shifts colour every turn, empowering one kind of module.
+  const AURORA = {
+    weapon: { name: 'Emerald', color: '#5dffa8', text: 'Weapons deal +1 damage.' },
+    defense: { name: 'Teal', color: '#4fd8ff', text: 'Defense modules take 1 less from every hit.' },
+    utility: { name: 'Violet', color: '#c08cff', text: 'Supports and utilities cost 1 less Steam to use, and each gains 1 Resonance.' },
+  };
 
   // Rarity odds for rolled parts. Legendaries only roll once unlocked (see Game.available).
   const RARITY_ODDS = {
@@ -265,10 +318,16 @@
     repair: (amount, name = 'Patch Hull') => ({ kind: 'repair', amount, name }),
     charge: (amount, name = 'Stoke Boilers') => ({ kind: 'charge', amount, name }),
     lightning: (dmg, name = 'Lightning Lance') => ({ kind: 'shot', dmg, name, lightning: true, aim: 'plunge' }),
+    // Area 2: magic.
+    ward: (amount, name = 'Spell Ward') => ({ kind: 'ward', amount, name }),                 // +Wards (each stops a whole hit)
+    illusion: (amount, name = 'Mirror Image') => ({ kind: 'ward', amount, name, illusion: true }),
+    siphon: (amount, name = 'Siphon Light') => ({ kind: 'siphon', amount, name }),            // steals Resonance, heals on it
+    rune: (dmg, name = 'Rune of Ruin') => ({ kind: 'rune', dmg, name }),                      // every module on a rolled deck, past armor
+    plungeShot: (dmg, name) => ({ kind: 'shot', dmg, name, aim: 'plunge' }),
   };
   // Bombs, lobbed shells, lightning and storms come down from above ("plunging fire"): they drop onto a
   // column, stern or bow, and hit whatever is on top. Everything else is direct fire along a deck from the bow.
-  const PLUNGING = new Set(['Firepot', 'Stink Bomb', 'Incendiary Drop', 'Carpet Bomb', 'Heavy Bomb', 'Toxic Shell', 'Flak Barrage', 'Tornado', 'Static Charge', 'Ball Lightning', 'Shrapnel Burst', 'Incendiary Round']);
+  const PLUNGING = new Set(['Glitter Storm', 'Aurora Lash', 'Firepot', 'Stink Bomb', 'Incendiary Drop', 'Carpet Bomb', 'Heavy Bomb', 'Toxic Shell', 'Flak Barrage', 'Tornado', 'Static Charge', 'Ball Lightning', 'Shrapnel Burst', 'Incendiary Round']);
 
   // Phase tables map d6 → intent, listed from full health down. `min` is the lowest Durability of the phase.
   const ENEMIES = {
@@ -349,6 +408,50 @@
       ],
     },
   };
+  // ---------- Area 2 enemies ----------
+  Object.assign(ENEMIES, {
+    wisp: {
+      name: 'Glimmer Wisp', weight: 1, hp: 13, look: 'wisp', area: 1, wardEachTurn: 1, wardKind: 'glimmer',
+      gimmick: 'Evasive: it shimmers behind a Ward at the start of each of its turns (up to 2). Each Ward stops one whole hit. Siphon Light steals your Resonance.',
+      phases: [
+        { name: 'Flicker', min: 7, table: [I.shot(3, 'Glimmer Dart'), I.shot(3, 'Glimmer Dart'), I.siphon(2), I.token('hex', 1, 'Hex Spark'), I.ward(1, 'Shimmer'), I.charge(2, 'Gather Light')] },
+        { name: 'Fading', min: 1, table: [I.shot(3, 'Glimmer Dart'), I.plungeShot(4, 'Starfall'), I.siphon(3), I.rake(2, 'Glitter Storm'), I.token('hex', 1, 'Hex Spark'), I.shot(3, 'Glimmer Dart')] },
+      ],
+    },
+    corvette: {
+      name: 'Arcane Corvette', weight: 3, hp: 20, look: 'corvette', area: 1, wardKind: 'ward',
+      gimmick: 'Hexcraft: a Hex inverts a module until the end of your next turn. A hexed weapon heals the enemy, hexed armor takes +1 instead of blocking, a hexed repair wounds, and a hexed boiler drains Steam.',
+      phases: [
+        { name: 'Spellweave', min: 11, table: [I.token('hex', 1, 'Hex Bolt'), I.token('hex', 1, 'Hex Bolt'), I.shot(4, 'Arcane Bolt'), I.ward(2), I.rake(2, 'Rune Volley'), I.charge(3, 'Gather Mana')] },
+        { name: 'Unbound', min: 1, table: [I.shot(4, 'Arcane Bolt'), I.token('hex', 2, 'Hex Blast'), I.broadside(3, 'Twin Spell'), I.rake(2, 'Rune Volley'), I.shot(5, 'Arcane Lance'), I.repair(3, 'Mend Rune')] },
+      ],
+    },
+    barge: {
+      name: 'Crystal Barge', weight: 8, hp: 28, look: 'barge', area: 1, armor: 1, armorGrowth: 1, armorMax: 4,
+      gimmick: 'Crystal Growth: it starts with 1 Armor and grows 1 more at the end of each of its turns (up to 4). Armor cuts every hit; piercing hits and prisms ignore it.',
+      phases: [
+        { name: 'Calcifying', min: 14, table: [I.ram(5, 2, 'Crystal Ram'), I.shot(3, 'Shard Cannon'), I.block(5, 'Crystal Wall'), I.repair(3, 'Regrow'), I.shot(4, 'Shard Cannon'), I.rake(1, 'Shard Spray')] },
+        { name: 'Fractured', min: 1, table: [I.ram(6, 2, 'Crystal Ram'), I.shot(4, 'Shard Cannon'), I.rake(2, 'Shard Spray'), I.broadside(3, 'Splinter Volley'), I.shot(5, 'Geode Shot'), I.block(4, 'Crystal Wall')] },
+      ],
+    },
+    mirage: {
+      name: 'Mirage Galleon', weight: 5, hp: 24, look: 'mirage', area: 1, wardKind: 'illusion',
+      gimmick: 'Mirror Image: it conjures illusions of itself, and only one ship is real. Each illusion takes one whole hit before the real ship can be struck.',
+      phases: [
+        { name: 'Mirage', min: 12, table: [I.illusion(2), I.shot(4, 'Phantom Cannon'), I.broadside(2, 'Phantom Volley'), I.token('hex', 1, 'Bewitch'), I.shot(3, 'Phantom Cannon'), I.charge(3, 'Gather Mist')] },
+        { name: 'Unmasked', min: 1, table: [I.shot(5, 'Phantom Cannon'), I.illusion(2), I.broadside(3, 'Phantom Volley'), I.rake(2, 'Glass Shards'), I.shot(4, 'Phantom Cannon'), I.ram(5, 2, 'Ghost Ram')] },
+      ],
+    },
+    archon: {
+      name: 'The Aurora Archon', weight: 6, hp: 40, look: 'archon', boss: true, area: 1, wardKind: 'crystal',
+      gimmick: 'Living Light. Runefall: its runes strike every module on a telegraphed deck, past armor. Prismatic Shift: the aurora turns every half-turn and the Archon copies its power. Grand Convergence: it charges a spell for 2 turns behind 4 focus crystals. Break every crystal or Evade the blast.',
+      phases: [
+        { name: 'Runefall', min: 27, table: [I.rune(2), I.rune(2), I.shot(4, 'Light Lance'), I.ward(2, 'Prism Ward'), I.token('hex', 1, 'Hex Sigil'), I.charge(3, 'Gather Light')] },
+        { name: 'Prismatic Shift', min: 14, table: [I.shot(5, 'Light Lance'), I.rune(3), I.rake(2, 'Aurora Lash'), I.broadside(3, 'Twin Beams'), I.ward(2, 'Prism Ward'), I.token('hex', 2, 'Hex Sigil')] },
+        { name: 'Grand Convergence', min: 1, table: [I.shot(5, 'Light Lance'), I.rune(3), I.rake(3, 'Aurora Lash'), I.broadside(3, 'Twin Beams'), I.shot(6, 'Starlance'), I.repair(4, 'Mend Light')] },
+      ],
+    },
+  });
   for (const [id, e] of Object.entries(ENEMIES)) {
     e.id = id;
     for (const p of e.phases) p.table = p.table.map((it) => (PLUNGING.has(it.name) ? { ...it, aim: 'plunge' } : it));
@@ -390,6 +493,19 @@
       text: 'A tear in the sky, glowing with strange light. Roll a d6 and fly through.',
       table: ['Rift lash: 2 damage to a random module and 1 to the Core', 'Time slip: pay 10 cogs or the Core takes 2', 'Echo: a random module gains +1 max Durability', 'A bargain: trade 2 max Core Durability for a rare part, or refuse', 'Clear sight: +1 sight for three legs and repair 2 Core', 'Aether treasure: pick 1 of 2 rare parts'],
     },
+    // Area 2: the Aurora Reaches.
+    shrine: {
+      name: 'Aurora Shrine', kind: 'Shrine', biome: 'aurora',
+      text: 'A crystal altar under the dancing lights. Offer a module to the aurora for a blessing that lasts the whole run.',
+    },
+    spire: {
+      name: "Enchanter's Spire", kind: 'Enchant', biome: 'aurora',
+      text: 'A tower of floating runes where an enchanter works for passing captains. Enchant one module.',
+    },
+    starchart: {
+      name: 'Star Chart', kind: 'Chart', biome: 'aurora',
+      text: "An astronomer's island. Its charts reveal the whole area's route, and the movements of the Archon itself.",
+    },
     boss: { name: 'Boss', kind: 'Boss', text: 'The final gate.' },
   };
   for (const [id, e] of Object.entries(ENCOUNTERS)) e.id = id;
@@ -422,9 +538,12 @@
     },
     {
       id: 'aurora', name: 'The Aurora Reaches', numeral: 'II', blurb: 'A magical sky of shifting auroras, crystal islands and spell-powered ships.', cols: 11, midCol: 5, lairFrom: 3,
-      bosses: BOSSES, tiers: [{ upTo: 4, pool: ['gunship', 'bomber', 'cutter'] }, { upTo: 99, pool: ['gunship', 'sentinel', 'bomber'] }], elites: ELITES, beacon: ['cutter', 'gunship'], nodeWeights: NODE_WEIGHTS,
-      bands: [{ upTo: 4, biome: 'rift' }, { upTo: 7, biome: 'night' }, { upTo: 99, biome: 'rift' }],
-      hp: 1.6, dmg: 1, bossHp: 1.3, veteranColumns: [6], bossBiome: 'rift',
+      bosses: ['archon'], tiers: [{ upTo: 4, pool: ['wisp', 'corvette', 'mirage'] }, { upTo: 99, pool: ['corvette', 'mirage', 'barge', 'wisp'] }],
+      elites: ['mirage', 'barge'], beacon: ['wisp', 'corvette'],
+      nodeWeights: { patrol: 32, lair: 10, shrine: 8, spire: 8, starchart: 6, trader: 10, beacon: 8, guild: 6, hangar: 8, rift: 6 },
+      names: { patrol: 'Spell Patrol', lair: 'Arcane Bastion', beacon: 'Glimmering Lure' },
+      bands: [{ upTo: 3, biome: 'aurora' }, { upTo: 7, biome: 'auroraRift' }, { upTo: 99, biome: 'auroraDeep' }],
+      hp: 1, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'archon', aurora: true, accent: '#6ff0d0',
     },
     {
       id: 'bloodmoon', name: 'The Blood Moon', numeral: 'III', blurb: 'A crimson night under a vast red moon, haunted by gothic wrecks.', cols: 11, midCol: 5, lairFrom: 3,
@@ -458,6 +577,7 @@
     fire: { name: 'Fire', text: 'Deals 1 damage to this module at the start of your turn.' },
     glue: { name: 'Glue', text: 'A glued weapon deals 1 less damage, and a glued module cannot be swapped.' },
     gas: { name: 'Gas', text: 'Using this module costs 1 more Steam.' },
+    hex: { name: 'Hex', text: 'Inverted until the end of your next turn: a hexed weapon heals the enemy, hexed armor takes +1 instead of blocking, a hexed repair wounds, and a hexed Steam module drains Steam.' },
   };
 
   // Targeting. Direct fire: a deck d6 (1-4 the hull, 5-6 the upper deck), then a depth d6 (1-2 the
@@ -486,9 +606,15 @@
     maxCalmRun: 2,           // most non-fight map stops in a row on any route
     maxCalm: 5,              // most non-fight map stops on any route (columns 1-11)
     bossCogs: 30,            // cogs for beating an area's boss (before its portal)
+    areaLootBias: 4,         // an area's own parts are this many times likelier in its loot
+    eliteHp: 1.35,           // an elite (lair) version of a regular enemy: Durability multiplier
+    eliteDmg: 1,             //   and + damage per hit
+    grandCrystals: 4,        // Aurora Archon: focus crystals guarding its Grand Convergence
+    grandDamage: 4,          //   the spell's damage to every module (the Core takes 1 less)
+    grandBacklash: 8,        //   damage it takes if every crystal breaks first
   };
 
-  const data = { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
+  const data = { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RESONANCE, AURORA, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.CardshipsData = data;
 })(this);

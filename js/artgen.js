@@ -32,6 +32,16 @@
     path(g, [[x, y - r], [x + r * 0.25, y - r * 0.25], [x + r, y], [x + r * 0.25, y + r * 0.25], [x, y + r], [x - r * 0.25, y + r * 0.25], [x - r, y], [x - r * 0.25, y - r * 0.25]]);
     g.fill(); g.restore();
   }
+  const CRYSTAL = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#e8fff8'], [0.4, '#8ff0d8'], [1, '#2a8a8a']]);
+  const VIOLET = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#f0e0ff'], [0.45, '#b48cff'], [1, '#4a2a8a']]);
+  // A glowing rune circle.
+  function rune(g, x, y, r, color = '#9fffe8') {
+    g.save(); g.strokeStyle = color; g.lineWidth = 2.5; g.shadowColor = color; g.shadowBlur = 10;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke();
+    g.beginPath(); g.arc(x, y, r * 0.7, 0, TAU); g.stroke();
+    for (let i = 0; i < 6; i++) { const a = (i * TAU) / 6; g.beginPath(); g.moveTo(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7); g.lineTo(x + Math.cos(a + 1.2) * r * 0.25, y + Math.sin(a + 1.2) * r * 0.25); g.stroke(); }
+    g.restore();
+  }
   const BRASS = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#f6d98a'], [0.45, '#c8923a'], [1, '#6e4614']]);
   const IRON = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#c9d2d8'], [0.5, '#7a858f'], [1, '#353c44']]);
 
@@ -133,6 +143,169 @@
     } },
   };
 
+  // ---------- Area 2: the Aurora Reaches ----------
+  Object.assign(PAINT, {
+    // Rune Cannon: a brass barrel ringed with glowing rune circles.
+    runecannon: { theme: 'aurora', draw(g) {
+      g.save(); g.translate(118, 104); g.rotate(-0.35);
+      shape(g, BRASS(g, -26, 26), () => g.rect(-80, -20, 150, 40), 4);
+      shape(g, BRASS(g, -30, 30), () => g.rect(64, -26, 18, 52), 3);
+      g.restore();
+      rune(g, 74, 122, 22); rune(g, 128, 104, 26); rune(g, 182, 84, 20, '#c9a2ff');
+      shape(g, '#3a2a1a', () => path(g, [[52, 182], [80, 136], [150, 136], [176, 182]]), 4);
+      glow(g, 196, 74, 46, 'rgba(140,255,220,0.6)');
+    } },
+    // Crystal Ward: a faceted crystal shield.
+    crystalward: { theme: 'aurora', draw(g) {
+      glow(g, 120, 100, 90, 'rgba(120,255,220,0.35)');
+      shape(g, CRYSTAL(g, 20, 180), () => path(g, [[120, 18], [186, 60], [176, 134], [120, 184], [64, 134], [54, 60]]), 4);
+      g.lineWidth = 2; g.strokeStyle = 'rgba(29,20,14,0.6)';
+      for (const [a, b] of [[[120, 18], [120, 184]], [[54, 60], [176, 134]], [[186, 60], [64, 134]]]) { g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); }
+      shape(g, 'rgba(255,255,255,0.4)', () => path(g, [[120, 26], [176, 62], [120, 90]]), 0);
+      for (const [x, y, r] of [[60, 40, 6], [190, 150, 5], [40, 150, 4]]) sparkle(g, x, y, r, '#c8fff0');
+    } },
+    // Star Sail: a billowing sail of starlight on a brass spar.
+    starsail: { theme: 'aurora', draw(g) {
+      shape(g, BRASS(g, 20, 190), () => g.rect(64, 20, 10, 168), 3);
+      shape(g, grad(g, 70, 30, 200, 170, [[0, '#2a2a6a'], [1, '#6a4ab0']]), () => { g.moveTo(74, 28); g.quadraticCurveTo(220, 60, 200, 150); g.lineTo(74, 160); g.closePath(); }, 4);
+      for (let i = 0; i < 18; i++) sparkle(g, 90 + Math.random() * 100, 50 + Math.random() * 100, 2 + Math.random() * 4, i % 3 ? '#fff6d0' : '#9fffe8');
+      g.strokeStyle = BRASS(g, 20, 190); g.lineWidth = 3; g.beginPath(); g.moveTo(74, 160); g.lineTo(200, 150); g.stroke();
+    } },
+    // Mana Lens: a great lens on a brass stand, focusing a beam.
+    manalens: { theme: 'aurora', draw(g) {
+      g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = grad(g, 120, 90, 240, 90, [[0, 'rgba(160,255,230,0.7)'], [1, 'rgba(160,255,230,0)']]);
+      path(g, [[130, 80], [240, 50], [240, 130], [130, 100]]); g.fill(); g.restore();
+      shape(g, BRASS(g, 140, 190), () => path(g, [[80, 186], [96, 150], [140, 150], [156, 186]]), 4);
+      shape(g, BRASS(g, 100, 160), () => g.rect(112, 120, 12, 34), 3);
+      shape(g, BRASS(g, 20, 160), () => g.ellipse(118, 90, 46, 66, 0, 0, TAU), 4);
+      g.fillStyle = rgrad(g, 118, 90, 46, [[0, 'rgba(230,255,250,0.9)'], [0.6, 'rgba(120,230,220,0.6)'], [1, 'rgba(60,140,160,0.8)']]);
+      g.beginPath(); g.ellipse(118, 90, 34, 54, 0, 0, TAU); g.fill(); g.lineWidth = 3; g.strokeStyle = INK; g.stroke();
+      shape(g, 'rgba(255,255,255,0.6)', () => g.ellipse(104, 66, 8, 14, -0.4, 0, TAU), 0);
+    } },
+    // Prism Array: a crystal prism splitting a beam into three coloured rays.
+    prism: { theme: 'aurora', draw(g) {
+      g.save(); g.lineCap = 'round'; g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = 'rgba(255,255,240,0.9)'; g.lineWidth = 8; g.beginPath(); g.moveTo(0, 120); g.lineTo(100, 108); g.stroke();
+      for (const [col, y] of [['#ff6a6a', 60], ['#6aff9a', 100], ['#6aa8ff', 140]]) { g.strokeStyle = col; g.lineWidth = 7; g.beginPath(); g.moveTo(140, 104); g.lineTo(240, y); g.stroke(); }
+      g.restore();
+      shape(g, grad(g, 80, 40, 160, 170, [[0, 'rgba(240,255,255,0.95)'], [1, 'rgba(120,200,220,0.7)']]), () => path(g, [[120, 30], [176, 160], [64, 160]]), 4);
+      shape(g, 'rgba(255,255,255,0.5)', () => path(g, [[120, 44], [140, 120], [104, 120]]), 0);
+      shape(g, BRASS(g, 160, 190), () => g.rect(52, 160, 136, 18), 3);
+    } },
+    // Aurora Crown: a gold crown set with emerald, teal and violet gems, lit by auroras.
+    auroracrown: { theme: 'legendary', draw(g) {
+      g.save(); g.globalCompositeOperation = 'lighter';
+      for (const [col, y] of [['rgba(93,255,168,0.25)', 40], ['rgba(79,216,255,0.22)', 58], ['rgba(192,140,255,0.22)', 76]]) { g.fillStyle = col; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(80, y - 30, 160, y + 30, 240, y - 10); g.lineTo(240, y + 18); g.bezierCurveTo(160, y + 48, 80, y - 12, 0, y + 18); g.fill(); }
+      g.restore();
+      shape(g, BRASS(g, 70, 170), () => path(g, [[50, 168], [44, 92], [84, 126], [120, 76], [156, 126], [196, 92], [190, 168]]), 4);
+      shape(g, BRASS(g, 150, 180), () => g.rect(48, 150, 144, 22), 3);
+      for (const [x, y, c] of [[44, 92, '#5dffa8'], [120, 76, '#4fd8ff'], [196, 92, '#c08cff'], [84, 160, '#5dffa8'], [120, 160, '#4fd8ff'], [156, 160, '#c08cff']]) { shape(g, c, () => g.arc(x, y, 9, 0, TAU), 2.5); glow(g, x, y, 22, c + '88'); }
+    } },
+    // Archon's Lance: a spear of living light.
+    archonlance: { theme: 'legendary', draw(g) {
+      g.save(); g.translate(120, 104); g.rotate(-0.6);
+      glow(g, 0, 0, 90, 'rgba(160,255,230,0.35)');
+      shape(g, CRYSTAL(g, -14, 14), () => path(g, [[-100, -6], [60, -8], [104, 0], [60, 8], [-100, 6]]), 3);
+      shape(g, BRASS(g, -20, 20), () => g.rect(-20, -14, 16, 28), 3);
+      shape(g, VIOLET(g, -30, 30), () => path(g, [[60, -8], [80, -26], [104, 0], [80, 26], [60, 8]]), 3);
+      g.restore();
+      for (const [x, y, r] of [[60, 160, 6], [190, 40, 7], [170, 160, 4]]) sparkle(g, x, y, r, '#c8fff0');
+    } },
+  });
+
+  // ---------- map icons and event banners for the later areas' places ----------
+  // Round painted icons in a brass ring, like the painted map icons.
+  const ICONS = {
+    shrine: { sky: ['#0b2a3a', '#041020'], draw(g) {
+      for (const [c, y] of [['rgba(93,255,168,0.5)', 22], ['rgba(192,140,255,0.45)', 32]]) { g.fillStyle = c; g.beginPath(); g.moveTo(10, y); g.bezierCurveTo(40, y - 12, 60, y + 12, 86, y - 4); g.lineTo(86, y + 6); g.bezierCurveTo(60, y + 22, 40, y, 10, y + 10); g.fill(); }
+      shape(g, '#2a3a4a', () => path(g, [[20, 78], [76, 78], [68, 66], [28, 66]]), 2);
+      shape(g, CRYSTAL(g, 36, 66), () => path(g, [[48, 30], [58, 66], [38, 66]]), 2); glow(g, 48, 48, 26, 'rgba(140,255,220,0.5)');
+    } },
+    spire: { sky: ['#1a1240', '#060418'], draw(g) {
+      shape(g, '#3a3050', () => path(g, [[40, 84], [44, 34], [48, 18], [52, 34], [56, 84]]), 2);
+      rune(g, 48, 40, 12, '#c9a2ff'); rune(g, 28, 58, 7); rune(g, 70, 62, 8);
+    } },
+    starchart: { sky: ['#0a1a3a', '#030812'], draw(g) {
+      shape(g, '#e8dcb8', () => path(g, [[18, 70], [48, 60], [78, 70], [78, 42], [48, 32], [18, 42]]), 2);
+      g.strokeStyle = '#5a4a3a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(48, 32); g.lineTo(48, 60); g.stroke();
+      for (const [x, y] of [[28, 46], [36, 54], [60, 44], [68, 56], [54, 50]]) sparkle(g, x, y, 3, '#3a6ad8');
+      for (const [x, y] of [[20, 20], [74, 16], [50, 14]]) sparkle(g, x, y, 4);
+    } },
+  };
+  function nodeIcon(id) {
+    const key = 'icon:' + id;
+    if (cache[key]) return cache[key];
+    const p = ICONS[id];
+    if (!p) return null;
+    const c = document.createElement('canvas'); c.width = c.height = 96;
+    const g = c.getContext('2d');
+    g.save(); g.beginPath(); g.arc(48, 48, 40, 0, TAU); g.clip();
+    g.fillStyle = rgrad(g, 48, 40, 50, [[0, p.sky[0]], [1, p.sky[1]]]); g.fillRect(0, 0, 96, 96);
+    g.lineJoin = 'round'; p.draw(g);
+    g.restore();
+    g.lineWidth = 7; g.strokeStyle = BRASS(g, 8, 88); g.beginPath(); g.arc(48, 48, 42, 0, TAU); g.stroke();
+    g.lineWidth = 2; g.strokeStyle = INK; g.beginPath(); g.arc(48, 48, 45.5, 0, TAU); g.stroke(); g.beginPath(); g.arc(48, 48, 38.5, 0, TAU); g.stroke();
+    for (let i = 0; i < 8; i++) rivet(g, 48 + Math.cos((i * TAU) / 8) * 42, 48 + Math.sin((i * TAU) / 8) * 42, 2.5);
+    cache[key] = c.toDataURL('image/png');
+    return cache[key];
+  }
+  // Wide painted banners heading the later areas' places.
+  const BANNERS = {
+    shrine: { sky: ['#03101e', '#0c3040'], draw(g, w, h) {
+      auroraBands(g, w, h, ['rgba(93,255,168,', 'rgba(79,216,255,', 'rgba(192,140,255,']);
+      island(g, w * 0.5, h * 0.86, 150, '#1c2a3a');
+      shape(g, '#2a3a4a', () => path(g, [[w * 0.5 - 60, h * 0.78], [w * 0.5 + 60, h * 0.78], [w * 0.5 + 44, h * 0.66], [w * 0.5 - 44, h * 0.66]]), 3);
+      shape(g, CRYSTAL(g, h * 0.2, h * 0.66), () => path(g, [[w * 0.5, h * 0.18], [w * 0.5 + 20, h * 0.66], [w * 0.5 - 20, h * 0.66]]), 3);
+      glow(g, w * 0.5, h * 0.45, 120, 'rgba(140,255,220,0.35)');
+    } },
+    spire: { sky: ['#080418', '#2a1a50'], draw(g, w, h) {
+      auroraBands(g, w, h, ['rgba(192,140,255,', 'rgba(140,120,255,', 'rgba(93,255,168,']);
+      island(g, w * 0.5, h * 0.9, 120, '#1a1430');
+      shape(g, '#3a3050', () => path(g, [[w * 0.5 - 26, h * 0.86], [w * 0.5 - 14, h * 0.2], [w * 0.5, h * 0.04], [w * 0.5 + 14, h * 0.2], [w * 0.5 + 26, h * 0.86]]), 3);
+      for (const [x, y, r, c] of [[0.5, 0.26, 22, '#c9a2ff'], [0.36, 0.42, 14, '#9fffe8'], [0.64, 0.5, 16, '#9fffe8'], [0.28, 0.7, 10, '#c9a2ff'], [0.72, 0.3, 11, '#c9a2ff']]) rune(g, w * x, h * y, r, c);
+    } },
+    starchart: { sky: ['#020610', '#0c1a40'], draw(g, w, h) {
+      for (let i = 0; i < 140; i++) sparkle(g, Math.random() * w, Math.random() * h * 0.7, Math.random() * 2.5 + 0.5, i % 5 ? '#fff6d0' : '#9fe8ff');
+      g.strokeStyle = 'rgba(160,200,255,0.4)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(w * 0.2, h * 0.2); g.lineTo(w * 0.32, h * 0.3); g.lineTo(w * 0.45, h * 0.18); g.lineTo(w * 0.6, h * 0.28); g.stroke();
+      island(g, w * 0.55, h * 0.92, 170, '#1a2030');
+      g.save(); g.translate(w * 0.55, h * 0.7); g.rotate(-0.5);
+      shape(g, BRASS(g, -12, 12), () => g.rect(-10, -10, 120, 20), 3);
+      shape(g, BRASS(g, -16, 16), () => g.rect(104, -15, 22, 30), 3);
+      g.restore();
+      shape(g, BRASS(g, h * 0.7, h * 0.86), () => path(g, [[w * 0.53, h * 0.72], [w * 0.47, h * 0.86], [w * 0.5, h * 0.86], [w * 0.55, h * 0.74], [w * 0.6, h * 0.86], [w * 0.63, h * 0.86]]), 2);
+    } },
+  };
+  function auroraBands(g, w, h, cols) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    cols.forEach((c, b) => {
+      for (let x = 0; x < w; x += 4) {
+        const top = h * (0.06 + b * 0.1) + Math.sin(x * 0.01 + b * 2) * h * 0.06;
+        const a = 0.12 + 0.12 * Math.sin(x * 0.05 + b);
+        const gr = g.createLinearGradient(0, top, 0, top + h * 0.32);
+        gr.addColorStop(0, c + '0)'); gr.addColorStop(0.3, c + a + ')'); gr.addColorStop(1, c + '0)');
+        g.fillStyle = gr; g.fillRect(x, top, 4, h * 0.32);
+      }
+    });
+    g.restore();
+  }
+  function island(g, x, y, r, col) {
+    shape(g, col, () => { g.moveTo(x - r, y - r * 0.18); g.quadraticCurveTo(x, y - r * 0.32, x + r, y - r * 0.18); g.quadraticCurveTo(x + r * 0.4, y + r * 0.5, x, y + r * 0.7); g.quadraticCurveTo(x - r * 0.4, y + r * 0.5, x - r, y - r * 0.18); }, 3);
+  }
+  function banner(id) {
+    const key = 'banner:' + id;
+    if (cache[key]) return cache[key];
+    const p = BANNERS[id];
+    if (!p) return null;
+    const w = 760, h = 220;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    g.fillStyle = grad(g, 0, 0, 0, h, [[0, p.sky[0]], [1, p.sky[1]]]); g.fillRect(0, 0, w, h);
+    g.lineJoin = 'round'; p.draw(g, w, h);
+    g.fillStyle = grad(g, 0, h * 0.6, 0, h, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.5)']]); g.fillRect(0, 0, w, h);
+    cache[key] = c.toDataURL('image/jpeg', 0.86);
+    return cache[key];
+  }
+
   // Paints a part's card illustration (cached) and returns an image URL, or null if none.
   function cardArt(id) {
     if (cache[id]) return cache[id];
@@ -158,5 +331,10 @@
     return cache[id];
   }
 
-  window.CardshipsArtGen = { cardArt, has: (id) => !!PAINT[id], PAINT, helpers: { path, shape, grad, rgrad, rivet, glow, bolt, sparkle, BRASS, IRON, INK } };
+  window.CardshipsArtGen = {
+    cardArt, has: (id) => !!PAINT[id], PAINT,
+    nodeIcon, hasIcon: (id) => !!ICONS[id], ICONS,
+    banner, hasBanner: (id) => !!BANNERS[id], BANNERS,
+    helpers: { path, shape, grad, rgrad, rivet, glow, bolt, sparkle, rune, auroraBands, island, BRASS, IRON, CRYSTAL, VIOLET, INK },
+  };
 })();

@@ -188,6 +188,21 @@ def map_chart():
     sky = im.crop((30, 64, W - 30, H - 92))  # clear of the gears that hang off the middle of each bar
     sky.thumbnail((1600, 1600), Image.LANCZOS)
     sky.save(os.path.join(ROOT, 'assets/art/ui/map-sky.jpg'), quality=80)
+    # The later areas' charts: the same chart under their skies.
+    A = np.array(sky.convert('RGB')).astype(float) / 255
+    h, w = A.shape[:2]
+    xs = np.linspace(0, 1, w)[None, :, None]
+    ys = np.linspace(0, 1, h)[:, None, None]
+    # Aurora Reaches: a night-blue chart with emerald-to-violet light washing across it.
+    night = A * np.array([0.34, 0.5, 0.7])
+    glow = (1 - xs) * np.array([0.2, 0.75, 0.55]) + xs * np.array([0.55, 0.35, 0.9])
+    aur = 1 - (1 - night) * (1 - glow * (0.55 - ys * 0.35))
+    Image.fromarray((aur.clip(0, 1) * 255).astype(np.uint8)).save(os.path.join(ROOT, 'assets/art/ui/map-sky-aurora.jpg'), quality=80)
+    # Blood Moon: a crimson night with a red glow rising from the horizon.
+    red = A * np.array([0.62, 0.22, 0.22])
+    rise = np.array([0.55, 0.08, 0.06]) * (0.25 + ys * 0.6)
+    blood = 1 - (1 - red) * (1 - rise)
+    Image.fromarray((blood.clip(0, 1) * 255).astype(np.uint8)).save(os.path.join(ROOT, 'assets/art/ui/map-sky-blood.jpg'), quality=80)
     fr = im.convert('RGBA')
     # Cover the middle gears on the top and bottom bars with a plain stretch of bar.
     for y0, y1 in ((0, 72), (H - 72, H)):

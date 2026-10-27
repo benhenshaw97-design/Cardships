@@ -45,6 +45,11 @@
     derelict: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: 'derelicts', haze: 'rgba(40,20,20,0.12)', midKind: 'none' },
     rift: { sky: ['#160c2c', '#3a1d5c', '#6a3aa0'], far: '#2a1a48', farRock: '#1d1236', mid: '#170e2a', cloud: ['#8a6ac8', '#6a4aa8', '#3c2868'], wisp: 'rgba(170,130,240,0.4)', weather: 'motes', farKind: 'art', art: 'rift', haze: 'rgba(20,8,40,0.12)', midKind: 'none' },
     port: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: 'port', haze: 'rgba(80,40,70,0.1)', midKind: 'none' },
+    // Area 2, the Aurora Reaches: auroras over crystal islands, runes and star-dust.
+    aurora: { sky: ['#040a1c', '#0b2638', '#17465a'], far: '#2a6a7a', farRock: '#16384a', mid: '#123044', cloud: ['#bfeee8', '#7fc4cc', '#3e7a8e'], wisp: 'rgba(160,255,230,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(10,30,50,0.2)', aurora: 1 },
+    auroraRift: { sky: ['#0a0620', '#24124a', '#3a2070'], far: '#3a2a6a', farRock: '#22184a', mid: '#1a1238', cloud: ['#d6c4ff', '#9a84e0', '#5a4a9e'], wisp: 'rgba(200,170,255,0.22)', weather: 'stardust', farKind: 'art', art: 'rift', midKind: 'runes', haze: 'rgba(20,10,50,0.25)', aurora: 0.8 },
+    auroraDeep: { sky: ['#030616', '#101a40', '#2a1f5e'], far: '#3a3a8a', farRock: '#1c1c4a', mid: '#141238', cloud: ['#c8d8ff', '#8a96d8', '#4a4e90'], wisp: 'rgba(180,200,255,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(8,10,40,0.25)', aurora: 1.2 },
+    archon: { sky: ['#02040e', '#0a1430', '#1a2d55'], far: '#2a4a7a', farRock: '#142640', mid: '#0e1a30', cloud: ['#d0fff4', '#86d0d8', '#3e6e8e'], wisp: 'rgba(180,255,240,0.26)', weather: 'stardust', farKind: 'art', art: 'nightCity', midKind: 'runes', haze: 'rgba(20,60,90,0.42)', aurora: 1.6 },
     victory: { still: 'victory', wisp: 'rgba(255,230,190,0.4)', weather: 'motes' },
     defeat: { still: 'defeat', wisp: 'rgba(120,60,50,0.4)', weather: 'embers' },
     dock: { still: 'deck', wisp: 'rgba(255,255,255,0.4)', weather: 'steam' },
@@ -107,6 +112,31 @@
     }
     return c;
   }
+  function auroraRgba(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+  // A floating rock with glowing crystal shards on top.
+  function crystalIsland(w, h, crystal, rock) {
+    // Padded so the crystals' glow fades out instead of being clipped into a box.
+    const pad = Math.ceil(h * 0.6);
+    const c = canvas(w + pad * 2, h + pad);
+    const g = c.getContext('2d');
+    g.translate(pad, pad);
+    g.beginPath(); g.moveTo(w * 0.05, h * 0.55);
+    for (let i = 1; i < 8; i++) g.lineTo((i / 8) * w, h * (0.6 + Math.sin((i / 8) * Math.PI) * 0.35 * rand(0.7, 1.1)));
+    g.lineTo(w * 0.95, h * 0.55); g.closePath();
+    g.fillStyle = rock; g.fill(); g.strokeStyle = '#0b1424'; g.lineWidth = 2; g.stroke();
+    const n = 3 + Math.floor(rand(0, 4));
+    for (let i = 0; i < n; i++) {
+      const bx = w * rand(0.2, 0.8), bw = w * rand(0.05, 0.1), bh = h * rand(0.25, 0.55), lean = rand(-0.2, 0.2) * bh;
+      const gl = g.createRadialGradient(bx, h * 0.5 - bh * 0.5, 0, bx, h * 0.5 - bh * 0.5, bh);
+      gl.addColorStop(0, 'rgba(160,255,230,0.28)'); gl.addColorStop(1, 'rgba(160,255,230,0)');
+      g.fillStyle = gl; g.fillRect(bx - bh, h * 0.5 - bh * 1.5, bh * 2, bh * 2);
+      g.beginPath(); g.moveTo(bx - bw, h * 0.56); g.lineTo(bx + lean, h * 0.56 - bh); g.lineTo(bx + bw, h * 0.56); g.closePath();
+      g.fillStyle = crystal; g.fill(); g.strokeStyle = '#0b1424'; g.lineWidth = 1.5; g.stroke();
+      g.beginPath(); g.moveTo(bx - bw * 0.3, h * 0.55); g.lineTo(bx + lean * 0.9, h * 0.56 - bh * 0.92); g.lineTo(bx, h * 0.55); g.closePath();
+      g.fillStyle = 'rgba(255,255,255,0.35)'; g.fill();
+    }
+    return c;
+  }
   function airshipSilhouette(g, x, y, s, color) {
     g.fillStyle = color;
     g.beginPath(); g.ellipse(x, y, 40 * s, 13 * s, 0, 0, Math.PI * 2); g.fill();
@@ -146,6 +176,10 @@
       } else if (def.farKind === 'peaks') {
         this.ridge(fg, h * 0.55, h * 0.35, def.far, 1);
         this.ridge(fg, h * 0.72, h * 0.22, def.farRock, 1);
+      } else if (def.farKind === 'crystals') {
+        // Floating islands of rock crowned with glowing crystal shards.
+        this.ridge(fg, h * 0.86, h * 0.08, def.farRock, 0.55);
+        for (let i = 0; i < 8; i++) this.wrapDraw(fg, crystalIsland(rand(80, 170), rand(70, 130), def.far, def.farRock), rand(0, this.tileW), rand(h * 0.08, h * 0.5), 0.85);
       } else if (def.farKind === 'spires') {
         this.ridge(fg, h * 0.8, h * 0.15, def.farRock, 1);
         for (let i = 0; i < 14; i++) {
@@ -162,6 +196,11 @@
       const mg = this.mid.getContext('2d');
       const midKind = def.midKind || (def.farKind === 'islands' ? 'airships' : 'none');
       if (midKind === 'airships') for (let i = 0; i < 4; i++) airshipSilhouette(mg, rand(60, this.tileW - 60), rand(h * 0.15, h * 0.45), rand(0.35, 0.7), def.mid);
+      if (midKind === 'runes') {
+        // Faint rune circles hanging in the sky.
+        this.runes = [];
+        for (let i = 0; i < 5; i++) this.runes.push({ x: rand(0, this.tileW), y: rand(h * 0.12, h * 0.6), r: rand(16, 34), spin: rand(-0.4, 0.4), seed: Math.floor(rand(0, 99)) });
+      }
       if (midKind === 'chimneys') {
         this.stacks = [];
         for (let i = 0; i < 6; i++) {
@@ -243,7 +282,7 @@
       }
       // Weather particles.
       const P = this.particles;
-      const want = { rain: 90, soot: 45, embers: 40, motes: 25, birds: 0, steam: 14 }[def.weather] || 0;
+      const want = { rain: 90, soot: 45, embers: 40, motes: 25, birds: 0, steam: 14, stardust: 70 }[def.weather] || 0;
       while (P.length < want) P.push(this.spawn(true));
       for (let i = P.length - 1; i >= 0; i--) {
         const p = P[i];
@@ -274,6 +313,7 @@
       if (kind === 'soot') { p.vx = rand(-20, -5); p.vy = rand(8, 26); p.r = rand(0.8, 2.2); p.f = 0.5; p.life = rand(5, 10); }
       if (kind === 'embers') { p.y = initial ? rand(0, h) : h + 5; p.vx = rand(-30, 10); p.vy = rand(-50, -20); p.r = rand(1, 2.4); p.f = 0.4; p.life = rand(3, 7); }
       if (kind === 'motes') { p.vx = rand(-8, 8); p.vy = rand(-6, 6); p.r = rand(0.8, 1.8); p.f = 0.2; p.life = rand(4, 9); }
+      if (kind === 'stardust') { p.vx = rand(-10, 4); p.vy = rand(-8, 4); p.r = rand(0.6, 1.8); p.f = 0.25; p.life = rand(3, 8); p.max = p.life; p.hue = Math.floor(rand(0, 4)); }
       if (kind === 'steam') { p.x = rand(0, w); p.y = initial ? rand(0, h) : h + 20; p.vx = rand(-6, 6); p.vy = rand(-28, -14); p.r = rand(16, 34); p.f = 0; p.life = rand(4, 8); p.max = p.life; }
       return p;
     }
@@ -297,7 +337,9 @@
         g.beginPath(); this.bolt.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
         g.restore();
       }
+      if (def.aurora) this.drawAurora(g);
       this.drawTile(g, this.mid, offset * FACTORS.mid);
+      if (this.runes) this.drawRunes(g, offset * FACTORS.mid);
       if (this.stacks) this.drawSmokeStacks(g, offset * FACTORS.mid);
       if (this.flock) this.drawBirds(g);
       for (const c of this.clouds) if (c.layer === 'cloudBack') { g.globalAlpha = c.alpha; g.drawImage(c.sprite, c.x, c.y); }
@@ -363,6 +405,47 @@
         g.fillStyle = '#2a2019'; g.fillRect(0, 0, w, h);
       }
     }
+    // Aurora curtains: shimmering vertical light in slowly waving bands. In a fight they take the
+    // colour of the turn's aurora (Scene.auroraColor); otherwise they drift through the palette.
+    drawAurora(g) {
+      const { w, h } = this;
+      const t = this.t || 0;
+      const forced = Scene.auroraColor ? Scene.auroraColor() : null;
+      const palette = forced ? [forced, forced, '#ffe9a8'] : ['#5dffa8', '#4fd8ff', '#c08cff'];
+      const strength = this.def.aurora;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      for (let b = 0; b < 3; b++) {
+        const col = palette[(b + Math.floor(t / 9)) % palette.length];
+        const base = h * (0.1 + b * 0.11), amp = h * 0.06, len = h * (0.18 + b * 0.04);
+        for (let x = 0; x < w; x += 5) {
+          const top = base + Math.sin(x * 0.005 + t * 0.25 + b * 2) * amp + Math.sin(x * 0.013 - t * 0.4) * amp * 0.4;
+          const shimmer = 0.5 + 0.5 * Math.sin(x * 0.045 + t * (1.2 + b * 0.3) + b);
+          const a = (0.05 + 0.09 * shimmer) * strength;
+          const gr = g.createLinearGradient(0, top, 0, top + len);
+          gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.25, auroraRgba(col, a)); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr; g.fillRect(x, top, 5, len);
+        }
+      }
+      g.restore();
+    }
+    drawRunes(g, off) {
+      const t = this.t || 0;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      for (const r of this.runes) {
+        let x = r.x - (off % this.tileW);
+        if (x < -60) x += this.tileW;
+        const a = 0.18 + 0.12 * Math.sin(t * 1.5 + r.seed);
+        g.strokeStyle = `rgba(170,255,230,${a})`; g.lineWidth = 1.5;
+        g.save(); g.translate(x, r.y); g.rotate(t * r.spin);
+        g.beginPath(); g.arc(0, 0, r.r, 0, Math.PI * 2); g.stroke();
+        g.beginPath(); g.arc(0, 0, r.r * 0.7, 0, Math.PI * 2); g.stroke();
+        for (let i = 0; i < 6; i++) { const ang = (i * Math.PI) / 3 + r.seed; g.beginPath(); g.moveTo(Math.cos(ang) * r.r * 0.7, Math.sin(ang) * r.r * 0.7); g.lineTo(Math.cos(ang + 1.3) * r.r * 0.3, Math.sin(ang + 1.3) * r.r * 0.3); g.stroke(); }
+        g.restore();
+      }
+      g.restore();
+    }
     drawSmokeStacks(g, off) {
       const t = this.t || 0;
       for (const s of this.stacks) {
@@ -407,6 +490,7 @@
         else if (kind === 'embers') { g.fillStyle = `rgba(255,${120 + Math.floor(p.life * 15)},60,${Math.min(1, p.life / 2)})`; }
         else if (kind === 'motes') { g.fillStyle = 'rgba(255,230,180,0.6)'; }
         else if (kind === 'steam') { g.fillStyle = `rgba(255,248,236,${0.12 * Math.sin((p.life / p.max) * Math.PI)})`; }
+        else if (kind === 'stardust') { const tw = Math.sin((p.life / p.max) * Math.PI) * (0.6 + 0.4 * Math.sin(p.life * 9)); g.fillStyle = ['rgba(180,255,230,', 'rgba(210,190,255,', 'rgba(255,240,190,', 'rgba(170,220,255,'][p.hue] + Math.max(0, tw) + ')'; }
         g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
       }
     }
@@ -517,6 +601,7 @@
   Scene.fx = null;
   Scene.overlay = null;
   Scene.pixelScale = null;
+  Scene.auroraColor = null; // () => the colour of the fight's aurora, if there is one
   Scene.BIOMES = BIOMES;
   Scene.images = images;
 

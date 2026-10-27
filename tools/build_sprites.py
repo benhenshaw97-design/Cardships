@@ -212,6 +212,14 @@ KEYED_CUTS = {
  'k_twinclock': ('7711', 2), 'k_gearwheel': ('7705', 6),
  'k_patchwork': ('7696', 3), 'k_sailraider': ('7711', 1),
  'k_crystal': ('7705', 1), 'k_starpagoda': ('7703', 1),
+ # Area 2, the Aurora Reaches: spell-powered ships (washed in aurora light in code).
+ 'k_wisp': ('7705', 0), 'k_corvette': ('7698', 1), 'k_barge': ('7706', 5), 'k_mirage': ('7706', 2), 'k_archon': ('7707', 7),
+ # Area 3, the Blood Moon: gothic ships (washed crimson and bone in code).
+ 'k_bats': ('7708', 1), 'k_wraith': ('7707', 3), 'k_bonegalleon': ('7697', 0), 'k_cultist': ('7703', 4), 'k_sovereign': ('7705', 5),
+ # The Workshop's three new Cores, three ships each.
+ 'k_arcanist': ('7703', 6), 'k_arcanist2': ('7708', 4), 'k_arcanist3': ('7707', 0),
+ 'k_sanguine': ('7698', 6), 'k_sanguine2': ('7703', 2), 'k_sanguine3': ('7705', 2),
+ 'k_eclipse': ('7698', 5), 'k_eclipse2': ('7703', 5), 'k_eclipse3': ('7709', 2),
 }
 
 

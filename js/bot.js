@@ -15,9 +15,10 @@
     plating: 2.5, bulwark: 4, deflector: 1.6, repair: 2.2, quarters: 1.2, boiler: 2.6, sprinkler: 1.1, scrubber: 1,
     telescope: 1, gasbag: 1, propeller: 0.8, cargo: 0.6, hatch: 1.6, autoloader: 1, gyro: 2.4, heart: 0.6, overpressure: 3,
     leviplating: 5, dreadnought: 4.5, galeengine: 2.6, stormheart: 4.2, mainspring: 3.6, titanfist: 4,
+    runecannon: 2.8, crystalward: 3, starsail: 1.4, manalens: 1.2, prism: 1.6, auroracrown: 3.4, archonlance: 3.8,
   };
 
-  const ARMOR = new Set(['plating', 'bulwark', 'leviplating']);
+  const ARMOR = new Set(['plating', 'bulwark', 'leviplating', 'crystalward']);
   function moduleValue(g, card, loc = g.locate(card.uid)) {
     const d = D.PARTS[card.id];
     const nbs = g.neighborsOf(loc);
@@ -45,6 +46,11 @@
     if (card.id === 'gasbag' && ['zeppelin', 'airship'].includes(g.core.id)) v += 1;
     if (card.id === 'tesla') v += g.weaponsInstalled() * 0.5;
     if (loc.row === 1 && loc.col === 0 && !ARMOR.has(card.id)) v += 0.3; // the bridge shelters the Core
+    // Resonance chains: arcane modules want arcane (and resonance-hungry) neighbours.
+    const arcaneNbs = nbs.filter((n) => g.isArcane(n)).length;
+    if (g.isArcane(card)) v += arcaneNbs * 0.35;
+    if (card.id === 'runecannon' || card.id === 'manalens' || card.id === 'starsail') v += arcaneNbs * 0.6;
+    if (card.enchanted) v += 0.8;
     return v + card.hp * 0.15;
   }
   function layoutScore(g) {
@@ -118,14 +124,23 @@
     if (card.id === 'sniper' && mode === 'steady') dmg = 4;
     if (card.id === 'tesla') dmg = g.weaponsInstalled();
     if (card.id === 'titanfist') dmg = g.fistDamage();
+    if (card.id === 'runecannon') dmg = g.runeDamage(card);
+    if (card.id === 'archonlance') dmg = g.lanceDamage();
     dmg = Math.max(0, dmg + info.bonus);
     const en = g.combat.enemy;
-    const pierce = card.id === 'tesla' || mode === 'steady' || !!d.pierceLayers;
-    const block = d.strip ? 0 : en.block;
+    if (g.hexed(card)) return { real: -dmg, extra: -2 };
+    const prism = g.combat.prism;
+    const pierce = card.id === 'tesla' || card.id === 'archonlance' || mode === 'steady' || !!d.pierceLayers || prism;
+    const block = d.strip || prism ? 0 : en.block;
+    const armor = pierce ? 0 : en.armor || 0;
     const hits = d.volley || 1;
-    let real = 0, left = block;
-    for (let k = 0; k < hits; k++) { const one = dmg + (en.vuln > 0 && dmg > 0 ? 1 : 0); const soak = pierce ? 0 : Math.min(left, one); left -= soak; real += Math.max(0, one - soak); }
-    let extra = 0;
+    let real = 0, left = block, wards = prism ? 0 : en.ward || 0, popped = 0;
+    for (let k = 0; k < hits; k++) {
+      if (wards > 0 && !(d.pierceLayers >= 1)) { wards--; popped++; continue; }
+      const one = Math.max(0, dmg - armor) + (en.vuln > 0 && dmg > 0 ? 1 : 0);
+      const soak = pierce ? 0 : Math.min(left, one); left -= soak; real += Math.max(0, one - soak);
+    }
+    let extra = popped * (g.combat.grand ? 3 : 1.4) + (prism ? (en.ward || 0) * (g.combat.grand ? 3 : 1.4) : 0);
     if (d.strip) extra += Math.min(en.block, 4) * 0.8;
     if (d.flak) { const p = g.previewIntent(); if (p && g.isAttack(p.intent) && !g.combat.flak) extra += Math.min(d.flak, p.dmg) * 1.4; }
     if (d.burn) extra += en.hp > 4 ? 2.5 : 1;
@@ -159,6 +174,11 @@
           if (card.id === 'sprinkler') s = 2.5;
           if (card.id === 'scrubber') s = D.PARTS[target.id] && D.PARTS[target.id].type === 'weapon' ? 1.8 : 0.8;
           if (card.id === 'deflector') { const p = g.previewIntent(); const guard = new Set([card.uid, ...g.neighbors(card.uid).map((n) => n.uid)]); s = p ? p.plan.filter((h) => guard.has(h.uid)).reduce((x, h) => x + h.dmg, 0) * 1.2 : 0; }
+          if (card.id === 'repair' && g.hexed(card)) s = -5;
+          if (card.id === 'prism') {
+            const shooter = g.cards().some((x) => { const i = g.fireInfo(x.uid); return i && !i.blocked && g.combat.steam - g.useCost(card) >= i.cost; });
+            s = shooter ? (en.ward || 0) * (g.combat.grand ? 3.5 : 1.8) + Math.min(en.block, 4) * 0.7 + (en.armor || 0) * 0.8 : -1;
+          }
           acts.push({ score: s - g.useCost(card) * steamWorth, run: () => g.useSupport(card.uid, tgt) });
         }
       }
@@ -203,6 +223,10 @@
   }
 
   function combatTurn(g, rnd) {
+    if (g.has('auroracrown') && g.canAct() && !g.combat.auroraChosen) {
+      const fire = g.cards().filter((x) => { const i = g.fireInfo(x.uid); return i && !i.blocked; }).length;
+      g.chooseAurora(rnd ? ['weapon', 'defense', 'utility'][Math.floor(rnd() * 3)] : threat(g) >= 6 ? 'defense' : fire >= 2 ? 'weapon' : 'utility');
+    }
     for (let n = 0; n < 40 && g.canAct(); n++) {
       const acts = candidateActions(g);
       if (rnd) {
@@ -274,6 +298,9 @@
       case 'Sky Dock': return 1 + rep * 0.35;
       case 'Quest': return g.quest ? 0.5 : 1.8;
       case 'Salvage': return 1.6 + (hpFrac > 0.5 ? 0.4 : 0);
+      case 'Shrine': return 1.2;
+      case 'Enchant': return 2;
+      case 'Chart': return 0.8;
       default: return 0;
     }
   }
@@ -298,6 +325,23 @@
           case 'slip': return ids.includes('pay') && g.cogs >= 40 ? 'pay' : g.core.hp > 5 ? 'age' : ids[0];
           case 'bargain': return g.maxHp(g.core) >= 11 ? 'accept' : 'refuse';
           case 'guild': return g.quest ? 'none' : ['bounty', 'marksman', 'rammer', 'ironclad', 'survivor', 'hoarder'].find((q) => ids.includes(q)) || 'none';
+          case 'shrine': {
+            // Offer the weakest module if its blessing is worth more than it is.
+            let best = 'leave', bv = 0.5;
+            for (const id of ids.filter((x) => x.startsWith('offer-'))) {
+              const card = g.locate(id.slice(6)).card;
+              const t = D.PARTS[card.id].type;
+              const gain = t === 'weapon' ? Math.max(1, g.weaponsInstalled() - 1) * 1.4 : t === 'defense' ? 2.2 : 2.8;
+              const v = gain - moduleValue(g, card);
+              if (v > bv) { bv = v; best = id; }
+            }
+            return best;
+          }
+          case 'spire': {
+            let best = 'leave', bv = -Infinity;
+            for (const id of ids.filter((x) => x.startsWith('ench-'))) { const card = g.locate(id.slice(5)).card; const v = moduleValue(g, card) + (D.PARTS[card.id].type === 'weapon' ? 1.5 : 0); if (v > bv) { bv = v; best = id; } }
+            return best;
+          }
           default: return ids[0];
         }
       })();

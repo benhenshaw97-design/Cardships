@@ -16,6 +16,7 @@
   Scene.actors = (g, v) => Actors.draw(g, v);
   Scene.fx = FX.drawFx;
   Scene.pixelScale = () => Actors.P || 2;
+  Scene.auroraColor = () => (game && game.combat && !game.combat.over && game.combat.aurora ? D.AURORA[game.combat.aurora].color : null);
   Scene.overlay = FX.drawOverlay;
   // Taps on the flight view: your ship selects the Core; animations skip.
   const touchFirst = window.matchMedia('(hover: none)').matches;
@@ -136,7 +137,9 @@
       event: ['storm', 'smog', 'beacon'].includes(enc) ? 'hazard' : 'map',
       hangar: 'dock', shop: 'dock', loot: 'spoils', portal: 'spoils', gameover: 'defeat', victory: 'victory',
     }[game.phase] || 'map';
-    Audio.setScene(cue);
+    // Each area has its own map, dock, fight and boss music where it has any (map2, combat3, ...).
+    const areaCue = game.area > 0 ? `${cue}${game.area + 1}` : null;
+    Audio.setScene(areaCue && Audio.CUES[areaCue] ? areaCue : cue);
     Audio.setTension(game.phase === 'combat' && game.core.hp / game.maxHp(game.core) <= 0.34);
   }
   // Which parallax biome and scroll speed each moment of the run calls for.
@@ -156,7 +159,7 @@
     }
     overlay.replaceChildren();
     const node = game.map && game.currentNode();
-    const here = node && node.enc !== 'start' ? node.biome : 'clear';
+    const here = node && (node.enc !== 'start' || game.area > 0) ? node.biome : 'clear';
     const phase = game.phase;
     if (phase === 'victory' || phase === 'gameover') { scene.setBiome(phase === 'victory' ? 'victory' : 'defeat'); scene.setMode('docked'); }
     else if (phase === 'hangar') { scene.setBiome('dock'); scene.setMode('docked'); }
@@ -183,6 +186,7 @@
     ui.insertFn = null;
     ui.previewId = null;
     document.body.classList.toggle('single', single());
+    for (let a = 1; a <= 3; a++) document.body.classList.toggle(`area-${a}`, !!game && game.core && game.area === a - 1);
     const content = stageContent().filter(Boolean);
     const stage = $('stage');
     if (single() && content.length) {
@@ -240,8 +244,12 @@
   // ---------- painted icons ----------
   // Status and stat icons (assets/art/status), event banners (assets/art/scenes), unlock badges.
   const ico = (name, cls = 'ico') => h('img', { class: cls, src: `assets/art/status/${name}.png`, alt: '', 'aria-hidden': 'true', onerror: (e) => e.target.remove() });
-  const banner = (enc) => h('img', { class: 'scene-banner', src: `assets/art/scenes/${enc}.jpg`, alt: '', onerror: (e) => e.target.remove() });
+  const banner = (enc) => h('img', { class: 'scene-banner', src: ArtGen && ArtGen.hasBanner(enc) ? ArtGen.banner(enc) : `assets/art/scenes/${enc}.jpg`, alt: '', onerror: (e) => e.target.remove() });
   const BADGES = { tesla: 0, overpressure: 1, gyro: 3, autoloader: 4, clockwork: 7 };
+  const TOKEN_KINDS = ['fire', 'glue', 'gas', 'hex'];
+  const tokIco = (k, cls = 'tok-ico') => (k === 'hex' ? h('span', { class: `${cls} tok-rune`, 'aria-hidden': 'true' }, '✶') : ico(k, cls));
+  // Resonance as three pips (filled up to the module's Resonance).
+  const resPips = (card) => (card.res > 0 || card.enchanted || game.isArcane(card) ? h('span', { class: 'res-pips', title: `Resonance ${card.res || 0}/3` }, [0, 1, 2].map((i) => h('i', { class: i < (card.res || 0) ? 'on' : '' }))) : null);
 
   // ---------- HUD ----------
   // A brass gauge bar (from the UI kit) with the number beside it.
@@ -372,11 +380,12 @@
     const eligible = t && t.eligible.includes(card.uid);
     const incoming = hits && hits.has(card.uid) ? hits.get(card.uid) : null;
     const linked = ui.selected && !t && ui.selected !== card.uid && game.locate(ui.selected) && game.synergies(ui.selected).some((l) => l.uid === card.uid);
-    const cls = ['card', info.type, info.rarity, linked ? 'linked' : '', ui.selected === card.uid && !t ? 'selected' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', game.flashes.has(card.uid) ? 'hit' : '', incoming != null ? 'targeted' : ''].join(' ');
+    const cls = ['card', info.type, info.rarity, card.enchanted ? 'enchanted' : '', linked ? 'linked' : '', ui.selected === card.uid && !t ? 'selected' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', game.flashes.has(card.uid) ? 'hit' : '', incoming != null ? 'targeted' : ''].join(' ');
     const pips = h('div', { class: 'pips' });
     for (let i = 0; i < info.max; i++) pips.append(h('i', { class: i < card.hp ? 'on' : '' }));
     const toks = h('div', { class: 'tokens' });
-    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) toks.append(h('span', { class: `tok ${k}`, title: D.TOKENS[k].name }, ico(k, 'tok-ico'), h('span', { class: 'tok-txt' }, k)));
+    for (const k of TOKEN_KINDS) if (card.tokens[k]) toks.append(h('span', { class: `tok ${k}`, title: D.TOKENS[k].name }, tokIco(k), h('span', { class: 'tok-txt' }, k)));
+    if (card !== game.core && game.phase === 'combat' && game.isArcane(card)) toks.append(resPips(card));
     if (card.reload > 0) toks.append(h('span', { class: 'tok cd' }, 'rld'));
     return h('button', {
       class: cls, 'aria-label': `${info.name}, ${card.hp} of ${info.max} durability`,
@@ -485,7 +494,8 @@
       if (links.length) box.append(h('ul', { class: 'notes links' }, links.map((l) => h('li', {}, l.text))));
     }
     if (card.bonusMax) box.append(h('p', { class: 'muted' }, `Reinforced: +${card.bonusMax} max Durability.`));
-    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
+    for (const k of TOKEN_KINDS) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
+    if (card.enchanted) box.append(h('p', { class: 'muted' }, 'Enchanted: arcane, +1 max Durability, starts each fight with 2 Resonance' + (D.PARTS[card.id].type === 'weapon' ? ', +1 damage.' : '.')));
 
     const buttons = h('div', { class: 'row' });
     if (game.phase === 'combat' && !loc.stored) buttons.append(...combatButtons(uid, loc, ui.inSheet ? () => { ui.sheet = null; ui.selected = null; } : undefined));
@@ -645,7 +655,8 @@
     if (!known) return { kind: '?', name: n.cloud ? 'Cloud cover' : 'Uncharted', text: n.cloud ? 'Thick cloud hides this route. A Telescope lookout on the deck or prow sees through it.' : 'Too far to make out. Fly closer, mount a Telescope or buy sky charts.' };
     const enc = D.ENCOUNTERS[n.enc];
     const enemy = n.enemy && D.ENEMIES[n.enemy];
-    return { kind: enc.kind, name: enemy && n.enc !== 'beacon' ? `${enc.name}: ${enemy.name}` : enc.name, text: enc.text, enemy, table: enc.table };
+    const name = game.encName(n.enc);
+    return { kind: enc.kind, name: enemy && n.enc !== 'beacon' ? `${name}: ${n.enc === 'lair' && !enemy.elite ? 'Elite ' : ''}${enemy.name}` : name, text: enc.text, enemy, table: enc.table };
   }
   function mapScreen() {
     const panel = mapPanel();
@@ -678,8 +689,8 @@
     } else {
       detail = h('p', { class: 'muted' }, readOnly ? 'Tap a node to read about it.' : 'Tap a glowing node to plot your next leg.');
     }
-    const legend = h('div', { class: 'legend' }, ['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar', 'derelict', 'rift'].map((id) =>
-      h('span', { class: `k-${D.ENCOUNTERS[id].kind.replace(' ', '')}` }, SkyMap.icon(id, 16), D.ENCOUNTERS[id].name)));
+    const legend = h('div', { class: 'legend' }, Object.keys(game.areaDef().nodeWeights).map((id) =>
+      h('span', { class: `k-${D.ENCOUNTERS[id].kind.replace(' ', '')}` }, SkyMap.icon(id, 16), game.encName(id))));
     const panel = h('section', { class: 'panel stack map-panel' },
       h('div', { class: 'row', style: 'justify-content:space-between' },
         h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, `Area ${game.areaDef().numeral} · column ${game.depth} of ${game.maxDepth} · sight ${game.sight()} · seed ${Game.seedCode(game.seed)}`), h('h2', {}, game.areaDef().name)),
@@ -707,7 +718,7 @@
     const panel = h('section', { class: 'panel stack' },
       banner(ev.enc),
       h('span', { class: `kind k-${e.kind.replace(' ', '')}`, style: 'align-self:flex-start' }, e.kind),
-      h('h2', {}, e.name),
+      h('h2', {}, game.encName(ev.enc)),
       h('p', {}, e.text),
       e.table ? d6List(e.table, ev.rolls) : null,
       h('ol', { class: 'log inline' }, lines.map((l) => h('li', { class: l.cls }, l.text))),
@@ -782,6 +793,11 @@
       case 'block': return `Gains ${it.amount} Block`;
       case 'repair': return `Repairs ${it.amount}`;
       case 'charge': return `Next attack +${it.amount}`;
+      case 'ward': return it.illusion ? `${it.amount} illusions: each takes a whole hit` : `+${it.amount} Wards: each stops a whole hit`;
+      case 'siphon': return `Steals up to ${it.amount * 2} Resonance and heals on it`;
+      case 'rune': return `${game.intentDamage(it)} to every module on the ${it.target.row ? 'upper deck' : 'hull'}, past armor`;
+      case 'channel': return it.broken ? 'Collapsed: loses its move' : `Grand Convergence in ${it.left} turn${it.left > 1 ? 's' : ''}: break all ${game.combat.enemy.ward} crystals!`;
+      case 'grand': return `${game.intentDamage(it)} to every module and the Core: Evade it!`;
       default: return '';
     }
   }
@@ -794,7 +810,11 @@
     const marks = def.phases.map((p) => p.min).filter((m) => m > 1);
     for (let i = 1; i <= en.max; i++) bar.append(h('i', { class: `${i <= en.hp ? 'on' : ''} ${marks.includes(i + 1) ? 'mark' : ''}` }));
     const chips = h('div', { class: 'chips' },
+      en.ward ? h('span', { class: 'chip ward' }, `${{ illusion: 'Illusions', crystal: 'Focus crystals', glimmer: 'Shimmer' }[game.wardKind()] || 'Wards'} ${en.ward}`) : null,
       en.block ? h('span', { class: 'chip shield' }, ico('block'), `Block ${en.block}`) : null,
+      en.armor ? h('span', { class: 'chip shield' }, `Armor ${en.armor}`) : null,
+      c.grand ? h('span', { class: 'chip ward' }, `Convergence in ${c.grand.left}`) : null,
+      c.enemyAurora ? h('span', { class: 'chip aurora', style: `--au:${D.AURORA[c.enemyAurora].color}` }, `Copies ${D.AURORA[c.enemyAurora].name} next`) : null,
       en.burn ? h('span', { class: 'chip fire' }, ico('burn'), `Burn ${en.burn}`) : null,
       en.weak ? h('span', { class: 'chip glue' }, ico('gummed'), `Gummed ${en.weak}`) : null,
       en.vuln ? h('span', { class: 'chip gas' }, ico('choking'), `Choking ${en.vuln}`) : null,
@@ -808,7 +828,7 @@
     const preview = game.previewIntent();
     const it = en.intent;
     const intentBox = h('div', { class: `intent ${game.isAttack(it) ? 'attack' : ''} ${c.evading ? 'evaded' : ''}` },
-      h('span', { class: 'eyebrow' }, en.stunned ? 'Next move · cancelled by the snap' : `Next move · rolled ${it.roll}`),
+      h('span', { class: 'eyebrow' }, en.stunned ? 'Next move · cancelled by the snap' : (it.roll ? `Next move · rolled ${it.roll}` : 'Next move')),
       h('b', {}, it.name),
       h('span', {}, intentText(it)),
       preview && preview.plan.length ? h('span', { class: 'muted' }, c.evading ? 'You will evade it.' : 'Hits: ' + preview.plan.map((p) => `${p.uid === 'core' ? 'Core' : partName(game.locate(p.uid).card.id)} ${p.braced ? 'braced' : p.dmg > 0 ? '−' + p.dmg : p.token ? '+' + p.token : '0'}`).join(', ')) : null);
@@ -819,13 +839,17 @@
           def.gimmick ? h('p', { class: 'muted' }, def.gimmick) : null),
         statline(`Weight ${fmt(en.weight)}`, h('span', {}, 'Dur ', h('b', {}, `${Math.max(0, en.hp)}/${en.max}`)))),
       bar, chips, intentBox,
-      h('details', { class: 'phases-wrap' }, h('summary', {}, 'Tactics table'),
-        h('div', { class: 'phases' }, def.phases.map((p, pi) => {
-          const top = pi === 0 ? en.max : def.phases[pi - 1].min - 1;
-          return h('div', { class: `phase ${pi === en.phase ? 'current' : ''}` },
-            h('span', { class: 'eyebrow' }, p.name, ' ', h('span', {}, `${top}–${p.min}`)),
-            d6List(p.table.map((a) => a.name), pi === en.phase ? [it.roll] : []));
-        }))),
+      // Later areas' bosses keep their tactics secret until a Star Chart reveals them.
+      def.boss && game.area > 0 && !game.bossCharted
+        ? h('p', { class: 'muted' }, `Tactics unknown: now in ${def.phases[en.phase].name}. A Star Chart in this area would reveal them.`)
+        : h('details', { class: 'phases-wrap' }, h('summary', {}, 'Tactics table'),
+          h('div', { class: 'phases' }, def.phases.map((p, pi) => {
+            const sc = en.hpScale || 1;
+            const top = pi === 0 ? en.max : Math.round(def.phases[pi - 1].min * sc) - 1;
+            return h('div', { class: `phase ${pi === en.phase ? 'current' : ''}` },
+              h('span', { class: 'eyebrow' }, p.name, ' ', h('span', {}, `${top}–${Math.round(p.min * sc)}`)),
+              d6List(p.table.map((a) => a.name), pi === en.phase ? [it.roll] : []));
+          }))),
     );
     return enemy;
   }
@@ -874,7 +898,7 @@
     switch (game.phase) {
       case 'loot': return game.lootTitle || 'Spoils';
       case 'map': return 'Sky route';
-      case 'event': return game.event ? D.ENCOUNTERS[game.event.enc].name : 'Encounter';
+      case 'event': return game.event ? game.encName(game.event.enc) : 'Encounter';
       case 'hangar': return 'Sky Dock';
       case 'shop': return 'Trading Zeppelin';
       case 'portal': return 'The portal';
@@ -922,8 +946,8 @@
       const fi = game.fireInfo(uid);
       const ready = !t && ((fi && !fi.blocked) || (game.canUseSupport(uid) && game.supportTargets(uid).length > 0));
       const eligible = t && t.eligible.includes(uid);
-      const cls = ['mod-mark', info.type, info.rarity === 'legendary' ? 'legendary' : '', ready ? 'ready' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', ui.pop && ui.pop.uid === uid ? 'open' : '', hits.has(uid) ? 'targeted' : ''].join(' ');
-      const toks = ['fire', 'glue', 'gas'].filter((k) => card.tokens[k]);
+      const cls = ['mod-mark', info.type, info.rarity === 'legendary' ? 'legendary' : '', card.enchanted ? 'enchanted' : '', card.tokens.hex ? 'hexed' : '', ready ? 'ready' : '', eligible ? 'eligible' : '', t && !eligible ? 'dim' : '', ui.pop && ui.pop.uid === uid ? 'open' : '', hits.has(uid) ? 'targeted' : ''].join(' ');
+      const toks = TOKEN_KINDS.filter((k) => card.tokens[k]);
       marks.push(h('button', {
         class: cls, 'data-uid': uid, 'aria-label': `${info.name}, ${card.hp} of ${info.max} durability`,
         onclick: (ev) => {
@@ -937,7 +961,8 @@
       h('span', { class: 'mod-abbr' }, info.abbr), // shows if the part has no picture
       h('img', { src: cardSrc(card.id), alt: '', onerror: (e) => e.target.remove() }),
       h('span', { class: 'mod-hp' }, `${Math.max(0, card.hp)}/${info.max}`),
-      toks.length ? h('span', { class: 'mod-toks' }, toks.map((k) => ico(k, 'tok-ico'))) : null));
+      resPips(card),
+      toks.length ? h('span', { class: 'mod-toks' }, toks.map((k) => tokIco(k))) : null));
     }
     // Steam, the Core's ability, Evade, the Shipyard and End turn.
     const steam = h('div', { class: 'steam', 'aria-label': `${c.steam} steam` });
@@ -949,7 +974,11 @@
         h('span', { class: 'bb-note', title: 'Core durability' }, ico('durability'), `${Math.max(0, game.core.hp)}/${game.maxHp(game.core)}`),
         ico('steam'), steam,
         game.core.id === 'zeppelin' ? h('span', { class: 'bb-note' }, ico('pressure'), game.core.pressure) : null,
-        game.core.id === 'tempest' ? h('span', { class: 'bb-note' }, ico('charge'), game.core.charge || 0) : null),
+        game.core.id === 'tempest' ? h('span', { class: 'bb-note' }, ico('charge'), game.core.charge || 0) : null,
+        c.aurora ? h('span', { class: 'bb-aurora', style: `--au:${D.AURORA[c.aurora].color}`, title: D.AURORA[c.aurora].text }, h('i'), `${D.AURORA[c.aurora].name}: ${D.AURORA[c.aurora].text.replace(/\.$/, '')}`) : null,
+        game.has('auroracrown') && !c.auroraChosen && game.canAct()
+          ? h('span', { class: 'bb-crown' }, 'Crown:', Object.entries(D.AURORA).map(([k, a]) => h('button', { class: 'btn small au-pick', style: `--au:${a.color}`, title: a.text, onclick: act(() => game.chooseAurora(k)) }, a.name)))
+          : null),
       h('div', { class: 'bb-acts' },
         h('button', { class: 'btn small', disabled: core.blocked ? true : null, title: core.blocked || core.summary, onclick: act(() => { close(); game.useCore(); }) }, core.ability.name, h('span', { class: 'sub' }, ` ${core.cost}⚙`)),
         ec != null ? h('button', { class: 'btn small', disabled: !game.canEvade() || null, onclick: act(() => { close(); game.evade(); }) }, c.evading ? 'Evading' : 'Evade', h('span', { class: 'sub' }, ` ${ec}⚙`)) : null,
@@ -960,7 +989,7 @@
     const etag = h('button', { class: 'enemy-tag', onclick: (ev) => { ev.stopPropagation(); ui.pop = ui.pop && ui.pop.uid === 'enemy' ? null : { uid: 'enemy' }; render(); } },
       h('span', { class: 'et-name' }, en.name),
       h('span', { class: 'et-bar', style: `--fill:${Math.round(Math.max(0, en.hp) / en.max * 100)}%` }, h('i')),
-      h('span', { class: 'et-num' }, `${Math.max(0, en.hp)}/${en.max}${en.block ? ` · Block ${en.block}` : ''}${en.burn ? ` · Burn ${en.burn}` : ''}`));
+      h('span', { class: 'et-num' }, `${Math.max(0, en.hp)}/${en.max}${en.ward ? ` · ${{ illusion: 'Illusions', crystal: 'Crystals', glimmer: 'Shimmer' }[game.wardKind()] || 'Wards'} ${en.ward}` : ''}${en.block ? ` · Block ${en.block}` : ''}${en.armor ? ` · Armor ${en.armor}` : ''}${en.burn ? ` · Burn ${en.burn}` : ''}`));
     root.replaceChildren(...[...marks, etag, bar,
       t ? h('div', { class: 'battle-banner' }, h('span', {}, t.prompt), t.cancelable ? h('button', { class: 'btn small', onclick: () => { ui.targeting = null; render(); } }, 'Cancel') : null) : null,
       ui.pop ? popupEl() : null].filter(Boolean));
@@ -987,7 +1016,8 @@
           h('b', {}, info.name),
           h('span', { class: 'muted' }, `${info.type === 'core' ? 'Core' : info.type} · Dur ${Math.max(0, card.hp)}/${info.max}${card !== game.core ? ` · ${game.placeName(loc)}` : ''}`))),
       rulesBlock(card));
-    for (const k of ['fire', 'glue', 'gas']) if (card.tokens[k]) box.append(h('p', { class: 'pop-tok' }, ico(k, 'tok-ico'), h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
+    for (const k of TOKEN_KINDS) if (card.tokens[k]) box.append(h('p', { class: 'pop-tok' }, tokIco(k), h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
+    if (card !== game.core && (card.res || card.enchanted || game.isArcane(card))) box.append(h('p', { class: 'pop-tok' }, resPips(card), h('b', {}, ` Resonance ${card.res || 0}/3: `), `at 3 it casts ${D.RESONANCE.spells[D.PARTS[card.id].type].name} (${D.RESONANCE.spells[D.PARTS[card.id].type].text})${card.enchanted ? '. Enchanted.' : '.'}`));
     const btns = uid === 'core' ? [] : combatButtons(uid, loc, close);
     if (uid === 'core') {
       const core = game.coreAbilityInfo();

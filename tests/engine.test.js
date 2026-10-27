@@ -524,16 +524,16 @@ test('only the third boss wins the run', () => {
   assert.equal(g.stats.areasCleared, 3);
 });
 
-test('pirates are tougher in later areas', () => {
-  const g = new Game({ seed: 2 });
-  g.chooseCore('airship');
-  g.startCombat('cutter', { col: 3, enc: 'patrol' });
-  const a1 = g.combat.enemy;
-  g.area = 1;
-  g.startCombat('cutter', { col: 3, enc: 'patrol' });
-  const a2 = g.combat.enemy;
-  assert.ok(a2.max > a1.max);
-  assert.ok(a2.dmgBonus > a1.dmgBonus);
+test("each area's enemies are tougher than the last's at the same column", () => {
+  const D = require('../js/data.js');
+  const avg = (a) => {
+    const g = new Game({ seed: 2 });
+    g.chooseCore('airship');
+    g.area = a;
+    const pool = D.AREAS[a].tiers[0].pool;
+    return pool.reduce((n, id) => { g.startCombat(id, { col: 3, enc: 'patrol' }); return n + g.combat.enemy.max; }, 0) / pool.length;
+  };
+  for (let a = 1; a < D.AREAS.length; a++) assert.ok(avg(a) > avg(a - 1), `area ${a + 1} vs ${a}`);
 });
 
 test('a run saved in Area 2 resumes there', () => {
@@ -643,4 +643,146 @@ test('the Grand Mainspring winds +1 a round while guns fire, and runs down when 
   g.combat.enemy.intent = idle();
   g.endTurn();
   assert.equal(g.combat.spring, 0, 'no gun fired last round');
+});
+
+// ---------- Area 2: Resonance, the aurora, Hex and the Archon ----------
+function aurora(ship, enemy = 'corvette', intent = idle(), seed = 1) {
+  const g = new Game({ seed });
+  g.chooseCore('battleship');
+  g.lootOffers = []; g.pendingLoot = [];
+  g.buildShip(ship);
+  g.area = 1;
+  g.enterMap();
+  g.startCombat(enemy, { col: 1, enc: 'patrol' });
+  g.combat.enemy.intent = intent;
+  g.combat.steam = 9;
+  return g;
+}
+
+test('arcane modules build Resonance when used, it flows to neighbours, and a full module casts', () => {
+  const g = aurora([['runecannon', 1, 1], ['harpoon', 0, 1], ['crystalward', 0, -1]]);
+  const rune = at(g, 1, 1);
+  rune.res = 0;
+  assert.ok(g.fire(rune.uid));
+  assert.equal(rune.res, 1, 'firing an arcane weapon builds 1');
+  rune.res = 2;
+  const harp = at(g, 0, 1);
+  harp.res = 0;
+  g.combat.enemy.intent = idle();
+  g.endTurn();
+  assert.equal(at(g, 1, 1).res, 2, 'the sender keeps its own');
+  assert.ok(g.cards().some((c) => c.uid !== rune.uid && c.res >= 1), 'a neighbour received Resonance');
+  const en = g.combat.enemy;
+  en.ward = 0; en.block = 0;
+  const hp = en.hp;
+  at(g, 1, 1).res = 2;
+  g.resonate(at(g, 1, 1).uid, 1);
+  assert.equal(at(g, 1, 1).res, 0, 'a full module empties');
+  assert.equal(en.hp, hp - 2, 'a weapon casts an Arcane Bolt for 2');
+});
+
+test('the Mana Lens doubles the first spell of a turn', () => {
+  const g = aurora([['harpoon', 0, 1], ['manalens', 0, 2]]);
+  const en = g.combat.enemy; en.ward = 0;
+  const hp = en.hp;
+  const h = at(g, 0, 1);
+  h.res = 2; g.resonate(h.uid, 1);
+  assert.equal(en.hp, hp - 4);
+  h.res = 2; g.resonate(h.uid, 1);
+  assert.equal(en.hp, hp - 6, 'only once a turn');
+});
+
+test('the aurora shifts colour every turn in the Aurora Reaches and empowers its kind', () => {
+  const g = aurora([['harpoon', 0, 1], ['plating', 0, 2]]);
+  const seen = [];
+  for (let i = 0; i < 8; i++) { seen.push(g.combat.aurora); g.combat.enemy.intent = idle(); g.endTurn(); }
+  for (let i = 1; i < seen.length; i++) assert.notEqual(seen[i], seen[i - 1]);
+  g.combat.aurora = 'weapon';
+  g.combat.steam = 9;
+  const base = g.fireInfo(at(g, 0, 1).uid).bonus;
+  g.combat.aurora = 'defense';
+  assert.equal(g.fireInfo(at(g, 0, 1).uid).bonus, base - 1);
+  assert.equal(g.planOn(at(g, 0, 2), 3)[0].dmg, 3 - 1, 'the teal aurora hardens the plating');
+  assert.equal(g.planOn(at(g, 0, 1), 3)[0].dmg, 3, 'but not a weapon');
+});
+
+test('a hexed weapon heals the enemy, and hexed armor takes +1', () => {
+  const g = aurora([['plating', 0, 1], ['harpoon', 0, 2]]);
+  const en = g.combat.enemy; en.ward = 0; en.hp = 10;
+  const h = at(g, 0, 2);
+  h.tokens.hex = true;
+  g.combat.aurora = null;
+  g.fire(h.uid);
+  assert.ok(en.hp > 10);
+  const p = at(g, 0, 1);
+  p.tokens.hex = true;
+  assert.equal(g.planOn(p, 2)[0].dmg, 3);
+  g.combat.enemy.intent = idle();
+  g.endTurn();
+  assert.ok(!at(g, 0, 1).tokens.hex, 'hexes wear off at the end of your turn');
+});
+
+test('the Mirage Galleon hides behind illusions; a prism shatters them all', () => {
+  const g = aurora([['harpoon', 0, 1], ['prism', 0, -1]], 'mirage', { kind: 'ward', amount: 3, name: 'Mirror Image', illusion: true });
+  g.combat.enemy.ward = 0;
+  g.endTurn();
+  const en = g.combat.enemy;
+  assert.equal(en.ward, 3);
+  assert.equal(g.wardKind(), 'illusion');
+  g.combat.steam = 9;
+  const hp = en.hp;
+  assert.ok(g.useSupport(at(g, 0, -1).uid, at(g, 0, -1).uid));
+  g.fire(at(g, 0, 1).uid);
+  assert.equal(en.ward, 0);
+  assert.ok(en.hp < hp);
+});
+
+test('the Crystal Barge grows armor every turn', () => {
+  const g = aurora([['harpoon', 0, 1]], 'barge');
+  const en = g.combat.enemy;
+  assert.equal(en.armor, 1);
+  for (let i = 0; i < 5; i++) { g.combat.enemy.intent = idle(); g.endTurn(); }
+  assert.equal(en.armor, 4, 'up to 4');
+});
+
+test("the Archon's Grand Convergence: crystals guard it, breaking them all collapses it", () => {
+  const g = aurora([['plating', 0, 1], ['rockets', 0, 2]], 'archon');
+  const en = g.combat.enemy;
+  en.hp = 5; en.phase = 2;
+  g.combat.enemy.intent = idle();
+  g.endTurn();
+  assert.equal(g.combat.enemy.intent.kind, 'channel');
+  assert.equal(en.ward, 4, 'four focus crystals');
+  en.hp = 30;
+  g.combat.steam = 9;
+  const rockets = g.cards().find((c) => c.id === 'rockets');
+  g.combat.aurora = null;
+  g.fire(rockets.uid);
+  assert.equal(en.ward, 1, 'three rockets, three crystals');
+  g.damageEnemy(1);
+  assert.equal(en.ward, 0);
+  assert.equal(g.combat.grand, null, 'the spell collapses');
+  assert.ok(en.stunned);
+  assert.equal(en.hp, 30 - 8, 'with backlash');
+});
+
+test('Star Charts reveal the whole route; the Enchanter enchants; the Shrine blesses', () => {
+  const g = new Game({ seed: 21 });
+  g.chooseCore('airship');
+  g.lootOffers = []; g.pendingLoot = [];
+  g.buildShip([['harpoon', 0, 1], ['plating', 0, 2], ['repair', 0, -1]]);
+  g.area = 1; g.generateMap(); g.enterMap();
+  g.startEncounter({ id: g.map.current, enc: 'starchart', col: 3 });
+  assert.ok(g.map.nodes.every((n) => g.nodeKnown(n)));
+  g.continueEvent();
+  g.startEncounter({ id: g.map.current, enc: 'spire', col: 3 });
+  const harp = at(g, 0, 1);
+  g.chooseOption('ench-' + harp.uid);
+  assert.ok(harp.enchanted && g.isArcane(harp));
+  g.continueEvent();
+  g.startEncounter({ id: g.map.current, enc: 'shrine', col: 4 });
+  const steam = g.steamCap();
+  g.chooseOption('offer-' + at(g, 0, -1).uid);
+  assert.equal(g.steamCap(), steam + 1, 'a support offered: +1 Steam for the run');
+  assert.equal(g.cards().length, 2);
 });

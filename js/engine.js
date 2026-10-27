@@ -7,7 +7,7 @@
   if (isNode) module.exports = api;
   else root.CardshipsEngine = api;
 })(this, function (D) {
-  const { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RARITY_ODDS, ENEMIES, ENCOUNTERS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
+  const { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RESONANCE, AURORA, RARITY_ODDS, ENEMIES, ENCOUNTERS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE } = D;
 
   const BASE_SIGHT = 2;
   const SNAP_DAMAGE = 6;
@@ -26,9 +26,9 @@
   const ix = (col) => col + SIDE_COLS;
   const ROW_NAME = ['hull', 'upper deck'];
   const BRACE = 3; // damage a braced Deflector Vane turns aside
-  const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 }, leviplating: { soak: 2, reduce: 2 } };
+  const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 }, leviplating: { soak: 2, reduce: 2 }, crystalward: { soak: 1, reduce: 1 } };
 
-  function noTokens() { return { fire: false, glue: false, gas: false }; }
+  function noTokens() { return { fire: false, glue: false, gas: false, hex: false }; }
   function cap(s) { return s[0].toUpperCase() + s.slice(1); }
   function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1); }
   // 'The Pirate Cutter', but never 'The The Iron Leviathan'.
@@ -64,6 +64,7 @@
       this.shop = null;
       this.quest = null;
       this.combatBonusSteam = 0;
+      this.blessings = { weapon: 0, core: 0, steam: 0 }; // permanent run blessings (Aurora Shrine)
 
       this.combat = null;
       this.event = null;
@@ -127,6 +128,7 @@
     // ---------- parts & ship queries ----------
     available(id) {
       if (PARTS[id].rarity === 'legendary') return this.legendaries.includes(id);
+      if (PARTS[id].area > this.area) return false; // a later area's parts only drop there and after
       return !this.unlocked || this.unlocked.includes(id) || !UNLOCKS.some((u) => u.id === id);
     }
     randomPart(tier = 'normal', filter = null) {
@@ -137,7 +139,11 @@
       const odds = {};
       for (const [r, w] of Object.entries(RARITY_ODDS[tier])) if (pools[r]) odds[r] = w;
       if (!Object.keys(odds).length) return this.pick(Object.keys(PARTS).filter((id) => PARTS[id].rarity === 'common'));
-      return this.pick(pools[this.weighted(odds)]);
+      // Each area's loot leans toward its own parts.
+      const pool = pools[this.weighted(odds)];
+      const w = {};
+      for (const id of pool) w[id] = (PARTS[id].area || 0) === this.area ? BALANCE.areaLootBias : 1;
+      return this.weighted(w);
     }
     partOffer(n, tier = 'normal', filter = null) {
       const ids = [];
@@ -214,7 +220,7 @@
     }
     nameOf(card) { return card === this.core ? 'Core' : this.def(card).name; }
     maxHp(card) {
-      if (card === this.core) return this.core.baseMax + this.core.bonusMax + (this.heartOnCore() ? 3 : 0);
+      if (card === this.core) return this.core.baseMax + this.core.bonusMax + (this.heartOnCore() ? 3 : 0) + (this.blessings ? this.blessings.core : 0);
       let m = this.def(card).hp + card.bonusMax;
       if (card.id === 'plating' && this.touching(card.uid, 'gatling')) m += 1;
       return m;
@@ -228,14 +234,14 @@
     storageCap() { return this.has('cargo') ? STORAGE_SLOTS : 0; }
     weight() {
       let w = (this.core ? this.core.weight : 0) + (this.shipDef().weight || 0);
-      for (const c of this.cards()) w += this.def(c).weight;
+      for (const c of this.cards()) w += this.def(c).weight * (this.hexed(c) && this.def(c).weight < 0 ? -1 : 1);
       if (this.has('cargo')) w += this.storage.length;
       return w;
     }
     steamCap() {
-      let s = CORES[this.core.id].steam;
-      for (const c of this.cards()) s += this.def(c).steam || 0;
-      return s;
+      let s = CORES[this.core.id].steam + (this.blessings ? this.blessings.steam : 0);
+      for (const c of this.cards()) s += (this.def(c).steam || 0) * (this.hexed(c) ? -1 : 1); // a hexed boiler drains
+      return Math.max(0, s);
     }
     // Modules that need open sky (Telescope, Lightning Rod) or the stern end (Propeller) to work.
     working(id) {
@@ -533,6 +539,8 @@
 
     // ---------- areas and portals ----------
     areaDef() { return AREAS[this.area] || AREAS[0]; }
+    // An encounter's name in this area (Area 2 calls its pirate patrols spell patrols, and so on).
+    encName(id) { return (this.areaDef().names || {})[id] || ENCOUNTERS[id].name; }
     // One boss per area, each different (given ones, e.g. from tests, are kept).
     rollBosses() {
       const ids = (this.bossIds || []).slice(0, AREAS.length);
@@ -553,6 +561,7 @@
       this.bossId = this.bossIds[this.area];
       this.depth = 0;
       this.sightMoves = 0;
+      this.bossCharted = false;
       this.maxDepth = this.areaDef().cols;
       this.generateMap();
       this.emit('portal', { area: this.area });
@@ -646,7 +655,7 @@
     currentNode() { return this.node(this.map.current); }
     // Whether the player can see what a node is.
     nodeKnown(n) {
-      if (this.map.visited.includes(n.id) || n.enc === 'boss') return true;
+      if (this.map.visited.includes(n.id) || n.enc === 'boss' || this.map.charted) return true;
       const ahead = n.col - this.currentNode().col;
       if (ahead > this.sight()) return false;
       if (n.cloud && ahead > 1 && !this.telescopeOut()) return false;
@@ -671,7 +680,7 @@
     startEncounter(node) {
       const enc = ENCOUNTERS[node.enc];
       this.stats.encounters++;
-      this.say(`— ${node.enc === 'boss' ? ENEMIES[node.enemy].name : enc.name} —`, 'head');
+      this.say(`— ${node.enc === 'boss' ? ENEMIES[node.enemy].name : this.encName(node.enc)} —`, 'head');
       if (node.enc === 'boss') { this.stats.reachedBoss = true; this.stats.bossesFought.push(node.enemy); }
       if (['patrol', 'lair', 'boss'].includes(node.enc)) return this.startCombat(node.enemy, node);
       if (node.enc === 'hangar') return this.enterHangar(node);
@@ -684,6 +693,9 @@
       else if (node.enc === 'guild') this.runGuild();
       else if (node.enc === 'derelict') this.runDerelict();
       else if (node.enc === 'rift') this.runRift();
+      else if (node.enc === 'shrine') this.runShrine();
+      else if (node.enc === 'spire') this.runSpire();
+      else if (node.enc === 'starchart') this.runStarChart();
     }
     totalHp() { return this.core.hp + this.cards().reduce((s, c) => s + c.hp, 0); }
     setOptions(stage, options) { this.event.stage = stage; this.event.options = options; }
@@ -873,6 +885,33 @@
         this.event.loot = { ids: this.partOffer(2, 'normal', (x) => x.rarity === 'rare'), keep: 1 };
       }
     }
+    // ---------- Area 2 places ----------
+    // Aurora Shrine: give up a module for a blessing that lasts the run, by the module's kind.
+    runShrine() {
+      const mods = this.cards();
+      this.say('The aurora pools over a crystal altar, waiting for an offering.', 'sys');
+      const opts = mods.map((c) => {
+        const t = this.def(c).type;
+        const what = t === 'weapon' ? 'Emerald blessing: +1 damage on every weapon' : t === 'defense' ? 'Teal blessing: +4 max Core Durability' : 'Violet blessing: +1 Steam every turn';
+        return { id: 'offer-' + c.uid, label: `Offer the ${this.def(c).name}`, desc: `${what}, for the rest of the run.` };
+      });
+      opts.push({ id: 'leave', label: 'Leave the shrine', desc: 'Keep your ship as it is.' });
+      this.setOptions('shrine', opts);
+    }
+    // Enchanter's Spire: one module becomes arcane: +1 max Durability, starts every fight with
+    // 2 Resonance, and (weapons) deals +1.
+    runSpire() {
+      this.say('The enchanter looks your ship over. "One piece. Choose well."', 'sys');
+      const opts = this.cards().filter((c) => !c.enchanted).map((c) => ({ id: 'ench-' + c.uid, label: `Enchant the ${this.def(c).name}`, desc: `Arcane, +1 max Durability, starts each fight with 2 Resonance${this.isWeapon(c) ? ', +1 damage' : ''}.` }));
+      opts.push({ id: 'leave', label: 'Decline', desc: 'Fly on.' });
+      this.setOptions('spire', opts);
+    }
+    // Star Chart: the whole route is revealed, and the boss's tactics with it.
+    runStarChart() {
+      this.map.charted = true;
+      this.bossCharted = true;
+      this.say(`The astronomer's charts show every route in ${this.areaDef().name}, and the tactics of ${ENEMIES[this.bossId].name}.`, 'good');
+    }
     chooseOption(id) {
       const ev = this.event;
       if (this.phase !== 'event' || !ev || !ev.options || !ev.options.some((o) => o.id === id)) return false;
@@ -909,6 +948,27 @@
       } else if (stage === 'bargain') {
         if (id === 'accept') { this.core.baseMax -= 2; this.clampAll(); const p = this.randomPart('normal', (x) => x.rarity === 'rare'); this.pendingLoot.push(p); this.say(`The bargain is struck: a ${PARTS[p].name}.`, 'good'); }
         else this.say('You refuse, and the light fades.', 'muted');
+      } else if (stage === 'shrine') {
+        if (id === 'leave') this.say('You leave the shrine untouched.', 'muted');
+        else {
+          const card = this.locate(id.slice(6)).card;
+          const t = this.def(card).type;
+          this.say(`The aurora takes the ${this.def(card).name}.`, 'warn');
+          this.removeCard(card.uid, 'scrap');
+          if (t === 'weapon') { this.blessings.weapon++; this.say('Emerald blessing: your weapons deal +1 damage for the rest of the run.', 'good'); }
+          else if (t === 'defense') { this.blessings.core += 4; this.core.hp += 4; this.say('Teal blessing: +4 max Core Durability for the rest of the run.', 'good'); }
+          else { this.blessings.steam++; this.say('Violet blessing: +1 Steam every turn for the rest of the run.', 'good'); }
+          this.emit('blessing', { kind: t });
+        }
+      } else if (stage === 'spire') {
+        if (id === 'leave') this.say('You thank the enchanter and fly on.', 'muted');
+        else {
+          const card = this.locate(id.slice(5)).card;
+          card.enchanted = true; card.bonusMax += 1; card.hp += 1;
+          this.hit(card.uid);
+          this.emit('enchant', { uid: card.uid });
+          this.say(`Runes crawl over your ${this.def(card).name}: it is enchanted.`, 'good');
+        }
       } else if (stage === 'guild') {
         if (id !== 'none') {
           if (this.quest) this.say(`You tear up ${QUESTS.find((q) => q.id === this.quest).name}.`, 'muted');
@@ -1123,6 +1183,11 @@
         this.say(`The Cargo Hold's contents are lost: ${this.storage.map((c) => this.def(c).name).join(', ')}.`, 'bad');
         this.storage = [];
       }
+      if (this.combat && !this.combat.over && violent && card.id === 'crystalward') {
+        this.say('The Crystal Ward shatters into a storm of shards!', 'good');
+        this.emit('shards', { uid: card.uid, dmg: 3 });
+        this.damageEnemy(3, { pierce: true, source: 'shards' });
+      }
       if (this.combat && !this.combat.over && violent) {
         for (const nb of nbs) {
           if (nb.card.id === 'grenadiers') { this.say('The Gas Grenadiers rupture: the enemy is Choking.', 'good'); this.combat.enemy.vuln += 2; }
@@ -1148,13 +1213,17 @@
         prevented += Math.min(dmg, BRACE);
         dmg = Math.max(0, dmg - BRACE);
       }
+      // The teal aurora hardens defense modules.
+      if (dmg > 0 && this.def(target).type === 'defense' && this.empowered('defense')) { prevented += 1; dmg -= 1; }
       if (ARMOR[target.id]) {
+        // Hexed armor is inverted: instead of cutting a hit, it adds 1.
+        if (this.hexed(target)) return [{ uid: target.uid, dmg: dmg + 1, ...extra, hexed: true, prevented: prevented || undefined }];
         const cut = Math.min(dmg, ARMOR[target.id].reduce);
         return [{ uid: target.uid, dmg: dmg - cut, ...extra, prevented: prevented + cut }];
       }
       if (prevented) extra = { ...extra, prevented };
       const loc = this.locate(target.uid);
-      const guard = this.neighborsOf(loc).find((c) => ARMOR[c.id] && this.isBuried(this.locate(c.uid)));
+      const guard = this.neighborsOf(loc).find((c) => ARMOR[c.id] && !this.hexed(c) && this.isBuried(this.locate(c.uid)));
       const plan = [{ uid: target.uid, dmg, ...extra }];
       if (guard && dmg > 0) {
         const soak = Math.min(dmg, ARMOR[guard.id].soak);
@@ -1208,8 +1277,13 @@
         if (p.lightning) this.say('Lightning arcs straight past the plating!', 'warn');
         if (p.intercept) this.say('The armor at the front takes the hit.');
         if (p.soak) this.say('A buried bulkhead soaks some of the blow.');
-        if (p.dmg <= 0) { this.emit('block', { uid: p.uid }); this.say(`${this.nameOf(this.locate(p.uid).card)} shrugs it off.`); continue; }
-        this.damageModule(p.uid, p.dmg, p.bolt ? 'lightning' : src);
+        if (p.hexed) this.say('Hexed armor buckles: the hit lands harder!', 'bad');
+        const card = p.uid !== 'core' ? this.locate(p.uid).card : null;
+        const shards = this.combat && !this.combat.over && card && card.id === 'crystalward' && ['attack', 'ram'].includes(src);
+        if (p.dmg <= 0) { this.emit('block', { uid: p.uid }); this.say(`${this.nameOf(this.locate(p.uid).card)} shrugs it off.`); }
+        else this.damageModule(p.uid, p.dmg, p.bolt ? 'lightning' : src);
+        if (shards) { this.emit('shards', { uid: p.uid, dmg: 1 }); this.say('Crystal shards fly back at the attacker.', 'good'); this.damageEnemy(1, { pierce: true, source: 'shards', noVuln: true }); }
+        if (card && this.isArcane(card) && this.locate(p.uid) && this.combat && !this.combat.over) this.resonate(p.uid, 1);
       }
       this.reflect(plan, src);
     }
@@ -1242,27 +1316,99 @@
       if (token === 'fire' && this.combat) this.combat.fireAfflicted = true;
     }
 
+    // ---------- Resonance (Area 2) ----------
+    // Arcane modules build Resonance when used or hit; it flows into touching modules at the start
+    // of your turn; a module that fills up casts its spell and empties.
+    isArcane(card) { return !!card && card !== this.core && (!!this.def(card).arcane || !!card.enchanted); }
+    resonate(uid, n = 1) {
+      const loc = this.locate(uid);
+      if (!loc || loc.card === this.core || !this.combat || this.combat.over) return;
+      const card = loc.card;
+      card.res = Math.min(RESONANCE.max, (card.res || 0) + n);
+      this.emit('resonance', { uid, res: card.res });
+      if (card.res >= RESONANCE.max) this.castSpell(card);
+    }
+    // A full module's bonus spell, by its type. A Mana Lens touching it doubles the first one a turn.
+    castSpell(card) {
+      const c = this.combat;
+      card.res = 0;
+      const type = this.def(card).type;
+      const spell = RESONANCE.spells[type];
+      let mult = 1;
+      if (!c.lensUsed && this.touching(card.uid, 'manalens')) { mult = 2; c.lensUsed = true; }
+      this.emit('spell', { uid: card.uid, kind: type, mult });
+      this.say(`Your ${this.def(card).name} resonates and casts ${spell.name}${mult > 1 ? ', doubled by the Mana Lens' : ''}!`, 'good');
+      if (type === 'weapon') this.damageEnemy(2 * mult, { pierce: true, source: 'spell' });
+      else if (type === 'defense') { for (const x of [card, ...this.neighbors(card.uid)]) this.healCard(x, mult); }
+      else if (c.active === 'player') { c.steam += mult; this.emit('steam', { steam: c.steam }); }
+      else c.surge += mult;
+      this.checkEnd();
+    }
+    // Every module with 2+ Resonance sends 1 into each touching module with less, all at once.
+    flowResonance() {
+      const gifts = new Map();
+      for (const card of this.cards()) {
+        if ((card.res || 0) < 2) continue;
+        for (const n of this.neighbors(card.uid)) if ((n.res || 0) < card.res) gifts.set(n.uid, (gifts.get(n.uid) || 0) + 1);
+      }
+      if (gifts.size) this.say('Resonance flows between touching modules.', 'sys');
+      for (const [uid, n] of gifts) if (!this.combat.over) this.resonate(uid, n);
+    }
+    totalResonance() { return this.cards().reduce((n, c) => n + (c.res || 0), 0); }
+
+    // ---------- the aurora (Area 2) ----------
+    // Over the Aurora Reaches (or with the Aurora Crown) the sky's colour empowers one kind of module
+    // each turn. It always shifts: a roll that would repeat moves on to the next colour.
+    auroraActive() { return !!this.combat && (!!this.areaDef().aurora || this.has('auroracrown')); }
+    rollAurora(label = 'Aurora') {
+      const c = this.combat;
+      const kinds = Object.keys(AURORA);
+      let k = kinds[Math.floor((this.d6(label) - 1) / 2)];
+      if (k === c.aurora) k = kinds[(kinds.indexOf(k) + 1) % kinds.length];
+      this.setAurora(k);
+    }
+    setAurora(k) {
+      const c = this.combat;
+      c.aurora = k;
+      this.emit('aurora', { kind: k });
+      this.say(`The aurora turns ${AURORA[k].name}: ${AURORA[k].text}`, 'sys');
+    }
+    // With the Aurora Crown you pick the colour yourself, once at the start of each turn.
+    chooseAurora(k) {
+      if (!this.canAct() || !this.has('auroracrown') || this.combat.auroraChosen || !AURORA[k]) return false;
+      this.combat.auroraChosen = true;
+      if (k !== this.combat.aurora) this.setAurora(k);
+      if (k === 'utility') for (const card of this.cards()) if (['support', 'utility'].includes(this.def(card).type)) this.resonate(card.uid, 1);
+      return true;
+    }
+    empowered(type) { return !!this.combat && this.combat.aurora && (this.combat.aurora === type || (this.combat.aurora === 'utility' && type === 'support')); }
+    hexed(card) { return !!card && !!card.tokens && !!card.tokens.hex; }
+
     // ---------- combat ----------
     // Pirates further along the route are tougher (BALANCE.hpPerColumn, BALANCE.veteranColumns).
     startCombat(enemyId, node, opts = {}) {
       const e = ENEMIES[enemyId];
       const col = node.col || 1;
       const A = this.areaDef();
-      const hpScale = e.boss ? BALANCE.bossHp * A.bossHp : (1 + BALANCE.hpPerColumn * (col - 1)) * A.hp;
+      // A lair's guardian that isn't an elite by nature fights as an elite version of itself.
+      const elite = !e.elite && !e.boss && node.enc === 'lair';
+      const hpScale = (e.boss ? BALANCE.bossHp * A.bossHp : (1 + BALANCE.hpPerColumn * (col - 1)) * A.hp) * (elite ? BALANCE.eliteHp : 1);
       const hp = Math.round(e.hp * hpScale);
-      const dmgBonus = e.boss ? (this.area ? A.dmg : 0) : A.dmg + A.veteranColumns.filter((c) => col >= c).length;
+      const dmgBonus = (e.boss ? (this.area ? A.dmg : 0) : A.dmg + A.veteranColumns.filter((c) => col >= c).length) + (elite ? BALANCE.eliteDmg : 0);
       this.event = null;
       this.combat = {
-        enc: node.enc || 'patrol', enemyId, col,
-        enemy: { id: enemyId, name: e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, ward: 0, armor: e.armor || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
+        enc: node.enc || 'patrol', enemyId, col, elite,
+        enemy: { id: enemyId, name: elite ? `Elite ${e.name}` : e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, ward: 0, armor: e.armor || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
         galeSide: 'bow', turnDamage: 0, rodCharge: 0, spring: 0, firedThisRound: false,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
         braced: [],
         fireAfflicted: this.cards().some((c) => c.tokens.fire) || this.core.tokens.fire,
         lastSource: null, loot: opts.loot || null,
+        aurora: null, auroraChosen: false, prism: false, surge: 0, lensUsed: false, grand: null, grandRest: 0, illusions: 0,
       };
-      for (const c of this.cards()) { c.fired = 0; c.reload = 0; }
+      // Enchanted modules start every fight humming with 2 Resonance.
+      for (const c of this.cards()) { c.fired = 0; c.reload = 0; c.res = c.enchanted ? 2 : 0; }
       this.phase = 'combat';
       this.emit('combatStart', { enemyId });
       this.say(`${e.name} engages! Weight ${e.weight}, Durability ${hp}.`, 'warn');
@@ -1291,10 +1437,19 @@
         this.say(`${en.name} shifts tactics: ${p.name}!`, 'warn');
       }
       const p = this.enemyDef().phases[pi];
-      const r = this.d6(`${en.name}: ${p.name}`);
-      const intent = { ...p.table[r - 1], roll: r };
+      const c = this.combat;
+      let intent;
+      if (c.enemyId === 'archon' && pi === 2 && c.grandRest <= 0) intent = this.grandIntent();
+      else {
+        if (c.grandRest > 0) c.grandRest--;
+        const r = this.d6(`${en.name}: ${p.name}`);
+        intent = { ...p.table[r - 1], roll: r };
+      }
+      // Prismatic Shift: the aurora will turn again on the Archon's half of the turn, and it copies the colour.
+      c.enemyAurora = c.enemyId === 'archon' && pi === 1 ? Object.keys(AURORA)[Math.floor((this.d6('Aurora (Archon)') - 1) / 2)] : null;
       // Direct fire comes in along a deck; plunging fire (bombs, lightning, lobbed shells) drops onto a column.
       const kind = intent.aim || 'direct';
+      if (intent.kind === 'rune') intent.target = { kind: 'direct', row: this.d6('Rune deck') <= 3 ? HULL : UPPER, rune: true };
       if (['shot', 'token'].includes(intent.kind)) intent.target = this.rollAim(kind);
       else if (intent.kind === 'rake') {
         // A rake sweeps a whole deck, or bombs every column on one side.
@@ -1304,7 +1459,21 @@
       en.intent = intent;
       this.emit('intent', { intent });
     }
-    isAttack(intent) { return ['shot', 'rake', 'broadside', 'ram'].includes(intent.kind) || (intent.kind === 'token' && intent.dmg > 0); }
+    isAttack(intent) { return ['shot', 'rake', 'broadside', 'ram', 'rune', 'grand'].includes(intent.kind) || (intent.kind === 'token' && intent.dmg > 0); }
+    // Grand Convergence: 4 focus crystals rise and the Archon channels for 2 turns, then unleashes it.
+    grandIntent() {
+      const c = this.combat, en = c.enemy;
+      if (!c.grand) {
+        c.grand = { left: 2 };
+        en.ward = BALANCE.grandCrystals;
+        this.emit('enemyWard', { amount: BALANCE.grandCrystals, crystal: true });
+        this.say(`The Archon raises ${BALANCE.grandCrystals} focus crystals and begins a Grand Convergence! Break every crystal, or Evade the blast.`, 'warn');
+      }
+      if (c.grand.left > 0) return { kind: 'channel', name: 'Grand Convergence', left: c.grand.left, roll: 0 };
+      return { kind: 'grand', name: 'Grand Convergence', dmg: BALANCE.grandDamage, roll: 0 };
+    }
+    // The extra damage the Archon's copied aurora will add to this turn's attack (for the preview).
+    copyBonus(intent) { const c = this.combat; return c && c.enemyAurora === 'weapon' && this.isAttack(intent) ? 2 : 0; }
     ramResist() {
       let r = Math.max(0, Math.floor((this.weight() - this.combat.enemy.weight) / 2));
       if (this.core.id === 'battleship') r += 2;
@@ -1317,7 +1486,7 @@
     intentDamage(intent) {
       const en = this.combat.enemy;
       let d = (intent.dmg || 0) + en.charge - (en.weak > 0 ? 1 : 0);
-      if (intent.dmg) d += this.enrage() + en.dmgBonus + en.wound;
+      if (intent.dmg) d += this.enrage() + en.dmgBonus + en.wound + this.copyBonus(intent);
       if (this.isAttack(intent)) d -= this.combat.flak || 0;
       if (intent.kind === 'ram') d -= this.ramResist();
       return Math.max(intent.kind === 'ram' ? 1 : 0, d);
@@ -1340,6 +1509,8 @@
       if (it.kind === 'ram') return this.planDirect(HULL, 0, dmg);
       if (it.kind === 'broadside') return this.broadsidePlan(dmg);
       if (it.kind === 'rake') return this.rakePlan(it.target, dmg);
+      if (it.kind === 'rune') return this.runePlan(it.target.row, dmg);
+      if (it.kind === 'grand') return this.grandPlan(dmg);
       return [];
     }
     // A broadside hits the front of the hull (or the Core) and the front of the upper deck.
@@ -1363,6 +1534,22 @@
       for (let i = 0; i < n; i++) plan.push(...this.planDirect(r, i, dmg));
       return plan;
     }
+    // A magic hit: no armor stands in its way, though a brace or the teal aurora still turns some aside.
+    magicHit(card, dmg) {
+      if (card === this.core) return { uid: 'core', dmg, exposed: true };
+      let prevented = 0, braced = false;
+      if (this.combat && this.combat.braced && this.combat.braced.includes(card.uid)) { braced = true; prevented += Math.min(dmg, BRACE); dmg -= Math.min(dmg, BRACE); }
+      if (dmg > 0 && this.def(card).type === 'defense' && this.empowered('defense')) { prevented++; dmg--; }
+      return { uid: card.uid, dmg, braced, prevented: prevented || undefined, magic: true };
+    }
+    // A rune strikes every module on its deck; on a bare hull it strikes the Core, on a bare upper deck it fizzles.
+    runePlan(row, dmg) {
+      const mods = COLS.map((col) => this.at(col, row)).filter(Boolean);
+      if (!mods.length) return row === HULL ? [this.magicHit(this.core, dmg)] : [];
+      return mods.map((m) => this.magicHit(m, dmg));
+    }
+    // The Grand Convergence strikes every module, and the Core for 1 less.
+    grandPlan(dmg) { return [...this.cards().map((m) => this.magicHit(m, dmg)), this.magicHit(this.core, Math.max(1, dmg - 1))]; }
     beginPlayerTurn() {
       const c = this.combat;
       c.round++;
@@ -1393,8 +1580,20 @@
       c.firedThisRound = false;
       for (const x of this.cards()) { x.fired = 0; if (x.reload > 0) x.reload--; }
       c.evadeUsed = false; c.freeSwapUsed = false; c.galeSwaps = 0; c.gyroUsed = false; c.overclock = false; c.abilityUsed = false;
+      c.lensUsed = false; c.prism = false; c.auroraChosen = false;
+      if (c.surge) { c.steam += c.surge; this.say(`Banked Surges: +${c.surge} Steam.`, 'good'); c.surge = 0; }
       this.emit('steam', { steam: c.steam });
       this.say(`Round ${c.round}: ${c.steam} Steam.`, 'sys');
+      if (this.auroraActive()) {
+        this.rollAurora();
+        if (c.aurora === 'utility') for (const card of this.cards()) if (['support', 'utility'].includes(this.def(card).type)) this.resonate(card.uid, 1);
+      }
+      if (this.cards().some((x) => x.res)) this.flowResonance();
+      // Star Sails catch the light of resonant neighbours.
+      for (const sail of this.cards().filter((x) => x.id === 'starsail')) {
+        const n = Math.min(2, this.neighbors(sail.uid).filter((x) => (x.res || 0) >= 2).length);
+        if (n) { c.steam += n; this.emit('steam', { steam: c.steam }); this.say(`The Star Sail catches resonant light: +${n} Steam.`, 'good'); }
+      }
     }
     endTurn() {
       const c = this.combat;
@@ -1405,6 +1604,7 @@
         if (this.core.pressure > before) this.say(`${this.core.pressure - before} Steam banked as Pressure (${this.core.pressure}).`, 'sys');
       }
       if (c.steam > 0) for (const v of this.cards().filter((x) => x.id === 'overpressure')) { this.say('The Overpressure Valve strains with unspent Steam.', 'warn'); this.damageModule(v.uid, 1, 'strain'); }
+      for (const x of this.cards()) if (x.tokens.hex) { x.tokens.hex = false; this.emit('cleanse', { uid: x.uid, quiet: true }); }
       if (this.checkEnd()) return true;
       if (c.enemyId === 'colossus' && c.turnDamage >= SNAP_DAMAGE) {
         c.enemy.wound = 0;
@@ -1421,6 +1621,15 @@
       const en = c.enemy;
       c.active = 'enemy';
       en.block = 0;
+      const def = this.enemyDef();
+      if (def.wardEachTurn && en.ward < 2) { en.ward = Math.min(2, en.ward + def.wardEachTurn); this.emit('enemyWard', { amount: def.wardEachTurn }); this.say(`${theName(en.name)} shimmers behind a Ward.`, 'warn'); }
+      // Prismatic Shift: the aurora turns on the Archon's half of the turn, and it copies the colour's power.
+      if (c.enemyAurora) {
+        this.setAurora(c.enemyAurora);
+        if (c.enemyAurora === 'weapon') this.say('The Archon drinks the emerald light: its attack this turn deals +2.', 'warn');
+        if (c.enemyAurora === 'defense') { en.block += 5; this.emit('enemyBlock', { amount: 5 }); this.say('The Archon drinks the teal light: +5 Block.', 'warn'); }
+        if (c.enemyAurora === 'utility') { const b = en.hp; en.hp = Math.min(en.max, en.hp + 3); en.ward = Math.min(4, en.ward + 1); this.emit('enemyHeal', { amount: en.hp - b }); this.say('The Archon drinks the violet light: it mends 3 and raises a Ward.', 'warn'); }
+      }
       if (en.burn > 0) {
         this.emit('enemyBurn', { dmg: en.burn });
         this.say(`${theName(en.name)} burns for ${en.burn}.`, 'good');
@@ -1428,11 +1637,12 @@
         en.burn--;
         if (this.checkEnd()) return;
       }
-      if (en.stunned) { en.stunned = false; this.say(`${theName(en.name)} shudders, its spring unwound. It does nothing.`, 'good'); }
+      if (en.stunned) { en.stunned = false; this.say(c.enemyId === 'colossus' ? `${theName(en.name)} shudders, its spring unwound. It does nothing.` : `${theName(en.name)} reels and loses its move.`, 'good'); }
       else this.executeIntent(en.intent);
       if (this.checkEnd()) return;
       if (c.enemyId === 'stormqueen') this.gale();
       if (c.enemyId === 'colossus') { en.wound++; this.say(`The Mainspring tightens: +${en.wound} damage per hit.`, 'warn'); }
+      if (def.armorGrowth && en.armor < def.armorMax) { en.armor = Math.min(def.armorMax, en.armor + def.armorGrowth); this.emit('enemyArmor', { armor: en.armor }); this.say(`Crystals grow over its hull: Armor ${en.armor}.`, 'warn'); }
       if (this.has('stormheart')) {
         this.emit('stormheart', {});
         this.say('The Storm Heart lashes out with lightning.', 'good');
@@ -1484,10 +1694,26 @@
       if (it.kind === 'block') { en.block += it.amount; this.emit('enemyBlock', { amount: it.amount }); this.say(`It gains ${it.amount} Block.`); return; }
       if (it.kind === 'repair') { const b = en.hp; en.hp = Math.min(en.max, en.hp + it.amount); this.emit('enemyHeal', { amount: en.hp - b }); this.say(`It repairs ${en.hp - b}.`); return; }
       if (it.kind === 'charge') { en.charge += it.amount; this.say(`Its next attack deals +${en.charge}.`, 'warn'); return; }
+      if (it.kind === 'ward') {
+        en.ward = Math.min(4, en.ward + it.amount);
+        c.illusions = it.illusion ? en.ward : c.illusions;
+        this.emit('enemyWard', { amount: it.amount, illusion: !!it.illusion });
+        this.say(it.illusion ? `${en.ward} illusions of it shimmer in the sky. Only one is real.` : `It raises Wards (${en.ward}).`, 'warn');
+        return;
+      }
+      if (it.kind === 'siphon') { this.siphon(it.amount); return; }
+      if (it.kind === 'channel') {
+        if (!c.grand) return;
+        c.grand.left--;
+        this.emit('channel', { left: c.grand.left });
+        this.say(c.grand.left > 0 ? `The Grand Convergence gathers (${c.grand.left} turn left). Break its crystals!` : 'The Grand Convergence is ready to break!', 'warn');
+        return;
+      }
       if (c.evading && this.isAttack(it)) {
         this.emit('evade', {});
         this.say('You bank hard and the attack sails past!', 'good');
         en.charge = 0;
+        if (it.kind === 'grand') this.endGrand();
         return;
       }
       const dmg = this.intentDamage(it);
@@ -1507,12 +1733,47 @@
       } else if (it.kind === 'rake') {
         this.emit('enemyShot', { target: it.target, rake: true, dmg });
         this.applyPlan(this.intentPlan(it, dmg), 'attack');
+      } else if (it.kind === 'rune') {
+        this.emit('enemyShot', { target: it.target, rune: true, dmg });
+        this.applyPlan(this.intentPlan(it, dmg), 'attack');
+      } else if (it.kind === 'grand') {
+        this.emit('enemyShot', { grand: true, dmg });
+        this.applyPlan(this.intentPlan(it, dmg), 'attack');
       } else if (it.kind === 'token') {
         this.emit('enemyShot', { target: it.target, dmg, token: it.token });
         if (dmg > 0) this.applyPlan(this.intentPlan(it, dmg), 'attack');
         if (!this.coreDead()) this.placeToken(it.token, it.target);
       }
       en.charge = 0;
+      if (it.kind === 'grand') this.endGrand();
+    }
+    endGrand() { const c = this.combat; c.grand = null; c.enemy.ward = 0; c.grandRest = 1; }
+    // Every focus crystal broken: the spell collapses on the Archon.
+    shatterGrand() {
+      const c = this.combat;
+      c.grand = null;
+      c.grandRest = 1;
+      c.enemy.stunned = true;
+      c.enemy.intent = { kind: 'channel', name: 'Convergence Broken', left: 0, roll: 0, broken: true };
+      this.emit('grandBroken', {});
+      this.say(`The last crystal breaks and the Grand Convergence collapses! The Archon takes ${BALANCE.grandBacklash} and reels.`, 'good');
+      this.damageEnemy(BALANCE.grandBacklash, { pierce: true, source: 'spell' });
+    }
+    // How the enemy's Wards look: illusions, focus crystals, a shimmer, or plain Wards.
+    wardKind() { const c = this.combat; if (c.illusions) return 'illusion'; return c.grand ? 'crystal' : this.enemyDef().wardKind || 'ward'; }
+    // Siphon Light: drains Resonance from your most resonant modules and heals on it; with none to
+    // take it shimmers behind a Ward instead.
+    siphon(amount) {
+      const en = this.combat.enemy;
+      let left = amount * 2, taken = 0;
+      for (const card of this.cards().filter((x) => x.res > 0).sort((a, b) => b.res - a.res)) {
+        const t = Math.min(card.res, left);
+        card.res -= t; left -= t; taken += t;
+        if (t) this.emit('resonance', { uid: card.uid, res: card.res, drained: t });
+        if (!left) break;
+      }
+      if (taken) { const b = en.hp; en.hp = Math.min(en.max, en.hp + taken); this.emit('enemyHeal', { amount: en.hp - b }); this.say(`It siphons ${taken} Resonance from your ship and heals ${en.hp - b}.`, 'bad'); }
+      else { en.ward = Math.min(2, en.ward + 1); this.emit('enemyWard', { amount: 1 }); this.say('Finding no Resonance to drink, it shimmers behind a Ward.', 'warn'); }
     }
     // The enemy's defences are layers a hit meets in turn, outermost first: Wards (each stops one
     // whole hit), Block (absorbs damage until its next turn) and Armor (takes a flat amount off
@@ -1532,12 +1793,17 @@
       if (opts.prism && (en.ward > 0 || en.block > 0)) {
         this.say(`The prism splits the shot: ${[en.ward ? `${en.ward} Ward${en.ward > 1 ? 's' : ''} shattered` : '', en.block ? `${en.block} Block stripped` : ''].filter(Boolean).join(', ')}.`, 'good');
         this.emit('enemyLayers', { prism: true, ward: en.ward, block: en.block });
-        en.ward = 0; en.block = 0;
+        const hadCrystals = c.grand && en.ward > 0;
+        en.ward = 0; en.block = 0; c.illusions = 0;
+        if (hadCrystals) this.shatterGrand();
       }
       if (en.ward > 0 && !skip.has('ward')) {
+        const kind = this.wardKind();
         en.ward--;
-        this.emit('wardPop', { left: en.ward });
-        this.say(`A Ward takes the whole hit (${en.ward} left).`, 'warn');
+        if (c.illusions) c.illusions = Math.min(c.illusions, en.ward);
+        this.emit('wardPop', { left: en.ward, kind });
+        this.say(`${{ illusion: 'An illusion bursts: it was not the real ship', crystal: 'A focus crystal shatters', glimmer: 'Its shimmer breaks' }[kind] || 'A Ward takes the whole hit'} (${en.ward} left).`, en.ward ? 'warn' : 'good');
+        if (!en.ward && c.grand) this.shatterGrand();
         return 0;
       }
       if (en.armor > 0 && !skip.has('armor')) {
@@ -1585,7 +1851,9 @@
       if (this.shipDef().mendAfter && this.core.hp < this.maxHp(this.core)) { this.core.hp = Math.min(this.maxHp(this.core), this.core.hp + this.shipDef().mendAfter); this.say(`The ${this.shipDef().name}'s crew wind the Core back up (+1).`); }
       for (const b of this.cards().filter((x) => x.id === 'repair')) if (b.hp < this.maxHp(b)) { b.hp++; this.say('The Repair Bay patches itself (+1).'); }
       const def = this.enemyDef();
-      if (def.elite) { this.stats.elites++; this.questEvent('eliteKill'); }
+      const elite = def.elite || c.elite;
+      for (const x of this.cards()) x.res = 0;
+      if (elite) { this.stats.elites++; this.questEvent('eliteKill'); }
       if (c.fireAfflicted) this.questEvent('fireWin');
       if (c.round <= 3) this.questEvent('quickWin');
       if (['ram', 'bombard'].includes(c.lastSource)) this.questEvent('ramKill');
@@ -1607,10 +1875,10 @@
         return;
       }
       const tier = c.col <= 3 ? 1 : c.col <= 7 ? 2 : 3;
-      this.gainCogs(6 + 3 * tier + this.d6() + (def.elite ? 20 : 0) + (this.shipDef().salvage || 0) + (this.core.id === 'privateer' ? 6 : 0), 'salvage');
+      this.gainCogs(6 + 3 * tier + this.d6() + (elite ? 20 : 0) + (this.shipDef().salvage || 0) + (this.core.id === 'privateer' ? 6 : 0), 'salvage');
       const extra = this.has('hatch') ? 1 : 0;
       const keep = this.has('hatch') && this.has('cargo') ? 2 : 1;
-      const ids = this.partOffer(3 + extra, def.elite ? 'elite' : 'normal');
+      const ids = this.partOffer(3 + extra, elite ? 'elite' : 'normal');
       this.swapAvailable = this.has('cargo') && this.storage.length > 0;
       this.openLoot('Victory spoils', { ids, keep }, []);
       if (c.loot) this.queueOffer(c.loot);
@@ -1626,6 +1894,7 @@
       let cost = d.cost || 0;
       if (this.isWeapon(card) && this.touching(card.uid, 'quarters')) cost = Math.max(1, cost - 1);
       if (card.tokens.gas) cost += 1;
+      if (cost > 0 && !this.isWeapon(card) && this.empowered(this.def(card).type)) cost -= 1;
       return cost;
     }
     // Describes firing a weapon (mode: 'normal' | 'aimed' | 'steady'), for the UI, the bot and the tests.
@@ -1644,12 +1913,17 @@
       const bonus = (under && under.id === 'harpoon' ? 1 : 0)
         + (card.id === 'sniper' && this.touching(uid, 'telescope') ? 1 : 0)
         + (this.combat && this.has('mainspring') ? this.combat.spring || 0 : 0)
+        + (this.empowered('weapon') ? 1 : 0)
+        + (this.blessings ? this.blessings.weapon : 0)
+        + (card.enchanted ? 1 : 0)
         - (card.tokens.glue ? 1 : 0);
       let summary;
       if (card.id === 'cannon') summary = mode === 'aimed' ? `best of 2d6 → ${2 + bonus}–${5 + bonus}` : `d6 → ${2 + bonus}–${5 + bonus}`;
       else if (card.id === 'sniper') summary = mode === 'steady' ? `${4 + bonus} piercing` : `${d.dmg + bonus}`;
       else if (card.id === 'tesla') summary = `${this.weaponsInstalled() + bonus} piercing`;
       else if (card.id === 'titanfist') summary = `${this.fistDamage() + bonus}`;
+      else if (card.id === 'runecannon') summary = `${this.runeDamage(card) + bonus}`;
+      else if (card.id === 'archonlance') summary = `${this.lanceDamage() + bonus}, ignores Block and Armor`;
       else summary = `${Math.max(0, d.dmg + bonus)}`;
       if (d.burn) summary += ` +${d.burn} Burn`;
       if (d.weak) summary += ` +${d.weak} Gummed`;
@@ -1658,9 +1932,13 @@
       if (d.flak) summary += `, next attack −${d.flak}`;
       if (d.vuln) summary += ` +${d.vuln} Choking`;
       if (d.pierceLayers) summary += `, pierces ${d.pierceLayers} layers`;
+      if (this.combat && this.combat.prism) summary += ', through the prism';
+      if (this.hexed(card)) summary = `HEXED: heals the enemy ${summary}`;
       return { card, loc, cost, blocked, bonus, summary, modes: card.id === 'cannon' ? ['normal', 'aimed'] : card.id === 'sniper' ? ['normal', 'steady'] : ['normal'] };
     }
     fistDamage() { return Math.max(3, Math.floor(this.weight())); }
+    runeDamage(card) { return 1 + Math.min(6, this.neighbors(card.uid).reduce((n, x) => n + (x.res || 0), 0)); }
+    lanceDamage() { return Math.max(3, this.totalResonance()); }
     fire(uid, mode = 'normal') {
       if (!this.canAct()) return false;
       const w = this.fireInfo(uid, mode);
@@ -1686,10 +1964,24 @@
         if (card.id === 'sniper' && mode === 'steady') { dmg = 4; pierce = true; }
         if (card.id === 'tesla') { dmg = this.weaponsInstalled(); pierce = true; }
         if (card.id === 'titanfist') dmg = this.fistDamage();
+        if (card.id === 'runecannon') dmg = this.runeDamage(card);
+        if (card.id === 'archonlance') { dmg = this.lanceDamage(); pierce = true; for (const x of this.cards()) x.res = 0; this.say('The lance drinks every note of Resonance on the ship.', 'good'); }
         dmg = Math.max(0, dmg + w.bonus);
         const en = this.combat.enemy;
+        // A hexed weapon's shot turns to healing light.
+        if (this.hexed(card)) {
+          const b = en.hp; en.hp = Math.min(en.max, en.hp + dmg);
+          this.emit('enemyHeal', { amount: en.hp - b });
+          this.say(`Hexed! The shot heals the enemy for ${en.hp - b}.`, 'bad');
+          continue;
+        }
         if (d.strip && en.block > 0) { this.say(`The grapnel tears away ${en.block} Block.`, 'good'); en.block = 0; }
-        for (let k = 0; k < (d.volley || 1) && !this.combat.over; k++) if (dmg > 0) this.damageEnemy(dmg, { pierce, pierceLayers: d.pierceLayers || 0, source: card.id });
+        for (let k = 0; k < (d.volley || 1) && !this.combat.over; k++) {
+          if (dmg <= 0) continue;
+          const prism = this.combat.prism;
+          this.combat.prism = false;
+          this.damageEnemy(dmg, { pierce, pierceLayers: d.pierceLayers || 0, prism, source: card.id });
+        }
         if (d.flak) { this.combat.flak = Math.min(4, (this.combat.flak || 0) + d.flak); this.say(`Flak fills the sky: its next attack deals ${this.combat.flak} less.`, 'good'); }
         if (d.burn) { en.burn += d.burn; this.say(`It catches fire: Burn ${en.burn}.`, 'good'); }
         if (d.weak) { en.weak += d.weak; this.say(`Its guns are gummed up for ${en.weak} turns.`, 'good'); }
@@ -1698,6 +1990,7 @@
       if (card.id === 'mortar' && !this.touching(uid, 'telescope')) card.reload = 2;
       if (d.cooldown) card.reload = d.cooldown + 1; // counts down at the start of each turn
       if (this.combat) this.combat.firedThisRound = true;
+      if (this.isArcane(card) && card.id !== 'archonlance') this.resonate(uid, 1);
       this.checkEnd();
       return true;
     }
@@ -1801,7 +2094,7 @@
       if (this.has('galeengine')) { this.emit('galeShift', {}); this.damageEnemy(1, { pierce: true, source: 'lightning' }); this.checkEnd(); }
       return true;
     }
-    ventTargets() { return [this.core, ...this.cards()].filter((c) => c.tokens.fire || c.tokens.gas || c.tokens.glue).map((c) => c.uid); }
+    ventTargets() { return [this.core, ...this.cards()].filter((c) => c.tokens.fire || c.tokens.gas || c.tokens.glue || c.tokens.hex).map((c) => c.uid); }
     vent(uid) {
       if (!this.spendable(VENT_COST) || !this.ventTargets().includes(uid)) return false;
       this.pay(VENT_COST);
@@ -1824,6 +2117,7 @@
       if (id === 'sprinkler') return [this.core, ...this.cards()].filter((c) => c.tokens.fire).map((c) => c.uid);
       if (id === 'scrubber') return [this.core, ...this.cards()].filter((c) => c.tokens.gas || c.tokens.glue).map((c) => c.uid);
       if (id === 'deflector') return this.combat && !this.combat.braced.includes(uid) ? [uid] : [];
+      if (id === 'prism') return this.combat && !this.combat.prism ? [uid] : [];
       return [];
     }
     canUseSupport(uid) {
@@ -1839,11 +2133,16 @@
       const target = this.locate(targetUid).card;
       this.pay(this.useCost(card));
       card.fired++;
-      if (card.id === 'repair') {
+      if (card.id === 'repair' && this.hexed(card)) {
+        this.say(`Hexed! The Repair Bay's tools tear into your ${this.nameOf(target)}.`, 'bad');
+        this.damageModule(targetUid, this.def(card).heal, 'hex');
+      } else if (card.id === 'repair') {
         if (target === this.core) this.healCore(this.def(card).heal);
         else this.healCard(target, this.def(card).heal);
         this.say(`The Repair Bay patches your ${this.nameOf(target)}.`, 'you');
       }
+      if (card.id === 'prism') { this.combat.prism = true; this.emit('prism', { uid }); this.say('The Prism Array aligns: your next shot will split across every layer.', 'you'); }
+      if (this.isArcane(card) && this.locate(uid)) this.resonate(uid, 1);
       if (card.id === 'sprinkler') { target.tokens.fire = false; this.emit('cleanse', { uid: targetUid }); this.say(`Sprinklers douse your ${this.nameOf(target)}.`, 'you'); }
       if (card.id === 'scrubber') { target.tokens.gas = false; target.tokens.glue = false; this.emit('cleanse', { uid: targetUid }); this.say(`The Air Scrubber clears your ${this.nameOf(target)}.`, 'you'); }
       if (card.id === 'deflector') { this.combat.braced = [uid, ...this.neighbors(uid).map((c) => c.uid)]; this.emit('brace', { uid }); this.say('The Deflector Vane swings into place.', 'you'); }

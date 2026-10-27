@@ -120,6 +120,28 @@
     k_sailraider: { w: 140, faces: 'R', hull: 0.82, upper: 0.64, span: 0.38 },
     k_crystal: { w: 128, faces: 'R', hull: 0.84, upper: 0.62, span: 0.36 },
     k_starpagoda: { w: 132, faces: 'R', hull: 0.82, upper: 0.6, span: 0.36 },
+    // Area 2.
+    k_wisp: { w: 104, faces: 'R', hull: 0.86, upper: 0.7, span: 0.32 },
+    k_corvette: { w: 140, faces: 'R', hull: 0.82, upper: 0.62, span: 0.36 },
+    k_barge: { w: 170, faces: 'R', hull: 0.8, upper: 0.6, span: 0.4 },
+    k_mirage: { w: 150, faces: 'R', hull: 0.8, upper: 0.6, span: 0.38 },
+    k_archon: { w: 210, faces: 'R', hull: 0.8, upper: 0.6, span: 0.4 },
+    // Area 3.
+    k_bats: { w: 120, faces: 'R', hull: 0.7, upper: 0.5, span: 0.34 },
+    k_wraith: { w: 140, faces: 'R', hull: 0.84, upper: 0.66, span: 0.36 },
+    k_bonegalleon: { w: 160, faces: 'R', hull: 0.82, upper: 0.62, span: 0.4 },
+    k_cultist: { w: 160, faces: 'R', hull: 0.82, upper: 0.62, span: 0.4 },
+    k_sovereign: { w: 220, faces: 'R', hull: 0.8, upper: 0.55, span: 0.4 },
+    // The Workshop's Cores.
+    k_arcanist: { w: 136, faces: 'R', hull: 0.82, upper: 0.66, span: 0.36 },
+    k_arcanist2: { w: 140, faces: 'R', hull: 0.8, upper: 0.62, span: 0.38 },
+    k_arcanist3: { w: 140, faces: 'R', hull: 0.82, upper: 0.62, span: 0.38 },
+    k_sanguine: { w: 136, faces: 'R', hull: 0.82, upper: 0.66, span: 0.36 },
+    k_sanguine2: { w: 140, faces: 'R', hull: 0.82, upper: 0.66, span: 0.38 },
+    k_sanguine3: { w: 140, faces: 'R', hull: 0.82, upper: 0.66, span: 0.38 },
+    k_eclipse: { w: 136, faces: 'R', hull: 0.8, upper: 0.6, span: 0.36 },
+    k_eclipse2: { w: 140, faces: 'R', hull: 0.8, upper: 0.6, span: 0.36 },
+    k_eclipse3: { w: 140, faces: 'R', hull: 0.82, upper: 0.62, span: 0.38 },
   };
   // Your ship is the one you picked (data SHIPS); it grows a little with every module you bolt on.
   const shipSprite = (game) => { const D = window.CardshipsData; const sh = D.SHIPS[game.ship] || D.SHIPS[window.CardshipsEngine.Game.defaultShip(game.core.id)]; return sh.sprite; };
@@ -135,6 +157,12 @@
     leviathan: { hull: 'k_leviathan' },
     stormqueen: { hull: 'k_stormqueen', storm: true },
     colossus: { hull: 'k_colossus' },
+    // Area 2: ships of living light, washed in the aurora.
+    wisp: { hull: 'k_wisp', wash: 'rgba(120,255,220,0.22)', light: '#8fffe0', flicker: true },
+    corvette: { hull: 'k_corvette', wash: 'rgba(170,120,255,0.2)', light: '#c9a2ff' },
+    barge: { hull: 'k_barge', wash: 'rgba(90,230,255,0.18)', light: '#9ff0ff', crystals: true },
+    mirage: { hull: 'k_mirage', wash: 'rgba(200,180,255,0.24)', light: '#e2d4ff' },
+    archon: { hull: 'k_archon', wash: 'rgba(110,255,210,0.26)', light: '#a8ffe8', ribbons: true },
   };
 
   // Draws a ship sprite with its bottom centre at (0, 0) into an art context, its bow to the right
@@ -286,6 +314,8 @@
       return h && Math.hypot(px0 - h.x, py0 - h.y) < h.r ? { uid: 'core' } : null;
     }
   }
+  // '#rrggbb' with an alpha, as rgba().
+  function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${Math.max(0, a)})`; }
   function legendGlow(g, x, y, r, t, seed) {
     const k = 0.75 + Math.sin(t * 2.4) * 0.25;
     g.save();
@@ -359,6 +389,11 @@
         const f = Math.round(Math.sin(t * 12 + fx * 9) * 2), X = fx * this.size.w, Y = -fy * this.size.h;
         px(a, X - 3, Y - 7 + f, 6, 8 - f, this.phase >= 2 ? '#ff4a2a' : '#ff9a3a'); px(a, X - 1, Y - 3, 3, 4, '#ffd25e');
       }
+      // Area 2's spell-ships: crystal spikes grow on the Barge with its Armor.
+      if (this.spec.crystals) for (let i = 0; i < Math.min(4, this.armor || 0); i++) {
+        const X = Math.round((-0.3 + i * 0.2) * this.size.w), Y = Math.round(-this.size.h * (0.18 + (i % 2) * 0.12));
+        px(a, X - 2, Y - 9, 4, 9, '#bff6ff'); px(a, X - 1, Y - 12, 2, 3, '#ffffff'); px(a, X + 2, Y - 6, 3, 6, '#7fd8f0');
+      }
       if (this.spec.storm && Math.sin(t * (6 + this.phase * 3)) > 0.2) {
         let xx = -this.size.w * 0.3, yy = -this.size.h * 0.95;
         for (let i = 0; i < 10; i++) { const nx = xx + this.size.w * 0.06, ny = yy + (i % 2 ? 4 : -3); pline(a, xx, yy, nx, ny, '#bfe6ff'); xx = nx; yy = ny; }
@@ -369,8 +404,56 @@
       if (this.lunge > 0) x -= Math.sin((1 - this.lunge) * Math.PI) * 18 * P;
       g.translate(x + sink * 30, y + sink * sink * 80);
       g.rotate(-sink * 0.4);
-      g.globalAlpha = Math.max(0, 1 - sink * 0.35);
+      const alpha = Math.max(0, 1 - sink * 0.35) * (this.spec.flicker ? 0.8 + Math.sin(t * 9) * 0.15 : 1);
+      // Illusions: ghost copies of the ship hover around it, and only one is real.
+      if (this.wardKind === 'illusion' && this.ward > 0 && !sink) {
+        for (let i = 0; i < Math.min(3, this.ward); i++) {
+          const dx = (i % 2 ? 1 : -1) * (40 + i * 26) * P * 0.5, dy = (i === 1 ? -1 : 1) * (22 + i * 10) * P * 0.5;
+          g.globalAlpha = 0.28 + Math.sin(t * 3 + i * 2) * 0.08;
+          blit(g, this.art, -(W / 2) * P + dx + Math.sin(t * 1.3 + i) * 6, -(H - 10) * P + dy, P);
+        }
+      }
+      // Spell-ships glow with their own light.
+      if (this.spec.light && !sink) {
+        g.save(); g.globalCompositeOperation = 'lighter';
+        const r = this.size.w * 0.6 * P, cy = -this.size.h * 0.5 * P;
+        const rg = g.createRadialGradient(0, cy, 0, 0, cy, r);
+        rg.addColorStop(0, hexA(this.spec.light, 0.22 + Math.sin(t * 2) * 0.05)); rg.addColorStop(1, hexA(this.spec.light, 0));
+        g.fillStyle = rg; g.beginPath(); g.ellipse(0, cy, r, r * 0.7, 0, 0, TAU); g.fill();
+        g.restore();
+      }
+      g.globalAlpha = alpha;
       blit(g, this.art, -(W / 2) * P, -(H - 10) * P, P);
+      g.globalAlpha = 1;
+      if (!sink) this.drawWards(g, P, t);
+      g.restore();
+    }
+    // Wards as a shimmering hex shell (one ring per Ward); the Archon's focus crystals orbit it.
+    drawWards(g, P, t) {
+      const n = this.ward || 0;
+      if (!n || this.wardKind === 'illusion') return;
+      const cx = 0, cy = -this.size.h * 0.5 * P, rx = this.size.w * 0.58 * P, ry = this.size.h * 0.62 * P;
+      g.save();
+      if (this.wardKind === 'crystal') {
+        for (let i = 0; i < n; i++) {
+          const a = t * 0.9 + (i * TAU) / n;
+          const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry * 0.6;
+          const s = 7 * P * 0.6 + Math.sin(t * 4 + i) * 1.5;
+          g.fillStyle = 'rgba(190,255,240,0.9)'; g.strokeStyle = INK; g.lineWidth = 2;
+          g.beginPath(); g.moveTo(x, y - s * 1.6); g.lineTo(x + s, y); g.lineTo(x, y + s * 1.6); g.lineTo(x - s, y); g.closePath(); g.fill(); g.stroke();
+          g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(120,255,220,0.35)'; g.beginPath(); g.arc(x, y, s * 2.4, 0, TAU); g.fill(); g.globalCompositeOperation = 'source-over';
+        }
+      } else {
+        const col = this.wardKind === 'glimmer' ? '170,255,230' : '200,170,255';
+        for (let i = 0; i < n; i++) {
+          const k = 1 + i * 0.09;
+          g.strokeStyle = `rgba(${col},${0.55 - i * 0.12 + Math.sin(t * 4 + i) * 0.1})`; g.lineWidth = 2.5;
+          g.beginPath();
+          for (let j = 0; j <= 6; j++) { const a = (j * TAU) / 6 + t * 0.3 * (i % 2 ? -1 : 1); const x = cx + Math.cos(a) * rx * k, y = cy + Math.sin(a) * ry * k; if (j) g.lineTo(x, y); else g.moveTo(x, y); }
+          g.stroke();
+        }
+        g.fillStyle = `rgba(${col},0.07)`; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, TAU); g.fill();
+      }
       g.restore();
     }
     pointOf() { return { x: this.x, y: this.y - this.size.h * 0.45 * this.P, r: this.halfW * this.P }; }

@@ -12,11 +12,13 @@
     spoils: { src: 'assets/music/victory-at-sea', loopEnd: 134.1 },
     fanfare: { src: 'assets/music/victors-trumpet-call', loopEnd: 162.8 },
     lament: { src: 'assets/music/pirate-defeat', loopEnd: 156.1 },
+    menu: { src: 'assets/music/main-menu-scene', loopEnd: 137.0 },
+    demon: { src: 'assets/music/arcade-demon-riff', loopEnd: 100.9 },
   };
   // cutoff: low-pass filter in Hz (20000 = open). rate < 1 slows and lowers the track.
   // A list of tracks takes turns: each new fight plays the next one.
   const CUES = {
-    title: { track: 'roam', start: 0, gain: 0.75, cutoff: 1500 },
+    title: { track: 'menu', start: 0, gain: 0.7, cutoff: 2600 },
     map: { track: 'roam', start: 8, gain: 0.8, cutoff: 20000 },
     dock: { track: 'roam', start: 48, gain: 0.6, cutoff: 900 },
     combat: { track: ['battle', 'battle4', 'battle5'], start: 0, gain: 0.85, cutoff: 20000 },
@@ -25,9 +27,27 @@
     spoils: { track: 'spoils', start: 0, gain: 0.8, cutoff: 20000 },
     victory: { track: 'fanfare', start: 0, gain: 0.9, cutoff: 20000 },
     defeat: { track: 'lament', start: 0, gain: 0.8, cutoff: 20000 },
+    // Area 2, the Aurora Reaches: the menu theme over the map, the bitcrushed battles in fights,
+    // and the boss track quickened and bright for the Archon of living light.
+    map2: { track: 'menu', start: 0, gain: 0.8, cutoff: 20000 },
+    dock2: { track: 'menu', start: 40, gain: 0.6, cutoff: 1100 },
+    combat2: { track: ['battle5', 'battle4'], start: 0, gain: 0.85, cutoff: 20000 },
+    boss2: { track: 'boss', start: 0, gain: 0.82, cutoff: 5000, rate: 1.06, steps: 'archon' },
+    // Area 3, the Blood Moon: the Area 1 theme slowed and darkened, the demon riff in fights, and
+    // the riff again for the Sovereign, muffled under the eclipse.
+    map3: { track: 'roam', start: 8, gain: 0.8, cutoff: 2400, rate: 0.86 },
+    dock3: { track: 'roam', start: 48, gain: 0.55, cutoff: 800, rate: 0.86 },
+    combat3: { track: ['demon', 'battle'], start: 0, gain: 0.85, cutoff: 20000 },
+    boss3: { track: 'demon', start: 0, gain: 0.85, cutoff: 4000, steps: 'sovereign' },
   };
   // Each boss phase jumps to a hotter section of the boss track and opens the filter.
   const BOSS_STEPS = [{ start: 0, cutoff: 3200, gain: 0.8 }, { start: 100, cutoff: 9000, gain: 0.88 }, { start: 168, cutoff: 20000, gain: 0.95 }];
+  const STEPS = {
+    boss: BOSS_STEPS,
+    archon: [{ start: 0, cutoff: 5000, gain: 0.82 }, { start: 100, cutoff: 12000, gain: 0.9 }, { start: 168, cutoff: 20000, gain: 0.96 }],
+    // The eclipse (phase 3) closes the filter right down: the music goes dark with the screen.
+    sovereign: [{ start: 0, cutoff: 4000, gain: 0.85 }, { start: 30, cutoff: 20000, gain: 0.95 }, { start: 60, cutoff: 900, gain: 1 }],
+  };
   const FADE = 1.2;
 
   // Drop real sound files in here (name → url) and they replace the synthesised versions.
@@ -153,13 +173,16 @@
     setFilter(cue.cutoff);
   }
   // Jumps the boss track to a hotter section, crossfading into it.
+  // The current boss cue's phase steps (each area's boss has its own).
+  const stepsFor = (cueName) => STEPS[(CUES[cueName] && CUES[cueName].steps) || 'boss'];
   function bossPhase(index) {
-    if (!current || current.cue !== 'boss' || !ctx) return;
-    const step = BOSS_STEPS[Math.min(index, BOSS_STEPS.length - 1)];
+    if (!current || !String(current.cue).startsWith('boss') || !ctx) return;
+    const steps = stepsFor(current.cue);
+    const step = steps[Math.min(index, steps.length - 1)];
     if (current.step === index) return;
     current.step = index;
     for (const pl of current.players) fade(pl, 0, 0.6);
-    const pl = makePlayer('boss', step.start);
+    const pl = makePlayer(current.trackId, step.start, current.rate);
     current.players = [pl];
     fade(pl, step.gain, 0.6);
     setFilter(step.cutoff, 0.8);
@@ -184,7 +207,7 @@
       const next = makePlayer(pl.trackId, 0.35, pl.el.playbackRate);
       current.players = [next];
       fade(pl, 0, FADE);
-      fade(next, current.cue === 'boss' ? BOSS_STEPS[current.step].gain : cue.gain, FADE);
+      fade(next, String(current.cue).startsWith('boss') ? stepsFor(current.cue)[current.step].gain : cue.gain, FADE);
     }
   }, 200);
 

@@ -240,7 +240,10 @@
       p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; p.rot += p.vr * dt || 0;
       const a = Math.max(0, p.life / p.max);
       switch (p.kind) {
-        case 'spark': g.fillStyle = `rgba(255,${180 + Math.floor(a * 60)},80,${a})`; g.fillRect(p.x, p.y, p.r, p.r); break;
+        case 'spark':
+          if (p.color && p.color[0] === '#') { g.globalAlpha = a; g.fillStyle = p.color; g.fillRect(p.x, p.y, p.r, p.r); g.globalAlpha = 1; }
+          else { g.fillStyle = `rgba(255,${180 + Math.floor(a * 60)},80,${a})`; g.fillRect(p.x, p.y, p.r, p.r); }
+          break;
         case 'smoke': g.fillStyle = (p.color || 'rgba(70,62,56,') + (a * 0.6) + ')'; g.beginPath(); g.arc(p.x, p.y, p.r * (1.6 - a * 0.6), 0, TAU); g.fill(); break;
         case 'flame': { const r = p.r * (0.5 + a * 0.6); g.fillStyle = `rgba(255,${Math.floor(120 + a * 110)},50,${a})`; g.beginPath(); g.arc(p.x, p.y, r, 0, TAU); g.fill(); break; }
         case 'ember': g.fillStyle = `rgba(255,${150 + Math.floor(a * 80)},60,${a})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, TAU); g.fill(); break;
@@ -403,6 +406,31 @@
       return 760;
     },
     // Tempest: the stored charge leaps from the Core to the enemy as a painted bolt.
+    // ---------- Area 2 ----------
+    resonance(ev) {
+      const p = playerPt(ev.uid);
+      if (ev.drained) { for (let i = 0; i < 6; i++) setTimeout(() => shoot({ x: p.x, y: p.y }, enemyPt(), 'tracer', 0.25), i * 40); return 120; }
+      burst(p.x, p.y, 6, 'spark', { min: 20, max: 80, life: 0.5, g: -40, color: '#9fffe8' });
+      ring(p.x, p.y, 'rgba(140,255,220,0.8)', 4, 22, 0.35, 2);
+      return 60;
+    },
+    spell(ev) {
+      const p = playerPt(ev.uid);
+      ring(p.x, p.y, ev.kind === 'weapon' ? 'rgba(160,255,230,0.95)' : ev.kind === 'defense' ? 'rgba(120,255,160,0.95)' : 'rgba(200,170,255,0.95)', 6, 46 * ev.mult, 0.5, 5);
+      if (ev.kind === 'weapon') { shoot({ x: p.x, y: p.y }, enemyPt(), 'lightning', 0.2); lastFire = 'tesla'; }
+      numberAt(p.x, p.y - 34, { weapon: 'Arcane Bolt', defense: 'Aegis', support: 'Surge', utility: 'Surge' }[ev.kind] + (ev.mult > 1 ? ' ×2' : ''), '#aef7e4', 16);
+      sfx('zap');
+      return 300;
+    },
+    aurora() { flash(0.06); return 0; },
+    prism(ev) { const p = playerPt(ev.uid); for (const [c, r] of [['rgba(255,110,110,0.9)', 26], ['rgba(110,255,150,0.9)', 34], ['rgba(110,170,255,0.9)', 42]]) ring(p.x, p.y, c, 6, r, 0.5, 3); sfx('zap'); return 220; },
+    enemyWard(ev) { const p = enemyPt(); ring(p.x, p.y, ev.illusion ? 'rgba(220,200,255,0.8)' : ev.crystal ? 'rgba(170,255,230,0.95)' : 'rgba(170,255,230,0.75)', p.r * 0.3, p.r * 1.2, 0.6, 4); sfx('clang'); return 240; },
+    enemyArmor() { const p = enemyPt(); burst(p.x, p.y, 14, 'spark', { min: 30, max: 120, life: 0.5, color: '#bff6ff' }); sfx('clank'); return 160; },
+    channel() { const p = enemyPt(); ring(p.x, p.y, 'rgba(200,160,255,0.9)', p.r * 1.4, p.r * 0.2, 0.7, 5); sfx('zap'); return 260; },
+    grandBroken() { const p = enemyPt(); flash(0.5); shake(14); for (let i = 0; i < 3; i++) ring(p.x, p.y, 'rgba(200,255,240,0.95)', 8, 90 + i * 30, 0.6, 6); explosion(p.x, p.y, 140, true); phaseBanner = { text: 'Convergence broken!', life: 1.3, max: 1.3 }; sfx('bigHit'); return 500; },
+    shards(ev) { const from = playerPt(ev.uid), to = enemyPt(); for (let i = 0; i < 2 + ev.dmg; i++) setTimeout(() => shoot({ x: from.x, y: from.y }, { x: to.x + rand(-20, 20), y: to.y + rand(-14, 14) }, 'tracer', 0.2), i * 50); sfx('clang'); return 180; },
+    blessing() { const c = playerPt('core'); for (let i = 0; i < 3; i++) ring(c.x, c.y, ['rgba(93,255,168,0.9)', 'rgba(79,216,255,0.9)', 'rgba(192,140,255,0.9)'][i], 10, 70 + i * 20, 0.8, 4); sfx('ratchet'); return 400; },
+    enchant(ev) { const p = playerPt(ev.uid); ring(p.x, p.y, 'rgba(160,255,230,0.95)', 4, 50, 0.7, 4); burst(p.x, p.y, 16, 'spark', { min: 30, max: 120, life: 0.8, g: -30, color: '#9fffe8' }); sfx('zap'); return 400; },
     // Leviathan Plating: a golden flare at the bow, then the blocked force flung back.
     reflect(ev) {
       const from = playerPt(A().player.mods.size ? [...A().player.mods.values()].find((m) => m.legendary)?.uid : 'core'), to = enemyPt();
@@ -471,6 +499,16 @@
     enemyBlock() { const p = enemyPt(); ring(p.x, p.y, 'rgba(147,166,179,0.9)', p.r * 0.4, p.r * 1.1, 0.5, 6); sfx('clang'); return 320; },
     enemyHeal() { const p = enemyPt(); for (let i = 0; i < 6; i++) parts.push({ kind: 'wrench', x: p.x + rand(-p.r * 0.5, p.r * 0.5), y: p.y, vx: rand(-30, 30), vy: rand(-90, -40), g: 60, life: 0.9, max: 0.9, rot: 0, vr: rand(-12, 12) }); ring(p.x, p.y, 'rgba(120,220,140,0.9)', 10, p.r, 0.5, 5); sfx('ratchet'); return 300; },
     enemyShot(ev) {
+      // Runes flare over every module they strike; the Grand Convergence floods the whole ship.
+      if (ev.rune || ev.grand) {
+        const targets = [];
+        for (const e of lookahead) { if (e.type === 'enemyShot' || e.type === 'intent') break; if (['hit', 'block'].includes(e.type) && !targets.includes(e.uid)) targets.push(e.uid); }
+        for (const uid of targets) { const p = playerPt(uid); ring(p.x, p.y, ev.grand ? 'rgba(200,160,255,0.95)' : 'rgba(160,255,230,0.95)', 30, 6, 0.5, 4); }
+        if (ev.grand) { flash(0.6); shake(18); hitStop(140); }
+        lastBolt = true;
+        sfx(ev.grand ? 'bigHit' : 'zap', { enemy: true });
+        return ev.grand ? 520 : 360;
+      }
       lastBolt = !!ev.lightning;
       const from = enemyPt();
       const targets = [];

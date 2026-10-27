@@ -17,8 +17,11 @@
     boss: 'M3 18 L5 7 L9.5 12 L12 5 L14.5 12 L19 7 L21 18 Z M3 21 H21',
     unknown: 'M9 9 a3 3 0 1 1 4 2.8 C12.4 12.1 12 12.6 12 13.5 V15 M12 18.5 a0.6 0.6 0 1 0 0.1 0',
     cloud: 'M5 16 a4 4 0 0 1 2-7.5 a5.5 5.5 0 0 1 10 1.5 a3.5 3.5 0 0 1 1 6 Z',
+    shrine: 'M12 3 L15 13 H9 Z M6 17 H18 L16 14 H8 Z M4 20 H20 M3 7 C7 4 17 4 21 7',
+    spire: 'M10 21 L11 8 L12 3 L13 8 L14 21 Z M12 11 a3 3 0 1 0 0.1 0 M5 9 a2 2 0 1 0 0.1 0 M19 13 a2 2 0 1 0 0.1 0',
+    starchart: 'M4 18 L12 15 L20 18 V7 L12 4 L4 7 Z M12 4 V15 M7 9 l1 1 M16 8 l1 1 M15 12 l1 1',
   };
-  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', dusk: '#b04a3a', night: '#26305a', storm: '#3e4a5e', lair: '#5a2a26', rift: '#5a3a9a', derelict: '#9a4a3a', port: '#c9805a' };
+  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', dusk: '#b04a3a', night: '#26305a', storm: '#3e4a5e', lair: '#5a2a26', rift: '#5a3a9a', derelict: '#9a4a3a', port: '#c9805a', aurora: '#1d6a7a', auroraRift: '#4a2a8a', auroraDeep: '#2a2a7a', archon: '#2a6a8a' };
 
   function svgEl(tag, attrs) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -28,6 +31,12 @@
   // The painted icons (assets/art/icons) for map nodes; the line icons stay for the legend and as fallbacks.
   const ART_ICONS = new Set(['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar', 'derelict', 'rift', 'boss', 'unknown', 'cloud']);
   function artIcon(name) {
+    const gen = window.CardshipsArtGen;
+    if (!ART_ICONS.has(name) && gen && gen.hasIcon(name)) {
+      const img = document.createElement('img');
+      img.className = 'node-art'; img.src = gen.nodeIcon(name); img.alt = ''; img.draggable = false;
+      return img;
+    }
     if (!ART_ICONS.has(name)) return icon(name);
     const img = document.createElement('img');
     img.className = 'node-art';
