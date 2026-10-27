@@ -167,7 +167,7 @@
     const here = node && (node.enc !== 'start' || game.area > 0) ? node.biome : 'clear';
     const phase = game.phase;
     if (phase === 'victory' || phase === 'gameover') { scene.setBiome(phase === 'victory' ? 'victory' : 'defeat'); scene.setMode('docked'); }
-    else if (phase === 'hangar') { scene.setBiome('dock'); scene.setMode('docked'); }
+    else if (phase === 'hangar') { scene.setBiome('skydock'); scene.setMode('docked'); }
     else if (phase === 'shop') { scene.setBiome('interior'); scene.setMode('docked'); }
     else if (phase === 'combat') { scene.setBiome(here); scene.setMode('combat'); }
     else { scene.setBiome(here); scene.setMode(ui.flying || ui.portaling ? 'travel' : 'flight'); }

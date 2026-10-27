@@ -42,8 +42,22 @@
   function sprite(x, y, names, w, life, opts = {}) {
     parts.push({ kind: 'sprite', names: [].concat(names), x, y, vx: opts.vx || 0, vy: opts.vy || 0, g: opts.g || 0, life, max: life, w, grow: opts.grow ?? 0.25, rot: opts.rot || 0, vr: opts.vr || 0, flip: !!opts.flip, alpha: opts.alpha ?? 1, add: !!opts.add });
   }
-  // An explosion sized by damage: the small sequence for chip hits, a painted blast for big ones.
+  // Frame strips cut from your FX sheet (tools/build_fx_strips.py): explosions, magic bursts, shields.
+  const STRIPS = {};
+  for (const [name, m] of Object.entries(window.CardshipsFxStrips || {})) { const im = new Image(); im.src = `assets/art/fx/${name}.png`; STRIPS[name] = { img: im, ...m }; }
+  const SWIRL = new Image(); SWIRL.src = 'assets/art/fx/blood-swirl.png';
+  // A single painted image that spins and fades (the blood swirl of a Bleed tick).
+  function spin(x, y, img, w, life) { if (img.complete && img.naturalWidth) parts.push({ kind: 'image', img, x, y, vx: 0, vy: 0, g: 0, life, max: life, w, rot: 0, vr: 3 }); }
+  const stripReady = (name) => STRIPS[name] && STRIPS[name].img.complete && STRIPS[name].img.naturalWidth > 0;
+  function strip(x, y, name, w, life, opts = {}) {
+    if (!stripReady(name)) return false;
+    parts.push({ kind: 'strip', name, x, y, vx: 0, vy: opts.vy || 0, g: 0, life, max: life, w, rot: opts.rot || 0, vr: 0, add: !!opts.add, alpha: opts.alpha ?? 1 });
+    return true;
+  }
+  // An explosion sized by damage: the small sequence for chip hits, a painted blast for big ones,
+  // and now and then the explosion from your FX sheet.
   function explosion(x, y, size, big = false) {
+    if (Math.random() < 0.4 && strip(x, y, 'explosion', size * (big ? 1.5 : 1.2), big ? 0.6 : 0.48, { rot: rand(-0.3, 0.3) })) return;
     if (big) sprite(x, y, BLASTS[Math.floor(Math.random() * BLASTS.length)], size, 0.5, { grow: 0.35, rot: rand(-0.3, 0.3) });
     else sprite(x, y, BOOM, size, 0.42, { grow: 0.2 });
   }
@@ -274,6 +288,21 @@
           SP().draw(g, name, 0, 0, p.w * (1 + p.grow * k), null, p.flip);
           g.restore(); break;
         }
+        case 'image': {
+          g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.globalAlpha = Math.min(1, a * 1.6);
+          const k = 0.6 + 0.4 * (1 - a), hh = p.w * p.img.naturalHeight / p.img.naturalWidth;
+          g.drawImage(p.img, -p.w * k / 2, -hh * k / 2, p.w * k, hh * k);
+          g.restore(); break;
+        }
+        case 'strip': {
+          const S = STRIPS[p.name];
+          const f = Math.min(S.frames - 1, Math.floor((1 - a) * S.frames));
+          g.save(); g.translate(p.x, p.y); g.rotate(p.rot);
+          g.globalAlpha = p.alpha * Math.min(1, a / 0.25);
+          if (p.add) g.globalCompositeOperation = 'lighter';
+          g.drawImage(S.img, f * S.cell, 0, S.cell, S.cell, -p.w / 2, -p.w / 2, p.w, p.w);
+          g.restore(); break;
+        }
         default: break;
       }
     }
@@ -418,14 +447,15 @@
     spell(ev) {
       const p = playerPt(ev.uid);
       ring(p.x, p.y, ev.kind === 'weapon' ? 'rgba(160,255,230,0.95)' : ev.kind === 'defense' ? 'rgba(120,255,160,0.95)' : 'rgba(200,170,255,0.95)', 6, 46 * ev.mult, 0.5, 5);
-      if (ev.kind === 'weapon') { shoot({ x: p.x, y: p.y }, enemyPt(), 'lightning', 0.2); lastFire = 'tesla'; }
+      strip(p.x, p.y, ev.kind === 'weapon' ? 'magic-blue' : ev.kind === 'defense' ? 'magic-green' : 'magic-purple', 70 * ev.mult, 0.5, { add: true });
+      if (ev.kind === 'weapon') { shoot({ x: p.x, y: p.y }, enemyPt(), 'lightning', 0.2); lastFire = 'tesla'; const e = enemyPt(); setTimeout(() => strip(e.x, e.y, 'magic-blue', 110, 0.5, { add: true }), 200); }
       numberAt(p.x, p.y - 34, { weapon: 'Arcane Bolt', defense: 'Aegis', support: 'Surge', utility: 'Surge' }[ev.kind] + (ev.mult > 1 ? ' ×2' : ''), '#aef7e4', 16);
       sfx('zap');
       return 300;
     },
     aurora() { flash(0.06); return 0; },
     prism(ev) { const p = playerPt(ev.uid); for (const [c, r] of [['rgba(255,110,110,0.9)', 26], ['rgba(110,255,150,0.9)', 34], ['rgba(110,170,255,0.9)', 42]]) ring(p.x, p.y, c, 6, r, 0.5, 3); sfx('zap'); return 220; },
-    enemyWard(ev) { const p = enemyPt(); ring(p.x, p.y, ev.bats ? 'rgba(255,50,60,0.8)' : ev.illusion ? 'rgba(220,200,255,0.8)' : ev.crystal ? 'rgba(170,255,230,0.95)' : 'rgba(170,255,230,0.75)', p.r * 0.3, p.r * 1.2, 0.6, 4); sfx('clang'); return 240; },
+    enemyWard(ev) { const p = enemyPt(); if (!ev.bats && !ev.illusion) strip(p.x, p.y, 'shield-up', p.r * 2.4, 0.7, { add: true, alpha: 0.85 }); ring(p.x, p.y, ev.bats ? 'rgba(255,50,60,0.8)' : ev.illusion ? 'rgba(220,200,255,0.8)' : ev.crystal ? 'rgba(170,255,230,0.95)' : 'rgba(170,255,230,0.75)', p.r * 0.3, p.r * 1.2, 0.6, 4); sfx('clang'); return 240; },
     enemyArmor() { const p = enemyPt(); burst(p.x, p.y, 14, 'spark', { min: 30, max: 120, life: 0.5, color: '#bff6ff' }); sfx('clank'); return 160; },
     channel() { const p = enemyPt(); ring(p.x, p.y, 'rgba(200,160,255,0.9)', p.r * 1.4, p.r * 0.2, 0.7, 5); sfx('zap'); return 260; },
     grandBroken() { const p = enemyPt(); flash(0.5); shake(14); for (let i = 0; i < 3; i++) ring(p.x, p.y, 'rgba(200,255,240,0.95)', 8, 90 + i * 30, 0.6, 6); explosion(p.x, p.y, 140, true); phaseBanner = { text: 'Convergence broken!', life: 1.3, max: 1.3 }; sfx('bigHit'); return 500; },
@@ -434,7 +464,7 @@
     moon(ev) { if (ev.locked || ev.well) flash(0.18); numberAt(enemyPt().x, 60, ev.well ? 'The moon wanes' : ev.locked ? 'FULL MOON' : `Moon ${ev.moon}`, '#ff6a6a', ev.locked ? 22 : 15); return ev.locked ? 400 : 120; },
     eclipse() { flash(0.7); shake(16); phaseBanner = { text: 'Eclipse', life: 1.6, max: 1.6 }; sfx('bigHit'); return 700; },
     bleed(ev) { const p = playerPt(ev.uid); burst(p.x, p.y - 4, 8 + ev.dmg * 2, 'drip', { min: 30, max: 120, g: 300, life: 0.7, rmin: 2, rmax: 4, color: '#c8101e' }); ring(p.x, p.y, 'rgba(220,20,40,0.9)', 6, 28, 0.3, 4); sfx('splat'); return 140; },
-    enemyBleed() { const p = enemyPt(); burst(p.x, p.y, 16, 'drip', { min: 40, max: 160, g: 300, life: 0.8, rmin: 2, rmax: 5, color: '#c8101e' }); sfx('splat'); return 180; },
+    enemyBleed() { const p = enemyPt(); spin(p.x, p.y, SWIRL, p.r * 1.6, 0.8); burst(p.x, p.y, 16, 'drip', { min: 40, max: 160, g: 300, life: 0.8, rmin: 2, rmax: 5, color: '#c8101e' }); sfx('splat'); return 180; },
     batBite(ev) { const from = enemyPt(), p = playerPt(ev.uid); shoot({ x: from.x, y: from.y - 20 }, { x: p.x, y: p.y }, 'enemyTracer', 0.25); return 120; },
     thorns(ev) { const p = playerPt(ev.uid), to = enemyPt(); burst(p.x, p.y, 10, 'spark', { min: 60, max: 200, life: 0.4, color: '#ff4a5a' }); shoot({ x: p.x, y: p.y }, to, 'tracer', 0.2); return 160; },
     chalice() { const c = playerPt('core'); ring(c.x, c.y, 'rgba(255,60,80,0.85)', 4, 26, 0.4, 3); return 40; },
@@ -463,7 +493,7 @@
     },
     galeShift() { const to = enemyPt(); sprite(to.x + rand(-20, 20), to.y + rand(-14, 14), ['zap_crack', 'zap_blue'], 46, 0.3, { add: true }); lastFire = 'tesla'; sfx('zap'); return 120; },
     // A Ward shatters in a ring of light; a prism shot breaks every layer at once.
-    wardPop() { const p = enemyPt(); ring(p.x, p.y, 'rgba(170,255,230,0.95)', p.r * 0.5, p.r * 1.3, 0.45, 5); burst(p.x, p.y, 18, 'spark', { min: 120, max: 320, life: 0.5 }); numberAt(p.x, p.y - p.r * 0.7, 'Ward!', '#aef7e4', 18); sfx('clang'); return 260; },
+    wardPop(ev) { const p = enemyPt(); if (!ev || !['illusion', 'bats'].includes(ev.kind)) strip(p.x, p.y, 'shield-break', p.r * 2.4, 0.55, { add: true }); ring(p.x, p.y, 'rgba(170,255,230,0.95)', p.r * 0.5, p.r * 1.3, 0.45, 5); burst(p.x, p.y, 18, 'spark', { min: 120, max: 320, life: 0.5 }); numberAt(p.x, p.y - p.r * 0.7, 'Ward!', '#aef7e4', 18); sfx('clang'); return 260; },
     enemyLayers() { const p = enemyPt(); for (let i = 0; i < 3; i++) ring(p.x, p.y, ['rgba(255,120,120,0.9)', 'rgba(140,255,170,0.9)', 'rgba(150,180,255,0.9)'][i], p.r * 0.4, p.r * (1.1 + i * 0.25), 0.5, 4); sfx('zap'); return 280; },
     discharge(ev) {
       const c = playerPt('core'), to = enemyPt();
@@ -535,7 +565,7 @@
       if (ev.rune || ev.grand) {
         const targets = [];
         for (const e of lookahead) { if (e.type === 'enemyShot' || e.type === 'intent') break; if (['hit', 'block'].includes(e.type) && !targets.includes(e.uid)) targets.push(e.uid); }
-        for (const uid of targets) { const p = playerPt(uid); ring(p.x, p.y, ev.grand ? 'rgba(200,160,255,0.95)' : 'rgba(160,255,230,0.95)', 30, 6, 0.5, 4); }
+        for (const uid of targets) { const p = playerPt(uid); ring(p.x, p.y, ev.grand ? 'rgba(200,160,255,0.95)' : 'rgba(160,255,230,0.95)', 30, 6, 0.5, 4); strip(p.x, p.y, 'magic-purple', ev.grand ? 90 : 64, 0.5, { add: true }); }
         if (ev.grand) { flash(0.6); shake(18); hitStop(140); }
         lastBolt = true;
         sfx(ev.grand ? 'bigHit' : 'zap', { enemy: true });
@@ -616,7 +646,7 @@
       return 220;
     },
     cleanse(ev) { const p = playerPt(ev.uid); sprite(p.x, p.y - 14, 'splash', 60, 0.6, { grow: 0.15 }); burst(p.x, p.y - 10, 18, 'water', { up: 60, min: 40, max: 160, g: 400, life: 0.6, rmin: 1.5, rmax: 3 }); sfx('hiss'); return 200; },
-    brace(ev) { const p = playerPt(ev.uid); ring(p.x, p.y, 'rgba(240,207,132,0.9)', 10, 46, 0.5, 4); sfx('clank'); return 200; },
+    brace(ev) { const p = playerPt(ev.uid); strip(p.x, p.y, 'shield-up', 110, 0.6, { add: true, alpha: 0.8 }); ring(p.x, p.y, 'rgba(240,207,132,0.9)', 10, 46, 0.5, 4); sfx('clank'); return 200; },
     evadeReady() { A().player.dodge = 1; sfx('whoosh'); return 200; },
     evade() {
       const from = enemyPt(); const c = playerPt('core');

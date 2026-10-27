@@ -26,9 +26,15 @@
     bloodMoon: 'assets/art/skies/sky-blood-moon.jpg',
     pirateDusk: 'assets/art/skies/sky-pirate-dusk.jpg',
     hangar: 'assets/art/workshop-hangar.jpg',
+    hangarDocked: 'assets/art/workshop-hangar-docked.jpg',
     defeat: 'assets/art/skies/sky-defeat.jpg',
   };
   const images = {};
+  // Painted effect pieces from your aurora-and-blood sheet: ribbons for the Aurora Reaches, mist and
+  // the eclipse ring for the Blood Moon.
+  const FXART = {};
+  for (const n of ['ribbon-1', 'ribbon-2', 'ribbon-wave', 'blood-mist-1', 'blood-mist-2', 'blood-ring']) { const im = new Image(); im.src = `assets/art/fx/${n}.png`; FXART[n] = im; }
+  const fxReady = (n) => FXART[n] && FXART[n].complete && FXART[n].naturalWidth > 0;
   const GULLS = Array.from({ length: 8 }, (_, i) => { const im = new Image(); im.src = `assets/art/bits/gull${i}.png`; return im; });
   for (const [k, src] of Object.entries(ART)) {
     const img = new Image();
@@ -50,18 +56,19 @@
     rift: { sky: ['#160c2c', '#3a1d5c', '#6a3aa0'], far: '#2a1a48', farRock: '#1d1236', mid: '#170e2a', cloud: ['#8a6ac8', '#6a4aa8', '#3c2868'], wisp: 'rgba(170,130,240,0.4)', weather: 'motes', farKind: 'art', art: 'rift', haze: 'rgba(20,8,40,0.12)', midKind: 'none' },
     port: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: 'port', haze: 'rgba(80,40,70,0.1)', midKind: 'none' },
     // Area 2, the Aurora Reaches: auroras over crystal islands, runes and star-dust.
-    aurora: { sky: ['#040a1c', '#0b2638', '#17465a'], far: '#2a6a7a', farRock: '#16384a', mid: '#123044', cloud: ['#bfeee8', '#7fc4cc', '#3e7a8e'], wisp: 'rgba(160,255,230,0.22)', weather: 'stardust', farKind: 'art', art: 'auroraSky', midKind: 'runes', haze: 'rgba(10,30,50,0.12)', aurora: 0.55 },
-    auroraRift: { sky: ['#0a0620', '#24124a', '#3a2070'], far: '#3a2a6a', farRock: '#22184a', mid: '#1a1238', cloud: ['#d6c4ff', '#9a84e0', '#5a4a9e'], wisp: 'rgba(200,170,255,0.22)', weather: 'stardust', farKind: 'art', art: 'rift', midKind: 'runes', haze: 'rgba(20,10,50,0.25)', aurora: 0.8 },
-    auroraDeep: { sky: ['#030616', '#101a40', '#2a1f5e'], far: '#3a3a8a', farRock: '#1c1c4a', mid: '#141238', cloud: ['#c8d8ff', '#8a96d8', '#4a4e90'], wisp: 'rgba(180,200,255,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(8,10,40,0.25)', aurora: 1.2 },
-    archon: { sky: ['#02040e', '#0a1430', '#1a2d55'], far: '#2a4a7a', farRock: '#142640', mid: '#0e1a30', cloud: ['#d0fff4', '#86d0d8', '#3e6e8e'], wisp: 'rgba(180,255,240,0.26)', weather: 'stardust', farKind: 'art', art: 'nightCity', midKind: 'runes', haze: 'rgba(20,60,90,0.42)', aurora: 1.6 },
+    aurora: { sky: ['#040a1c', '#0b2638', '#17465a'], far: '#2a6a7a', farRock: '#16384a', mid: '#123044', cloud: ['#bfeee8', '#7fc4cc', '#3e7a8e'], wisp: 'rgba(160,255,230,0.22)', weather: 'stardust', farKind: 'art', art: 'auroraSky', midKind: 'runes', haze: 'rgba(10,30,50,0.12)', aurora: 0.55 , ribbons: true },
+    auroraRift: { sky: ['#0a0620', '#24124a', '#3a2070'], far: '#3a2a6a', farRock: '#22184a', mid: '#1a1238', cloud: ['#d6c4ff', '#9a84e0', '#5a4a9e'], wisp: 'rgba(200,170,255,0.22)', weather: 'stardust', farKind: 'art', art: 'rift', midKind: 'runes', haze: 'rgba(20,10,50,0.25)', aurora: 0.8 , ribbons: true },
+    auroraDeep: { sky: ['#030616', '#101a40', '#2a1f5e'], far: '#3a3a8a', farRock: '#1c1c4a', mid: '#141238', cloud: ['#c8d8ff', '#8a96d8', '#4a4e90'], wisp: 'rgba(180,200,255,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(8,10,40,0.25)', aurora: 1.2 , ribbons: true },
+    archon: { sky: ['#02040e', '#0a1430', '#1a2d55'], far: '#2a4a7a', farRock: '#142640', mid: '#0e1a30', cloud: ['#d0fff4', '#86d0d8', '#3e6e8e'], wisp: 'rgba(180,255,240,0.26)', weather: 'stardust', farKind: 'art', art: 'nightCity', midKind: 'runes', haze: 'rgba(20,60,90,0.42)', aurora: 1.6 , ribbons: true },
     // Area 3, the Blood Moon: a vast red moon over gothic spires, wrecks, ash, bats and red fog.
-    bloodmoon: { sky: ['#07020a', '#26060c', '#5c0f16'], far: '#1c0a10', farRock: '#120609', mid: '#1a080c', cloud: ['#7a3438', '#4e1e22', '#2a0e12'], wisp: 'rgba(150,20,30,0.28)', weather: 'ash', farKind: 'art', art: 'bloodMoon', midKind: 'none', haze: 'rgba(40,0,6,0.12)', fog: 0.6, bats: true },
-    bloodFog: { sky: ['#0a0306', '#300a10', '#6a1a1c'], far: '#2a0e12', farRock: '#16080a', mid: '#1e0a0e', cloud: ['#8a4044', '#5a2428', '#301216'], wisp: 'rgba(170,30,40,0.34)', weather: 'ash', farKind: 'art', art: 'derelicts', midKind: 'wrecks', haze: 'rgba(90,0,12,0.58)', moon: 0.85, fog: 1.1, bats: true },
-    bloodSpires: { sky: ['#050106', '#1e0408', '#4a0a10'], far: '#22080e', farRock: '#100406', mid: '#16060a', cloud: ['#6e2c30', '#44181c', '#240a0e'], wisp: 'rgba(130,16,26,0.3)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(60,0,8,0.4)', moon: 1.15, fog: 0.8, bats: true },
-    eclipse: { sky: ['#030003', '#1a0206', '#40060c'], far: '#1a060a', farRock: '#0c0204', mid: '#120408', cloud: ['#5e2026', '#3a1014', '#1e0608'], wisp: 'rgba(120,10,20,0.32)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(40,0,6,0.45)', moon: 1.45, fog: 0.9, bats: true },
+    bloodmoon: { sky: ['#07020a', '#26060c', '#5c0f16'], far: '#1c0a10', farRock: '#120609', mid: '#1a080c', cloud: ['#7a3438', '#4e1e22', '#2a0e12'], wisp: 'rgba(150,20,30,0.28)', weather: 'ash', farKind: 'art', art: 'bloodMoon', midKind: 'none', haze: 'rgba(40,0,6,0.12)', fog: 0.6, bats: true , mist: true },
+    bloodFog: { sky: ['#0a0306', '#300a10', '#6a1a1c'], far: '#2a0e12', farRock: '#16080a', mid: '#1e0a0e', cloud: ['#8a4044', '#5a2428', '#301216'], wisp: 'rgba(170,30,40,0.34)', weather: 'ash', farKind: 'art', art: 'derelicts', midKind: 'wrecks', haze: 'rgba(90,0,12,0.58)', moon: 0.85, fog: 1.1, bats: true , mist: true },
+    bloodSpires: { sky: ['#050106', '#1e0408', '#4a0a10'], far: '#22080e', farRock: '#100406', mid: '#16060a', cloud: ['#6e2c30', '#44181c', '#240a0e'], wisp: 'rgba(130,16,26,0.3)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(60,0,8,0.4)', moon: 1.15, fog: 0.8, bats: true , mist: true },
+    eclipse: { sky: ['#030003', '#1a0206', '#40060c'], far: '#1a060a', farRock: '#0c0204', mid: '#120408', cloud: ['#5e2026', '#3a1014', '#1e0608'], wisp: 'rgba(120,10,20,0.32)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(40,0,6,0.45)', moon: 1.45, fog: 0.9, bats: true , mist: true },
     victory: { still: 'victory', wisp: 'rgba(255,230,190,0.4)', weather: 'motes' },
     defeat: { still: 'defeat', wisp: 'rgba(120,60,50,0.4)', weather: 'embers' },
     dock: { still: 'deck', wisp: 'rgba(255,255,255,0.4)', weather: 'steam' },
+    skydock: { still: 'hangarDocked', wisp: 'rgba(255,240,220,0.3)', weather: 'steam' },
     workshop: { still: 'hangar', wisp: 'rgba(255,240,220,0.3)', weather: 'steam', glow: [0.5, 0.74] },
     interior: { still: 'engine', wisp: 'rgba(255,240,220,0.35)', weather: 'steam', glow: [0.405, 0.5] },
   };
@@ -281,6 +288,21 @@
       for (let i = 0; i < 7; i++) this.clouds.push(this.makeCloud(i < 4 ? 'cloudBack' : 'cloudFront', rand(-80, w)));
       this.wisps = this.makeWisps(5);
       this.particles = [];
+      // Drifting painted ribbons (aurora) or low banks of blood mist.
+      this.ribbons = def.ribbons ? [0, 1, 2].map((i) => ({ n: ['ribbon-1', 'ribbon-2', 'ribbon-wave'][i], x: rand(-200, w), y: h * (0.04 + i * 0.12), k: rand(0.9, 1.3), v: rand(5, 12), a: rand(0.35, 0.55) })) : null;
+      this.mists = def.mist ? [0, 1, 2].map((i) => ({ n: i % 2 ? 'blood-mist-2' : 'blood-mist-1', x: rand(-300, w), y: h * (0.66 + i * 0.1), k: rand(1, 1.5), v: rand(10, 22), a: rand(0.3, 0.5) })) : null;
+    }
+    drawPainted(g, list, add, speed) {
+      g.save(); if (add) g.globalCompositeOperation = 'lighter';
+      for (const r of list) {
+        if (!fxReady(r.n)) continue;
+        const im = FXART[r.n], w = im.naturalWidth * r.k * Math.min(1.4, this.h / 380), hh = im.naturalHeight * r.k * Math.min(1.4, this.h / 380);
+        r.x -= (r.v + speed * 0.12) * (this.dtLast || 0);
+        if (r.x < -w) r.x = this.w + rand(20, 300);
+        g.globalAlpha = r.a * (0.85 + 0.15 * Math.sin((this.t || 0) * 0.6 + r.y));
+        g.drawImage(im, r.x, r.y - hh / 2 + Math.sin((this.t || 0) * 0.3 + r.x * 0.01) * 6, w, hh);
+      }
+      g.restore();
     }
     ridge(g, base, amp, color, alpha) {
       g.save(); g.globalAlpha = alpha; g.fillStyle = color;
@@ -366,6 +388,7 @@
         if (this.smokeT <= 0) { this.smokeT = 0.25; }
       }
       this.t = (this.t || 0) + dt;
+      this.dtLast = dt; this.speedLast = speed;
     }
     spawn(initial) {
       const { w, h } = this;
@@ -402,6 +425,7 @@
         g.restore();
       }
       if (def.aurora) this.drawAurora(g);
+      if (this.ribbons) this.drawPainted(g, this.ribbons, true, this.speedLast || 0);
       this.drawTile(g, this.mid, offset * FACTORS.mid);
       if (this.runes) this.drawRunes(g, offset * FACTORS.mid);
       if (this.stacks) this.drawSmokeStacks(g, offset * FACTORS.mid);
@@ -419,6 +443,7 @@
       for (const wsp of this.wisps) { g.globalAlpha = wsp.alpha; g.drawImage(wsp.sprite, wsp.x, wsp.y); }
       g.globalAlpha = 1;
       if (this.def.fog) this.drawFog(g);
+      if (this.mists) this.drawPainted(g, this.mists, false, this.speedLast || 0);
       this.drawParticles(g);
       if (this.def.moon && Scene.eclipse && Scene.eclipse()) {
         g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(150,20,24,0.55)'; g.fillRect(0, 0, this.w, this.h); g.restore();
@@ -525,6 +550,11 @@
         for (const [cx, cy, cr] of [[-0.3, -0.1, 0.18], [0.25, 0.2, 0.12], [0.05, -0.4, 0.09], [-0.1, 0.4, 0.14], [0.4, -0.25, 0.07]]) { g.beginPath(); g.arc(x + cx * r, y + cy * r, cr * r, 0, Math.PI * 2); g.fill(); }
       }
       g.restore();
+      if (ecl && fxReady('blood-ring')) {
+        g.save(); g.globalCompositeOperation = 'lighter'; g.translate(x, y); g.rotate((this.t || 0) * 0.15);
+        g.globalAlpha = 0.9; g.drawImage(FXART['blood-ring'], -r * 1.45, -r * 1.45, r * 2.9, r * 2.9);
+        g.restore();
+      }
       if (ecl) {
         g.save(); g.globalCompositeOperation = 'lighter';
         g.strokeStyle = `rgba(255,60,40,${0.6 + 0.2 * Math.sin(t * 3)})`; g.lineWidth = 3; g.shadowColor = '#ff2a20'; g.shadowBlur = 24;
