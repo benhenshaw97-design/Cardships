@@ -206,10 +206,12 @@ Update this file after each step: mark the step done and note anything left for 
 
 ## Status
 
-- Step 1 is done: run structure, portals, the simulator, and tests.
-- Step 2 is done: legendaries for the Area 1 bosses, enemy defence layers, generated card art. 47 tests pass.
-- Step 3 is done: the Aurora Reaches, the Archon and its pool. 55 tests pass, and a 300-run fuzz through all areas holds its invariants.
-- **All six steps are done.** Your later uploads (3 keyed ship sheets, 9 tracks) are now used for the Area 2 and 3 enemies, the Workshop Cores and the area music (see the end of DESIGN_CHANGES.md). The art pack after that is wired in too: painted Area 2/3 skies, the Workshop hangar, the Vault kit and the portal vortices. Unused uploads are filed in `assets/art/source/uploads/`. Step 6: the balance pass hit all three targets. 70 tests pass.
-- Step 5 is done: the Workshop hub, Blueprints, 3 new Cores, part drafting, upgrades, Logbook, Vault, cosmetics and Storm Tiers. 70 tests pass.
-- Step 4 is done: the Blood Moon, the Crimson Sovereign and its pool. 65 tests pass, and the fuzz holds. Sim at step 4 (60 runs per Core): Area 1/Area 2 as before; full wins are about 0–5%, so Area 3 is too hard for now. Step 6 tunes.
-- Sim at step 3 (60 runs per Core, Area 1 clear / Area 2 clear / win): airship 58/33/20, battleship 52/5/0, zeppelin 45/27/2, clockwork 43/35/15, privateer 45/32/8, tempest 58/35/20. Area 3 is still a scaled placeholder. Step 6 tunes; the battleship needs help in Area 2.
+- **The expansion brief is complete:** all six steps, each committed. 70 tests pass, and the bot-played fuzz through all three areas holds its invariants.
+- **Added after the brief:**
+  - The main menu, separate Workshop and launch screens, and the guided first flight (`Tutorial` in `ui.js`).
+  - The sailing leg between places (`travel` and `enrouteScreen` in `ui.js`).
+- **Art.** Every sky, part, Core and enemy now uses your painted art; the code-drawn versions remain only as fallbacks (`js/artgen.js`, listed in `DRAWN_ONLY`).
+  - Every biome's far layer is a painting (`BIOMES` in `scene.js`).
+  - Unused uploads are filed in `assets/art/source/uploads/`.
+- **Still code-drawn:** the six later-area place icons and banners (`js/artgen.js`), and the Area 2 and 3 map charts (recoloured Area 1 chart).
+- **Balance:** see "Balance pass (step 6)" above and BALANCE_REPORT.md.

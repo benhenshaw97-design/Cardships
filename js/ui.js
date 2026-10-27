@@ -18,7 +18,6 @@
   Scene.pixelScale = () => Actors.P || 2;
   Scene.auroraColor = () => (game && game.combat && !game.combat.over && game.combat.aurora ? D.AURORA[game.combat.aurora].color : null);
   Scene.eclipse = () => !!(game && game.combat && !game.combat.over && game.combat.eclipse);
-  Scene.moonLevel = () => (game ? Math.min(1, (game.moon || 0) / D.BALANCE.moonMax) : 0);
   Scene.overlay = FX.drawOverlay;
   // Taps on the flight view: your ship selects the Core; animations skip.
   const touchFirst = window.matchMedia('(hover: none)').matches;
@@ -68,7 +67,7 @@
   let game = null;
   let meta = Meta.load();
   applyLivery();
-  const ui = { insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null, newUnlocks: [] };
+  const ui = { insertFn: null, previewId: null, preview: null, previewKey: null, seedCode: '', selected: null, targeting: null, dockSel: null, swapSel: null, confirmScrap: null, logCount: 0, mapSel: null, flying: false, recorded: null };
   const SAVE_KEY = 'cardships.run.v5'; // v5: three-area runs // v4: two-deck grid
   function loadSave() { try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
   function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage unavailable */ } }
@@ -81,7 +80,7 @@
   function continueRun(saved) {
     game = Game.fromJSON(saved);
     Actors.reset();
-    ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
+    ui.selected = null; ui.mapSel = null; ui.recorded = null;
     ui.logSeen = game.log.length; ui.sheet = null; ui.stageKey = null;
     render();
   }
@@ -92,7 +91,7 @@
     game.chooseCore(coreId, shipId);
     ui.pickCore = null; ui.pickShip = null;
     game.events = [];
-    ui.selected = null; ui.mapSel = null; ui.recorded = null; ui.newUnlocks = [];
+    ui.selected = null; ui.mapSel = null; ui.recorded = null;
     ui.logSeen = game.log.length; ui.sheet = null; ui.stageKey = null;
     render();
   }
@@ -358,8 +357,6 @@
         meta.tierUnlocked ? h('span', { class: 'muted' }, `Storm Tiers open: ${meta.tierUnlocked}. Best cleared: ${best || 'none yet'}.`) : h('span', { class: 'muted' }, 'Clear all three areas to open the Storm Tiers.'),
         h('span', { class: 'muted' }, 'Every run earns Blueprints: more for each area cleared, boss sunk and contract fulfilled. Spend them here.')));
   }
-  // Cores with painted card art; the Workshop's newer Cores show their ship instead.
-  const CORE_ART = new Set(['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest', 'arcanist', 'sanguinist', 'eclipse']);
   // ---------- the guided first flight ----------
   // A short coach card that steps a new captain through the first run. Each step shows once its
   // moment arrives; Next moves on, Skip ends the tour. Replayable from "How to play".
@@ -444,7 +441,8 @@
       const pick = () => { ui.pickCore = c.id; ui.pickShip = Game.defaultShip(c.id); render(); requestAnimationFrame(() => { const el = document.getElementById('ship-picker'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); };
       return h('div', { class: `core-pick${ui.pickCore === c.id ? ' picked' : ''}${open ? '' : ' locked'}`, role: open ? 'button' : null, tabindex: open ? '0' : null, onclick: open ? pick : null, onkeydown: open ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } } : null },
         !open ? h('span', { class: 'lock' }, h('img', { src: 'assets/art/ui/padlock.png', alt: '' }), 'Locked in the Workshop') : null,
-        CORE_ART.has(c.id) ? h('img', { class: 'core-art', src: `assets/art/cores/${c.id}.jpg`, alt: '', onerror: (e) => e.target.remove() }) : window.CardshipsShipArt.thumb(D.SHIPS[Game.defaultShip(c.id)].sprite, 260, 120),
+        // Every Core has a portrait; a Core added later without one shows its ship instead.
+        h('img', { class: 'core-art', src: `assets/art/cores/${c.id}.jpg`, alt: '', onerror: (e) => e.target.replaceWith(window.CardshipsShipArt.thumb(D.SHIPS[Game.defaultShip(c.id)].sprite, 260, 120)) }),
         h('span', { class: 'eyebrow' }, c.style),
         h('span', { class: 'name' }, c.name.replace(' Core', '')),
         statline(`Weight ${fmt(c.weight)}`, `Durability ${c.hp}`, `Steam ${c.steam}`),

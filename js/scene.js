@@ -23,6 +23,13 @@
     port: 'assets/art/skies/sky-port.jpg',
     victory: 'assets/art/skies/sky-victory.jpg',
     auroraSky: 'assets/art/skies/sky-aurora.jpg',
+    auroraSwirl: 'assets/art/skies/sky-aurora-swirl.jpg',
+    auroraRift: 'assets/art/skies/sky-aurora-rift.jpg',
+    auroraVortex: 'assets/art/skies/sky-aurora-vortex.jpg',
+    archonSky: 'assets/art/skies/sky-archon.jpg',
+    bloodFog: 'assets/art/skies/sky-blood-fog.jpg',
+    bloodSpires: 'assets/art/skies/sky-blood-spires.jpg',
+    eclipseSky: 'assets/art/skies/sky-eclipse.jpg',
     bloodMoon: 'assets/art/skies/sky-blood-moon.jpg',
     pirateDusk: 'assets/art/skies/sky-pirate-dusk.jpg',
     hangar: 'assets/art/workshop-hangar.jpg',
@@ -33,7 +40,7 @@
   // Painted effect pieces from your aurora-and-blood sheet: ribbons for the Aurora Reaches, mist and
   // the eclipse ring for the Blood Moon.
   const FXART = {};
-  for (const n of ['ribbon-1', 'ribbon-2', 'ribbon-wave', 'blood-mist-1', 'blood-mist-2', 'blood-ring', 'bolt-blue', 'bolt-violet']) { const im = new Image(); im.src = `assets/art/fx/${n}.png`; FXART[n] = im; }
+  for (const n of ['ribbon-1', 'ribbon-2', 'ribbon-wave', 'blood-mist-1', 'blood-mist-2', 'bolt-blue', 'bolt-violet']) { const im = new Image(); im.src = `assets/art/fx/${n}.png`; FXART[n] = im; }
   const fxReady = (n) => FXART[n] && FXART[n].complete && FXART[n].naturalWidth > 0;
   const GULLS = Array.from({ length: 8 }, (_, i) => { const im = new Image(); im.src = `assets/art/bits/gull${i}.png`; return im; });
   for (const [k, src] of Object.entries(ART)) {
@@ -45,26 +52,26 @@
 
   // Each biome: sky gradient stops, layer colours, weather and which painted art (if any) forms the far layer.
   const BIOMES = {
-    clear: { sky: ['#4f8fc4', '#8cc1e2', '#d8ecf3'], far: '#9ab7cc', farRock: '#8098ad', mid: '#6d86a0', cloud: ['#ffffff', '#e3edf3', '#b9cad8'], wisp: 'rgba(255,255,255,0.55)', weather: 'birds', farKind: 'art', art: 'skyClear', haze: 'rgba(255,255,255,0.06)', midKind: 'none' },
-    storm: { sky: ['#1d2533', '#3a4659', '#5c6878'], far: '#2b3443', farRock: '#222a36', mid: '#384353', cloud: ['#77808e', '#5d6573', '#3f4653'], wisp: 'rgba(120,128,140,0.55)', weather: 'rain', farKind: 'art', art: 'stormMesa', haze: 'rgba(20,26,44,0.45)', lightning: true },
-    smog: { sky: ['#5e4a38', '#8c7356', '#b59a76'], far: '#6d5944', farRock: '#5a4838', mid: '#4a3c30', cloud: ['#b7a58a', '#988670', '#6f604f'], wisp: 'rgba(120,105,85,0.5)', weather: 'soot', farKind: 'art', art: ['canyon', 'railYard', 'chimneys', 'smokeWrecks'], haze: 'rgba(120,96,70,0.35)', midKind: 'chimneys' },
-    sunset: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: ['sunset', 'sunsetIsles'], haze: 'rgba(80,40,70,0.18)', midKind: 'airships' },
-    dusk: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: ['cloudsea', 'pirateDusk'], haze: 'rgba(70,20,30,0.16)', midKind: 'airships' },
-    night: { sky: ['#070b1c', '#141d3a', '#26305a'], far: '#1a2240', farRock: '#121933', mid: '#0f1428', cloud: ['#59658a', '#3c4668', '#252c48'], wisp: 'rgba(110,125,170,0.4)', weather: 'motes', farKind: 'art', art: ['night', 'nightCity'], haze: 'rgba(8,12,30,0.22)', midKind: 'airships' },
-    lair: { sky: ['#160c0e', '#3a1414', '#7a2a1c'], far: '#2a1214', farRock: '#1d0d0f', mid: '#2c1416', cloud: ['#6e4a48', '#4e3232', '#2e1c1e'], wisp: 'rgba(90,50,50,0.5)', weather: 'embers', farKind: 'art', art: ['canyonCity', 'pirateLair'], haze: 'rgba(90,20,14,0.3)', midKind: 'wrecks' },
-    derelict: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: 'derelicts', haze: 'rgba(40,20,20,0.12)', midKind: 'none' },
-    rift: { sky: ['#160c2c', '#3a1d5c', '#6a3aa0'], far: '#2a1a48', farRock: '#1d1236', mid: '#170e2a', cloud: ['#8a6ac8', '#6a4aa8', '#3c2868'], wisp: 'rgba(170,130,240,0.4)', weather: 'motes', farKind: 'art', art: 'rift', haze: 'rgba(20,8,40,0.12)', midKind: 'none' },
-    port: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: 'port', haze: 'rgba(80,40,70,0.1)', midKind: 'none' },
+    clear: { sky: ['#4f8fc4', '#8cc1e2', '#d8ecf3'], far: '#9ab7cc', farRock: '#8098ad', mid: '#6d86a0', cloud: ['#ffffff', '#e3edf3', '#b9cad8'], wisp: 'rgba(255,255,255,0.55)', weather: 'birds', art: 'skyClear', haze: 'rgba(255,255,255,0.06)', midKind: 'none' },
+    storm: { sky: ['#1d2533', '#3a4659', '#5c6878'], far: '#2b3443', farRock: '#222a36', mid: '#384353', cloud: ['#77808e', '#5d6573', '#3f4653'], wisp: 'rgba(120,128,140,0.55)', weather: 'rain', art: 'stormMesa', haze: 'rgba(20,26,44,0.45)', lightning: true },
+    smog: { sky: ['#5e4a38', '#8c7356', '#b59a76'], far: '#6d5944', farRock: '#5a4838', mid: '#4a3c30', cloud: ['#b7a58a', '#988670', '#6f604f'], wisp: 'rgba(120,105,85,0.5)', weather: 'soot', art: ['canyon', 'railYard', 'chimneys', 'smokeWrecks'], haze: 'rgba(120,96,70,0.35)', midKind: 'chimneys' },
+    sunset: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', art: ['sunset', 'sunsetIsles'], haze: 'rgba(80,40,70,0.18)', midKind: 'airships' },
+    dusk: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', art: ['cloudsea', 'pirateDusk'], haze: 'rgba(70,20,30,0.16)', midKind: 'airships' },
+    night: { sky: ['#070b1c', '#141d3a', '#26305a'], far: '#1a2240', farRock: '#121933', mid: '#0f1428', cloud: ['#59658a', '#3c4668', '#252c48'], wisp: 'rgba(110,125,170,0.4)', weather: 'motes', art: ['night', 'nightCity'], haze: 'rgba(8,12,30,0.22)', midKind: 'airships' },
+    lair: { sky: ['#160c0e', '#3a1414', '#7a2a1c'], far: '#2a1214', farRock: '#1d0d0f', mid: '#2c1416', cloud: ['#6e4a48', '#4e3232', '#2e1c1e'], wisp: 'rgba(90,50,50,0.5)', weather: 'embers', art: ['canyonCity', 'pirateLair'], haze: 'rgba(90,20,14,0.3)', midKind: 'wrecks' },
+    derelict: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', art: 'derelicts', haze: 'rgba(40,20,20,0.12)', midKind: 'none' },
+    rift: { sky: ['#160c2c', '#3a1d5c', '#6a3aa0'], far: '#2a1a48', farRock: '#1d1236', mid: '#170e2a', cloud: ['#8a6ac8', '#6a4aa8', '#3c2868'], wisp: 'rgba(170,130,240,0.4)', weather: 'motes', art: 'rift', haze: 'rgba(20,8,40,0.12)', midKind: 'none' },
+    port: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', art: 'port', haze: 'rgba(80,40,70,0.1)', midKind: 'none' },
     // Area 2, the Aurora Reaches: auroras over crystal islands, runes and star-dust.
-    aurora: { sky: ['#040a1c', '#0b2638', '#17465a'], far: '#2a6a7a', farRock: '#16384a', mid: '#123044', cloud: ['#bfeee8', '#7fc4cc', '#3e7a8e'], wisp: 'rgba(160,255,230,0.22)', weather: 'stardust', farKind: 'art', art: 'auroraSky', midKind: 'runes', haze: 'rgba(10,30,50,0.12)', aurora: 0.55 , ribbons: true },
-    auroraRift: { sky: ['#0a0620', '#24124a', '#3a2070'], far: '#3a2a6a', farRock: '#22184a', mid: '#1a1238', cloud: ['#d6c4ff', '#9a84e0', '#5a4a9e'], wisp: 'rgba(200,170,255,0.22)', weather: 'stardust', farKind: 'art', art: 'rift', midKind: 'runes', haze: 'rgba(20,10,50,0.25)', aurora: 0.8 , ribbons: true },
-    auroraDeep: { sky: ['#030616', '#101a40', '#2a1f5e'], far: '#3a3a8a', farRock: '#1c1c4a', mid: '#141238', cloud: ['#c8d8ff', '#8a96d8', '#4a4e90'], wisp: 'rgba(180,200,255,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(8,10,40,0.25)', aurora: 1.2 , ribbons: true },
-    archon: { sky: ['#02040e', '#0a1430', '#1a2d55'], far: '#2a4a7a', farRock: '#142640', mid: '#0e1a30', cloud: ['#d0fff4', '#86d0d8', '#3e6e8e'], wisp: 'rgba(180,255,240,0.26)', weather: 'stardust', farKind: 'art', art: 'nightCity', midKind: 'runes', haze: 'rgba(20,60,90,0.42)', aurora: 1.6 , ribbons: true },
+    aurora: { sky: ['#040a1c', '#0b2638', '#17465a'], far: '#2a6a7a', farRock: '#16384a', mid: '#123044', cloud: ['#bfeee8', '#7fc4cc', '#3e7a8e'], wisp: 'rgba(160,255,230,0.22)', weather: 'stardust', art: ['auroraSky', 'auroraSwirl'], midKind: 'runes', haze: 'rgba(10,30,50,0.12)', aurora: 0.55 , ribbons: true },
+    auroraRift: { sky: ['#0a0620', '#24124a', '#3a2070'], far: '#3a2a6a', farRock: '#22184a', mid: '#1a1238', cloud: ['#d6c4ff', '#9a84e0', '#5a4a9e'], wisp: 'rgba(200,170,255,0.22)', weather: 'stardust', art: 'auroraRift', midKind: 'runes', haze: 'rgba(20,10,50,0.12)', aurora: 0.5 , ribbons: true },
+    auroraDeep: { art: 'auroraVortex', sky: ['#030616', '#101a40', '#2a1f5e'], far: '#3a3a8a', farRock: '#1c1c4a', mid: '#141238', cloud: ['#c8d8ff', '#8a96d8', '#4a4e90'], wisp: 'rgba(180,200,255,0.22)', weather: 'stardust', midKind: 'runes', haze: 'rgba(8,10,40,0.12)', aurora: 0.6 , ribbons: true },
+    archon: { sky: ['#02040e', '#0a1430', '#1a2d55'], far: '#2a4a7a', farRock: '#142640', mid: '#0e1a30', cloud: ['#d0fff4', '#86d0d8', '#3e6e8e'], wisp: 'rgba(180,255,240,0.26)', weather: 'stardust', art: 'archonSky', midKind: 'runes', haze: 'rgba(20,40,90,0.15)', aurora: 0.7 , ribbons: true },
     // Area 3, the Blood Moon: a vast red moon over gothic spires, wrecks, ash, bats and red fog.
-    bloodmoon: { sky: ['#07020a', '#26060c', '#5c0f16'], far: '#1c0a10', farRock: '#120609', mid: '#1a080c', cloud: ['#7a3438', '#4e1e22', '#2a0e12'], wisp: 'rgba(150,20,30,0.28)', weather: 'ash', farKind: 'art', art: 'bloodMoon', midKind: 'none', haze: 'rgba(40,0,6,0.12)', fog: 0.6, bats: true , mist: true },
-    bloodFog: { sky: ['#0a0306', '#300a10', '#6a1a1c'], far: '#2a0e12', farRock: '#16080a', mid: '#1e0a0e', cloud: ['#8a4044', '#5a2428', '#301216'], wisp: 'rgba(170,30,40,0.34)', weather: 'ash', farKind: 'art', art: 'derelicts', midKind: 'wrecks', haze: 'rgba(90,0,12,0.58)', moon: 0.85, fog: 1.1, bats: true , mist: true },
-    bloodSpires: { sky: ['#050106', '#1e0408', '#4a0a10'], far: '#22080e', farRock: '#100406', mid: '#16060a', cloud: ['#6e2c30', '#44181c', '#240a0e'], wisp: 'rgba(130,16,26,0.3)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(60,0,8,0.4)', moon: 1.15, fog: 0.8, bats: true , mist: true },
-    eclipse: { sky: ['#030003', '#1a0206', '#40060c'], far: '#1a060a', farRock: '#0c0204', mid: '#120408', cloud: ['#5e2026', '#3a1014', '#1e0608'], wisp: 'rgba(120,10,20,0.32)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(40,0,6,0.45)', moon: 1.45, fog: 0.9, bats: true , mist: true },
+    bloodmoon: { sky: ['#07020a', '#26060c', '#5c0f16'], far: '#1c0a10', farRock: '#120609', mid: '#1a080c', cloud: ['#7a3438', '#4e1e22', '#2a0e12'], wisp: 'rgba(150,20,30,0.28)', weather: 'ash', art: 'bloodMoon', midKind: 'none', haze: 'rgba(40,0,6,0.12)', fog: 0.6, bats: true , mist: true },
+    bloodFog: { sky: ['#0a0306', '#300a10', '#6a1a1c'], far: '#2a0e12', farRock: '#16080a', mid: '#1e0a0e', cloud: ['#8a4044', '#5a2428', '#301216'], wisp: 'rgba(170,30,40,0.34)', weather: 'ash', art: 'bloodFog', midKind: 'none', haze: 'rgba(40,0,6,0.12)', fog: 1.1, bats: true , mist: true },
+    bloodSpires: { art: 'bloodSpires', sky: ['#050106', '#1e0408', '#4a0a10'], far: '#22080e', farRock: '#100406', mid: '#16060a', cloud: ['#6e2c30', '#44181c', '#240a0e'], wisp: 'rgba(130,16,26,0.3)', weather: 'ash', midKind: 'none', haze: 'rgba(40,0,6,0.12)', fog: 0.8, bats: true , mist: true },
+    eclipse: { art: 'eclipseSky', sky: ['#030003', '#1a0206', '#40060c'], far: '#1a060a', farRock: '#0c0204', mid: '#120408', cloud: ['#5e2026', '#3a1014', '#1e0608'], wisp: 'rgba(120,10,20,0.32)', weather: 'ash', midKind: 'none', haze: 'rgba(30,0,4,0.15)', fog: 0.9, bats: true , mist: true },
     victory: { still: 'victory', wisp: 'rgba(255,230,190,0.4)', weather: 'motes' },
     defeat: { still: 'defeat', wisp: 'rgba(120,60,50,0.4)', weather: 'embers' },
     dock: { still: 'deck', wisp: 'rgba(255,255,255,0.4)', weather: 'steam' },
@@ -102,88 +109,7 @@
     g.save(); g.globalAlpha = 0.9; draw(-h * 0.05, 0.72, tones[0]); g.restore();
     return c;
   }
-  function islandSprite(w, h, top, rock, dark) {
-    const c = canvas(w, h);
-    const g = c.getContext('2d');
-    const pts = [[0.02, 0.3]];
-    for (let i = 1; i < 8; i++) pts.push([i / 8, 0.32 + rand(0.05, 0.25) + Math.sin((i / 8) * Math.PI) * 0.45]);
-    pts.push([0.98, 0.3]);
-    g.beginPath();
-    g.moveTo(pts[0][0] * w, pts[0][1] * h);
-    for (const [x, y] of pts) g.lineTo(x * w, Math.min(0.98, y) * h);
-    g.closePath();
-    g.fillStyle = rock; g.fill();
-    g.strokeStyle = dark; g.lineWidth = 2; g.stroke();
-    g.fillStyle = dark; g.globalAlpha = 0.25;
-    for (let i = 0; i < 3; i++) { g.fillRect(w * rand(0.2, 0.5), h * rand(0.4, 0.6), w * rand(0.1, 0.3), 2); }
-    g.globalAlpha = 1;
-    g.beginPath();
-    g.ellipse(w / 2, h * 0.3, w * 0.49, h * 0.09, 0, 0, Math.PI * 2);
-    g.fillStyle = top; g.fill(); g.strokeStyle = dark; g.stroke();
-    // A few spires and a clock tower on top.
-    const n = Math.floor(rand(0, 4));
-    for (let i = 0; i < n; i++) {
-      const bx = w * rand(0.25, 0.7), bw = w * rand(0.05, 0.1), bh = h * rand(0.12, 0.3);
-      g.fillStyle = rock; g.fillRect(bx, h * 0.3 - bh, bw, bh);
-      g.beginPath(); g.moveTo(bx - 2, h * 0.3 - bh); g.lineTo(bx + bw / 2, h * 0.3 - bh - bh * 0.5); g.lineTo(bx + bw + 2, h * 0.3 - bh); g.fillStyle = dark; g.fill();
-    }
-    return c;
-  }
   function auroraRgba(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
-  // A floating rock with glowing crystal shards on top.
-  function crystalIsland(w, h, crystal, rock) {
-    // Padded so the crystals' glow fades out instead of being clipped into a box.
-    const pad = Math.ceil(h * 0.6);
-    const c = canvas(w + pad * 2, h + pad);
-    const g = c.getContext('2d');
-    g.translate(pad, pad);
-    g.beginPath(); g.moveTo(w * 0.05, h * 0.55);
-    for (let i = 1; i < 8; i++) g.lineTo((i / 8) * w, h * (0.6 + Math.sin((i / 8) * Math.PI) * 0.35 * rand(0.7, 1.1)));
-    g.lineTo(w * 0.95, h * 0.55); g.closePath();
-    g.fillStyle = rock; g.fill(); g.strokeStyle = '#0b1424'; g.lineWidth = 2; g.stroke();
-    const n = 3 + Math.floor(rand(0, 4));
-    for (let i = 0; i < n; i++) {
-      const bx = w * rand(0.2, 0.8), bw = w * rand(0.05, 0.1), bh = h * rand(0.25, 0.55), lean = rand(-0.2, 0.2) * bh;
-      const gl = g.createRadialGradient(bx, h * 0.5 - bh * 0.5, 0, bx, h * 0.5 - bh * 0.5, bh);
-      gl.addColorStop(0, 'rgba(160,255,230,0.28)'); gl.addColorStop(1, 'rgba(160,255,230,0)');
-      g.fillStyle = gl; g.fillRect(bx - bh, h * 0.5 - bh * 1.5, bh * 2, bh * 2);
-      g.beginPath(); g.moveTo(bx - bw, h * 0.56); g.lineTo(bx + lean, h * 0.56 - bh); g.lineTo(bx + bw, h * 0.56); g.closePath();
-      g.fillStyle = crystal; g.fill(); g.strokeStyle = '#0b1424'; g.lineWidth = 1.5; g.stroke();
-      g.beginPath(); g.moveTo(bx - bw * 0.3, h * 0.55); g.lineTo(bx + lean * 0.9, h * 0.56 - bh * 0.92); g.lineTo(bx, h * 0.55); g.closePath();
-      g.fillStyle = 'rgba(255,255,255,0.35)'; g.fill();
-    }
-    return c;
-  }
-  // A gothic cathedral floating in the clouds: a nave, a tall spire or two, pointed lit windows.
-  function cathedralSprite(w, ht, body, dark) {
-    const H = Math.round(ht * 1.7);
-    const c = canvas(w, H);
-    const g = c.getContext('2d');
-    const base = H * rand(0.7, 0.85);
-    // The rock it sits on.
-    g.fillStyle = dark; g.beginPath(); g.moveTo(w * 0.05, base);
-    for (let i = 1; i < 7; i++) g.lineTo((i / 7) * w, base + Math.sin((i / 7) * Math.PI) * ht * 0.25 * rand(0.6, 1.1));
-    g.lineTo(w * 0.95, base); g.closePath(); g.fill();
-    g.fillStyle = body;
-    const naveW = w * 0.56, naveX = w * 0.22, naveH = ht * 0.3;
-    g.fillRect(naveX, base - naveH, naveW, naveH);
-    g.beginPath(); g.moveTo(naveX - 4, base - naveH); g.lineTo(naveX + naveW / 2, base - naveH - ht * 0.14); g.lineTo(naveX + naveW + 4, base - naveH); g.fill();
-    const spires = 1 + Math.floor(rand(0, 2.2));
-    for (let k = 0; k < spires; k++) {
-      const sx = naveX + (k === 0 ? naveW * 0.12 : naveW * 0.78), sw = w * 0.12, sh = ht * rand(0.55, 0.85);
-      g.fillRect(sx, base - sh, sw, sh);
-      g.beginPath(); g.moveTo(sx - 2, base - sh); g.lineTo(sx + sw / 2, base - sh - ht * 0.32); g.lineTo(sx + sw + 2, base - sh); g.fill();
-      g.fillRect(sx + sw / 2 - 1, base - sh - ht * 0.42, 2, ht * 0.12);
-      g.fillRect(sx + sw / 2 - 5, base - sh - ht * 0.39, 10, 2);
-    }
-    // Pointed windows glowing red.
-    g.fillStyle = 'rgba(255,70,50,0.55)';
-    for (let i = 0; i < 4; i++) {
-      const wx = naveX + naveW * (0.18 + i * 0.2), wy = base - naveH * 0.7;
-      g.beginPath(); g.moveTo(wx, wy + 10); g.lineTo(wx, wy + 3); g.lineTo(wx + 2.5, wy); g.lineTo(wx + 5, wy + 3); g.lineTo(wx + 5, wy + 10); g.fill();
-    }
-    return c;
-  }
   // A bat silhouette with its wings at a flap angle (0..1).
   function drawBat(g, x, y, s, flap, color) {
     const up = (flap - 0.5) * 8 * s;
@@ -228,37 +154,11 @@
       const grad = sg.createLinearGradient(0, 0, 0, h);
       def.sky.forEach((c, i) => grad.addColorStop(i / (def.sky.length - 1), c));
       sg.fillStyle = grad; sg.fillRect(0, 0, 4, h);
-      // Far layer.
-      this.far = canvas(this.tileW, h);
-      const fg = this.far.getContext('2d');
-      if (def.farKind === 'islands') {
-        this.ridge(fg, h * 0.82, h * 0.1, def.farRock, 0.6);
-        for (let i = 0; i < 7; i++) { const s = islandSprite(rand(70, 150), rand(60, 110), def.far, def.farRock, '#61788c'); this.wrapDraw(fg, s, rand(0, this.tileW), rand(h * 0.12, h * 0.55), 0.75); }
-      } else if (def.farKind === 'peaks') {
-        this.ridge(fg, h * 0.55, h * 0.35, def.far, 1);
-        this.ridge(fg, h * 0.72, h * 0.22, def.farRock, 1);
-      } else if (def.farKind === 'crystals') {
-        // Floating islands of rock crowned with glowing crystal shards.
-        this.ridge(fg, h * 0.86, h * 0.08, def.farRock, 0.55);
-        for (let i = 0; i < 8; i++) this.wrapDraw(fg, crystalIsland(rand(80, 170), rand(70, 130), def.far, def.farRock), rand(0, this.tileW), rand(h * 0.08, h * 0.5), 0.85);
-      } else if (def.farKind === 'cathedral') {
-        this.ridge(fg, h * 0.86, h * 0.08, def.farRock, 0.8);
-        for (let i = 0; i < 6; i++) this.wrapDraw(fg, cathedralSprite(rand(90, 170), rand(h * 0.35, h * 0.62), def.far, def.farRock), rand(0, this.tileW), 0, 0.9);
-      } else if (def.farKind === 'spires') {
-        this.ridge(fg, h * 0.8, h * 0.15, def.farRock, 1);
-        for (let i = 0; i < 14; i++) {
-          const x = rand(0, this.tileW), bw = rand(14, 40), bh = rand(h * 0.2, h * 0.6);
-          fg.fillStyle = def.far;
-          fg.beginPath(); fg.moveTo(x, h); fg.lineTo(x + bw * 0.3, h - bh); fg.lineTo(x + bw * 0.5, h - bh - 20); fg.lineTo(x + bw * 0.7, h - bh); fg.lineTo(x + bw, h); fg.fill();
-        }
-        const glow = fg.createLinearGradient(0, h * 0.6, 0, h);
-        glow.addColorStop(0, 'rgba(255,80,30,0)'); glow.addColorStop(1, 'rgba(255,80,30,0.35)');
-        fg.fillStyle = glow; fg.fillRect(0, h * 0.6, this.tileW, h * 0.4);
-      }
+      // The far layer is always a painting (drawArt); every biome names one.
       // Mid layer.
       this.mid = canvas(this.tileW, h);
       const mg = this.mid.getContext('2d');
-      const midKind = def.midKind || (def.farKind === 'islands' ? 'airships' : 'none');
+      const midKind = def.midKind || 'none';
       if (midKind === 'airships') for (let i = 0; i < 4; i++) airshipSilhouette(mg, rand(60, this.tileW - 60), rand(h * 0.15, h * 0.45), rand(0.35, 0.7), def.mid);
       if (midKind === 'runes') {
         // Faint rune circles hanging in the sky.
@@ -285,7 +185,9 @@
       }
       // Cloud banks (two depths) and weather.
       this.clouds = [];
-      for (let i = 0; i < 7; i++) this.clouds.push(this.makeCloud(i < 4 ? 'cloudBack' : 'cloudFront', rand(-80, w)));
+      // The aurora and blood skies are painted with their own clouds: only low front banks drift over them.
+      const backs = def.ribbons || def.mist ? 0 : 4;
+      for (let i = 0; i < backs + 3; i++) this.clouds.push(this.makeCloud(i < backs ? 'cloudBack' : 'cloudFront', rand(-80, w)));
       this.wisps = this.makeWisps(5);
       this.particles = [];
       // Drifting painted ribbons (aurora) or low banks of blood mist.
@@ -414,9 +316,7 @@
       const { w, h, def } = this;
       if (def.still) return this.drawStill(g);
       g.drawImage(this.sky, 0, 0, w, h);
-      if (def.moon) this.drawMoon(g);
-      if (def.farKind === 'art') this.drawArt(g, offset * FACTORS.far);
-      else this.drawTile(g, this.far, offset * FACTORS.far);
+      this.drawArt(g, offset * FACTORS.far);
       if (this.flash > 0 && this.bolt) {
         g.save();
         g.globalAlpha = this.flash * 0.45; g.fillStyle = '#dfe9ff'; g.fillRect(0, 0, w, h);
@@ -455,7 +355,7 @@
       if (this.def.fog) this.drawFog(g);
       if (this.mists) this.drawPainted(g, this.mists, false, this.speedLast || 0);
       this.drawParticles(g);
-      if (this.def.moon && Scene.eclipse && Scene.eclipse()) {
+      if (this.def.mist && Scene.eclipse && Scene.eclipse()) {
         g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(150,20,24,0.55)'; g.fillRect(0, 0, this.w, this.h); g.restore();
         const v = g.createRadialGradient(this.w / 2, this.h / 2, this.h * 0.3, this.w / 2, this.h / 2, this.w * 0.75);
         v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(20,0,0,0.6)');
@@ -535,42 +435,6 @@
         }
       }
       g.restore();
-    }
-    // The Blood Moon: a vast red disc low in the sky, with craters and a glow. Under an eclipse it
-    // goes black with a burning red corona. Its glow swells with the moon gauge (Scene.moonLevel).
-    drawMoon(g) {
-      const { w, h } = this;
-      const t = this.t || 0;
-      const k = this.def.moon;
-      const r = Math.min(w, h) * 0.24 * k;
-      const x = w * 0.72, y = h * 0.34;
-      const level = Scene.moonLevel ? Scene.moonLevel() : 0.5;
-      const ecl = Scene.eclipse && Scene.eclipse();
-      const glow = g.createRadialGradient(x, y, r * 0.8, x, y, r * (2.2 + level * 0.8));
-      glow.addColorStop(0, ecl ? 'rgba(255,40,30,0.55)' : `rgba(255,60,50,${0.25 + level * 0.25})`); glow.addColorStop(1, 'rgba(120,0,0,0)');
-      g.fillStyle = glow; g.fillRect(0, 0, w, h);
-      g.save();
-      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip();
-      const body = g.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
-      if (ecl) { body.addColorStop(0, '#1a0204'); body.addColorStop(1, '#050001'); }
-      else { body.addColorStop(0, '#ff8a6a'); body.addColorStop(0.55, '#d4282a'); body.addColorStop(1, '#6a0810'); }
-      g.fillStyle = body; g.fillRect(x - r, y - r, r * 2, r * 2);
-      if (!ecl) {
-        g.fillStyle = 'rgba(90,0,10,0.28)';
-        for (const [cx, cy, cr] of [[-0.3, -0.1, 0.18], [0.25, 0.2, 0.12], [0.05, -0.4, 0.09], [-0.1, 0.4, 0.14], [0.4, -0.25, 0.07]]) { g.beginPath(); g.arc(x + cx * r, y + cy * r, cr * r, 0, Math.PI * 2); g.fill(); }
-      }
-      g.restore();
-      if (ecl && fxReady('blood-ring')) {
-        g.save(); g.globalCompositeOperation = 'lighter'; g.translate(x, y); g.rotate((this.t || 0) * 0.15);
-        g.globalAlpha = 0.9; g.drawImage(FXART['blood-ring'], -r * 1.45, -r * 1.45, r * 2.9, r * 2.9);
-        g.restore();
-      }
-      if (ecl) {
-        g.save(); g.globalCompositeOperation = 'lighter';
-        g.strokeStyle = `rgba(255,60,40,${0.6 + 0.2 * Math.sin(t * 3)})`; g.lineWidth = 3; g.shadowColor = '#ff2a20'; g.shadowBlur = 24;
-        g.beginPath(); g.arc(x, y, r * 1.02, 0, Math.PI * 2); g.stroke();
-        g.restore();
-      }
     }
     // Red fog drifting low across the scene.
     drawFog(g) {
@@ -758,7 +622,6 @@
   Scene.overlay = null;
   Scene.pixelScale = null;
   Scene.eclipse = null; // () => whether the Crimson Sovereign's eclipse darkens the sky
-  Scene.moonLevel = null; // () => the Blood Moon gauge, 0..1
   Scene.auroraColor = null; // () => the colour of the fight's aurora, if there is one
   Scene.BIOMES = BIOMES;
   Scene.images = images;
