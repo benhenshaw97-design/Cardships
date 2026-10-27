@@ -714,3 +714,13 @@ body.eclipse .battle-bar { background: linear-gradient(180deg, rgba(60, 0, 6, 0.
 .vault-pedestal img { position: absolute; left: 34%; top: 23%; width: 33%; height: 47%; object-fit: cover; border-radius: 2px; box-shadow: 0 0 12px rgba(255, 200, 90, 0.8); }
 .vault-name { font: 400 18px/1.1 var(--f-display); color: var(--brass); }
 @media (max-width: 560px) { .vault-item { grid-template-columns: 110px minmax(0, 1fr); } .vault-pedestal { width: 110px; } }
+/* En route between places: a small banner over the sky while the ship sails the leg. */
+.scene-overlay:has(.enroute) { align-items: flex-start; justify-content: center; padding-top: 4%; }
+.enroute { margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 26px; min-width: min(360px, 90vw); border: 1.5px solid var(--accent-2, var(--brass-2)); border-radius: 6px; background: rgba(20, 14, 10, 0.78); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); animation: enroute-in 0.35s ease-out both; }
+.enroute b { font: 400 clamp(22px, 4vw, 32px)/1.1 var(--f-display); color: var(--accent, var(--brass)); text-align: center; }
+.enroute.boss b { color: #ff8a6a; }
+.enroute-bar { display: block; width: 100%; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); overflow: hidden; position: relative; }
+.enroute-bar::after { content: ""; position: absolute; inset: 0; background: var(--accent, var(--brass)); transform-origin: left; animation: enroute-fill var(--ms) linear both; }
+@keyframes enroute-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes enroute-fill { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .enroute, .enroute-bar::after { animation: none; } }

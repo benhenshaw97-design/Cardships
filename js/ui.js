@@ -163,7 +163,7 @@
         L && D.SHIPS[L.ship] ? h('div', { class: 'hangar-berth' }, window.CardshipsShipArt.thumb(D.SHIPS[L.ship].sprite, 300, 170, window.CardshipsShipArt.livery)) : null);
       return;
     }
-    overlay.replaceChildren();
+    overlay.replaceChildren(...(ui.enroute ? enrouteScreen() : []));
     const node = game.map && game.currentNode();
     const here = node && (node.enc !== 'start' || game.area > 0) ? node.biome : 'clear';
     const phase = game.phase;
@@ -226,6 +226,7 @@
   function stageContent() {
     if (!game) return titleScreen();
     if (ui.portaling) return []; // nothing in the way of the crossing
+    if (ui.enroute) return []; // the sky is the whole picture; the banner rides on the scene
     if (game.pendingChoice) {
       const pc = game.pendingChoice;
       ui.targeting = { prompt: pc.prompt, eligible: pc.eligible, onPick: (uid) => game.resolveChoice(uid), cancelable: false };
@@ -828,16 +829,33 @@
       mapEl, detail, legend);
     return panel;
   }
+  // Setting course: the marker flies the leg on the chart, then the chart steps aside and the
+  // ship sails through the sky for a moment ("En route to ...") before the place opens.
+  const ENROUTE_MS = 1700;
   function travel(id, mapEl) {
+    const n = game.node(id);
     ui.flying = true;
     scene.setMode('travel');
-    scene.setBiome(game.node(id).biome);
+    scene.setBiome(n.biome);
     mapEl.flyTo(id, () => {
-      ui.flying = false;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      ui.enroute = { name: game.nodeKnown(n) ? (n.enc === 'boss' ? D.ENEMIES[n.enemy].name : game.encName(n.enc)) : 'uncharted skies', boss: n.enc === 'boss' };
       ui.mapSel = null;
-      game.travel(id);
       render();
+      setTimeout(() => {
+        ui.flying = false;
+        ui.enroute = null;
+        game.travel(id);
+        render();
+      }, reduce ? 300 : ENROUTE_MS);
     });
+  }
+  function enrouteScreen() {
+    const r = ui.enroute;
+    return [h('div', { class: `enroute ${r.boss ? 'boss' : ''}`, role: 'status', 'aria-live': 'polite' },
+      h('span', { class: 'eyebrow' }, r.boss ? 'The final leg' : 'Under way'),
+      h('b', {}, `En route to ${r.name}`),
+      h('i', { class: 'enroute-bar', style: `--ms:${ENROUTE_MS}ms`, 'aria-hidden': 'true' }))];
   }
 
   // ---------- event ----------
