@@ -212,14 +212,14 @@ KEYED_CUTS = {
  'k_twinclock': ('7711', 2), 'k_gearwheel': ('7705', 6),
  'k_patchwork': ('7696', 3), 'k_sailraider': ('7711', 1),
  'k_crystal': ('7705', 1), 'k_starpagoda': ('7703', 1),
- # Area 2, the Aurora Reaches: spell-powered ships (washed in aurora light in code).
- 'k_wisp': ('7705', 0), 'k_corvette': ('7698', 1), 'k_barge': ('7706', 5), 'k_mirage': ('7706', 2), 'k_archon': ('7707', 7),
- # Area 3, the Blood Moon: gothic ships (washed crimson and bone in code).
- 'k_bats': ('7708', 1), 'k_wraith': ('7707', 3), 'k_bonegalleon': ('7697', 0), 'k_cultist': ('7703', 4), 'k_sovereign': ('7705', 5),
+ # Area 2, the Aurora Reaches: spell-ships from the magic sheet (washed in aurora light in code).
+ 'k_wisp': ('magic', 4), 'k_corvette': ('magic', 2), 'k_barge': ('magic', 3), 'k_mirage': ('magic', 7), 'k_archon': ('magic', 0),
+ # Area 3, the Blood Moon: ghost and undead ships (rimmed in red moonlight in code).
+ 'k_bats': ('7708', 1), 'k_wraith': ('undead', 5), 'k_bonegalleon': ('ghost', 1), 'k_cultist': ('undead', 6), 'k_sovereign': ('undead', 9),
  # The Workshop's three new Cores, three ships each.
- 'k_arcanist': ('7703', 6), 'k_arcanist2': ('7708', 4), 'k_arcanist3': ('7707', 0),
- 'k_sanguine': ('7698', 6), 'k_sanguine2': ('7703', 2), 'k_sanguine3': ('7705', 2),
- 'k_eclipse': ('7698', 5), 'k_eclipse2': ('7703', 5), 'k_eclipse3': ('7709', 2),
+ 'k_arcanist': ('magic', 1), 'k_arcanist2': ('magic', 10), 'k_arcanist3': ('magic', 11),
+ 'k_sanguine': ('ghost', 11), 'k_sanguine2': ('ghost', 2), 'k_sanguine3': ('ghost', 7),
+ 'k_eclipse': ('ghost', 4), 'k_eclipse2': ('undead', 10), 'k_eclipse3': ('undead', 8),
 }
 
 
@@ -227,7 +227,8 @@ def keyed_ships(sheet):
     """Every ship on a keyed sheet: a soft key on how far the backdrop's channel(s) dominate, the
     backdrop's tint pulled out of the edge pixels (despill), and parts joined by rigging grouped."""
     from scipy import ndimage
-    A = np.array(Image.open(os.path.join(SRC, 'ships-keyed', f'keyed-{sheet}.jpg')).convert('RGB')).astype(float)
+    png = os.path.join(SRC, 'ships-keyed', f'keyed-{sheet}.png')
+    A = np.array(Image.open(png if os.path.exists(png) else os.path.join(SRC, 'ships-keyed', f'keyed-{sheet}.jpg')).convert('RGB')).astype(float)
     r, g, b = A[..., 0], A[..., 1], A[..., 2]
     corners = np.concatenate([A[:8, :8].reshape(-1, 3), A[:8, -8:].reshape(-1, 3), A[-8:, :8].reshape(-1, 3), A[-8:, -8:].reshape(-1, 3)])
     bg = np.median(corners, axis=0)
@@ -253,8 +254,24 @@ def keyed_ships(sheet):
             continue
         a = (alpha[o] * m * 255).astype(np.uint8)
         im = Image.fromarray(np.dstack([out[o].clip(0, 255).astype(np.uint8), a]), 'RGBA')
-        ys, xs = np.where(a > 8)
-        ships.append(im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)))
+        # Ships stacked close in a column can join through their rigging glow: split a cut taller
+        # than any single ship at its emptiest horizontal bands.
+        bands = [(0, a.shape[0])]
+        if a.shape[0] > 450:
+            rows = (a > 40).sum(axis=1)
+            n = round(a.shape[0] / 290)
+            cuts = []
+            for k in range(1, n):
+                c = int(a.shape[0] * k / n)
+                lo, hi = max(0, c - 70), min(a.shape[0], c + 70)
+                cuts.append(lo + int(np.argmin(rows[lo:hi])))
+            edges = [0] + cuts + [a.shape[0]]
+            bands = list(zip(edges[:-1], edges[1:]))
+        for y0, y1 in bands:
+            ys, xs = np.where(a[y0:y1] > 8)
+            if len(ys) < 3000:
+                continue
+            ships.append(im.crop((xs.min(), y0 + ys.min(), xs.max() + 1, y0 + ys.max() + 1)))
     return ships
 
 

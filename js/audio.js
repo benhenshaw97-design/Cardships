@@ -14,6 +14,17 @@
     lament: { src: 'assets/music/pirate-defeat', loopEnd: 156.1 },
     menu: { src: 'assets/music/main-menu-scene', loopEnd: 137.0 },
     demon: { src: 'assets/music/arcade-demon-riff', loopEnd: 100.9 },
+    // The Aurora Reaches: chiptune spells and a fairy's wand.
+    fairy: { src: 'assets/music/aurora-fairy-wand', loopEnd: 128.3 },
+    spell1: { src: 'assets/music/aurora-spell-1', loopEnd: 133.2 },
+    spell2: { src: 'assets/music/aurora-spell-2', loopEnd: 206.9 },
+    spell3: { src: 'assets/music/aurora-spell-3', loopEnd: 150.8 },
+    // The Blood Moon: hauntology and ghost battles.
+    haunt: { src: 'assets/music/blood-hauntology', loopEnd: 192.5 },
+    haunt2: { src: 'assets/music/blood-hauntology-2', loopEnd: 133.2 },
+    haunting: { src: 'assets/music/blood-haunting', loopEnd: 142.8 },
+    ghost1: { src: 'assets/music/blood-ghost-battle-1', loopEnd: 115.0 },
+    ghost2: { src: 'assets/music/blood-ghost-battle-2', loopEnd: 128.2 },
   };
   // cutoff: low-pass filter in Hz (20000 = open). rate < 1 slows and lowers the track.
   // A list of tracks takes turns: each new fight plays the next one.
@@ -27,26 +38,26 @@
     spoils: { track: 'spoils', start: 0, gain: 0.8, cutoff: 20000 },
     victory: { track: 'fanfare', start: 0, gain: 0.9, cutoff: 20000 },
     defeat: { track: 'lament', start: 0, gain: 0.8, cutoff: 20000 },
-    // Area 2, the Aurora Reaches: the menu theme over the map, the bitcrushed battles in fights,
-    // and the boss track quickened and bright for the Archon of living light.
-    map2: { track: 'menu', start: 0, gain: 0.8, cutoff: 20000 },
-    dock2: { track: 'menu', start: 40, gain: 0.6, cutoff: 1100 },
-    combat2: { track: ['battle5', 'battle4'], start: 0, gain: 0.85, cutoff: 20000 },
-    boss2: { track: 'boss', start: 0, gain: 0.82, cutoff: 5000, rate: 1.06, steps: 'archon' },
-    // Area 3, the Blood Moon: the Area 1 theme slowed and darkened, the demon riff in fights, and
-    // the riff again for the Sovereign, muffled under the eclipse.
-    map3: { track: 'roam', start: 8, gain: 0.8, cutoff: 2400, rate: 0.86 },
-    dock3: { track: 'roam', start: 48, gain: 0.55, cutoff: 800, rate: 0.86 },
-    combat3: { track: ['demon', 'battle'], start: 0, gain: 0.85, cutoff: 20000 },
-    boss3: { track: 'demon', start: 0, gain: 0.85, cutoff: 4000, steps: 'sovereign' },
+    // Area 2, the Aurora Reaches: the fairy's wand over the map, the square-wave spells in fights,
+    // and the longest spell for the Archon, opening up phase by phase.
+    map2: { track: 'fairy', start: 0, gain: 0.8, cutoff: 20000 },
+    dock2: { track: 'fairy', start: 40, gain: 0.6, cutoff: 1100 },
+    combat2: { track: ['spell1', 'spell3'], start: 0, gain: 0.85, cutoff: 20000 },
+    boss2: { track: 'spell2', start: 0, gain: 0.85, cutoff: 5000, steps: 'archon' },
+    // Area 3, the Blood Moon: hauntology on the map, the ghost battles in fights, and the second
+    // ghost battle for the Sovereign, muffled under the eclipse.
+    map3: { track: 'haunt', start: 0, gain: 0.8, cutoff: 20000 },
+    dock3: { track: 'haunting', start: 0, gain: 0.6, cutoff: 1200 },
+    combat3: { track: ['ghost1', 'haunt2'], start: 0, gain: 0.85, cutoff: 20000 },
+    boss3: { track: 'ghost2', start: 0, gain: 0.88, cutoff: 4000, steps: 'sovereign' },
   };
   // Each boss phase jumps to a hotter section of the boss track and opens the filter.
   const BOSS_STEPS = [{ start: 0, cutoff: 3200, gain: 0.8 }, { start: 100, cutoff: 9000, gain: 0.88 }, { start: 168, cutoff: 20000, gain: 0.95 }];
   const STEPS = {
     boss: BOSS_STEPS,
-    archon: [{ start: 0, cutoff: 5000, gain: 0.82 }, { start: 100, cutoff: 12000, gain: 0.9 }, { start: 168, cutoff: 20000, gain: 0.96 }],
+    archon: [{ start: 0, cutoff: 5000, gain: 0.85 }, { start: 70, cutoff: 12000, gain: 0.9 }, { start: 140, cutoff: 20000, gain: 0.96 }],
     // The eclipse (phase 3) closes the filter right down: the music goes dark with the screen.
-    sovereign: [{ start: 0, cutoff: 4000, gain: 0.85 }, { start: 30, cutoff: 20000, gain: 0.95 }, { start: 60, cutoff: 900, gain: 1 }],
+    sovereign: [{ start: 0, cutoff: 4000, gain: 0.88 }, { start: 40, cutoff: 20000, gain: 0.95 }, { start: 80, cutoff: 900, gain: 1 }],
   };
   const FADE = 1.2;
 

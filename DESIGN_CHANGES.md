@@ -778,3 +778,35 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
 
   *Reason: the Battleship cleared Area 2 only 6% of the time against armor and wards. The Sanguine Core cleared Area 1 only 20% of the time.*
 - **New `BALANCE` knobs** for further tuning: `moonRising`, `frenzyBonus`, `moonEvery`, `moonWane`, `beamRest`, `drainHeal`, `umbraBase`.
+
+## Your new ships and music for the later areas
+
+- **Ships.** Your three new keyed sheets (magic, ghost-pirate and undead ships) now fly the later areas.
+  - The sheets are filed in `assets/art/source/ships-keyed/` as `keyed-magic.png`, `keyed-ghost.png` and `keyed-undead.png`. The cutter splits ships that sit stacked close in a column.
+  - **Aurora Reaches:**
+    - Glimmer Wisp: the fairy-winged ship.
+    - Arcane Corvette: the witch-hat ship.
+    - Crystal Barge: the crystal zeppelin.
+    - Mirage Galleon: the cloud castle.
+    - Aurora Archon: the galaxy-orb ship.
+  - **Blood Moon:**
+    - Wraith Clipper: the ghost-sheet ship.
+    - Bone Galleon: the bone-ribbed galleon.
+    - Blood Cultist Barge: the eyeball ship.
+    - Crimson Sovereign: the spiked red skull flagship.
+    - The Bat Swarm keeps its bat-winged ship.
+  - **Workshop Cores:**
+    - Arcanist: the moon-castle zeppelin, the crescent zeppelin and the scroll ship.
+    - Sanguine: the skull zeppelin and two red-sailed ghost ships.
+    - Eclipse: the teal ghost ship, the teal bone zeppelin and the jar ship.
+- **Music.** Your nine new tracks replace the stand-ins:
+  - **Aurora Reaches:**
+    - Map: Fairy's Wand. Docks: Fairy's Wand, muffled.
+    - Fights: Square Wave Spell 1 and 3, alternating.
+    - The Archon: Square Wave Spell 2. It opens up phase by phase.
+  - **Blood Moon:**
+    - Map: Hauntology. Docks: Haunting, muffled.
+    - Fights: Ghost Battle and Hauntology 2, alternating.
+    - The Sovereign: Ghost Battle 2. It closes right down under the eclipse.
+
+  Each track is stored as an Opus copy and an AAC copy for Safari, like the others.
