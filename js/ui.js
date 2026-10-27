@@ -150,17 +150,16 @@
     const wrap = $('scene-wrap');
     const overlay = $('scene-overlay');
     wrap.classList.toggle('tall', !game);
+    wrap.classList.toggle('menu', menuOpen());
     wrap.classList.toggle('battle', !!game && game.phase === 'combat' && FX.prefs.battle !== 'classic');
     syncMusic();
     if (!game) {
-      // The Workshop: the hangar deck, with your last ship berthed on display.
+      // The hangar, with your last ship berthed on its platform. On the main menu the title and
+      // its buttons sit over it; in the Workshop and launch screens just the ship.
       scene.setBiome('workshop'); scene.setMode('docked');
       const L = meta.lastShip;
-      overlay.replaceChildren(h('div', { class: 'title-hero' },
-        h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike · The Workshop'),
-        h('h1', {}, 'Cardships'),
-        h('p', {}, 'Bolt modules onto a Core, read the enemy\'s next move, and fly through three skies to the Crimson Sovereign.')),
-        L && D.SHIPS[L.ship] ? h('div', { class: 'hangar-berth' }, window.CardshipsShipArt.thumb(D.SHIPS[L.ship].sprite, 300, 170, window.CardshipsShipArt.livery)) : null);
+      const berth = L && D.SHIPS[L.ship] ? h('div', { class: 'hangar-berth' }, window.CardshipsShipArt.thumb(D.SHIPS[L.ship].sprite, 300, 170, window.CardshipsShipArt.livery)) : null;
+      overlay.replaceChildren(...(menuOpen() ? [mainMenu(), berth] : [berth]));
       return;
     }
     overlay.replaceChildren(...(ui.enroute ? enrouteScreen() : []));
@@ -192,6 +191,7 @@
     ui.insertFn = null;
     ui.previewId = null;
     document.body.classList.toggle('single', single());
+    document.body.classList.toggle('no-run', !game);
     for (let a = 1; a <= 3; a++) document.body.classList.toggle(`area-${a}`, !!game && game.core && game.area === a - 1);
     document.body.classList.toggle('eclipse', !!(game && game.combat && !game.combat.over && game.combat.eclipse));
     const content = stageContent().filter(Boolean);
@@ -219,6 +219,7 @@
     Actors.sync(game, ui);
     renderBattle();
     renderSheet();
+    Tutorial.update();
     autosave();
     const lh = $('log-head');
     if (lh) lh.textContent = game && game.phase === 'combat' ? `Combat log · round ${game.combat.round}` : "Ship's log";
@@ -356,12 +357,81 @@
   }
   // Cores with painted card art; the Workshop's newer Cores show their ship instead.
   const CORE_ART = new Set(['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest']);
-  const WS_TABS = [['hangar', 'Hangar'], ['upgrades', 'Upgrades'], ['parts', 'Parts'], ['logbook', 'Logbook'], ['vault', 'Legendary Vault'], ['livery', 'Livery & honours']];
+  // ---------- the guided first flight ----------
+  // A short coach card that steps a new captain through the first run. Each step shows once its
+  // moment arrives; Next moves on, Skip ends the tour. Replayable from "How to play".
+  const Tutorial = (() => {
+    const KEY = 'cardships.tutorial.v1';
+    const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') || { step: 0, done: false }; } catch (e) { return { step: 0, done: false }; } };
+    let st = load();
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* storage unavailable */ } };
+    const inCombat = () => game && game.phase === 'combat' && game.combat && !game.combat.over;
+    const STEPS = [
+      { when: () => !game && ui.screen === 'launch', title: 'Choose a Core', text: 'The Core is your ship\'s heart: its Durability is your life, and it gives you a passive and one special ability. The Airship is a forgiving first choice. Then pick a ship and launch.' },
+      { when: () => game && game.phase === 'loot' && game.depth === 0, title: 'Your first part', text: 'Pick one part, then tap a glowing slot on your ship to bolt it on. Weapons fire from the front of a deck (the bow is on the right); armor at the front catches shots.' },
+      { when: () => game && game.phase === 'map', title: 'The sky route', text: 'Tap a glowing node to read what waits there, then Set course. Patrols are fights; other places offer repairs, trades and gambles. The boss waits at the far right.' },
+      { when: () => inCombat(), title: 'Read the enemy', text: 'Its next move is shown above it before you act, and the red arrows mark which of your modules it will hit. Plan around it: kill it first, dodge, or move what is in the way.' },
+      { when: () => inCombat(), title: 'Fire and spend Steam', text: 'Tap a glowing module to fire or use it. Each action costs Steam (the white pips on the battle bar), which refills every turn. Durability is only health.' },
+      { when: () => inCombat(), title: 'Evade, swap, end turn', text: 'Evade makes the telegraphed attack miss. Tap a module and Swap to move it out of harm\'s way. When you are done, press End turn and the enemy acts.' },
+      { when: () => game && game.phase === 'loot' && game.depth > 0, title: 'Spoils', text: 'Every win offers parts. Take one and install it, or take nothing to keep your layout. Weight matters: lighter ships act first and dodge cheaply.' },
+      { when: () => game && game.phase === 'map' && game.depth > 0, title: 'Fly on', text: 'That is the loop. Clear the route, sink the boss to open a portal to the next sky, and earn Blueprints for the Workshop win or lose. Good winds, captain.' },
+    ];
+    let card = null, folded = false;
+    function update() {
+      if (!card) { card = h('div', { class: 'coach', id: 'coach', role: 'dialog', 'aria-label': 'Tutorial' }); document.body.append(card); }
+      // A step whose moment has passed is skipped: jump to the next one that matches now.
+      if (!st.done && STEPS[st.step] && !STEPS[st.step].when()) {
+        const next = STEPS.findIndex((x, i) => i > st.step && x.when());
+        if (next > st.step) { st.step = next; save(); }
+      }
+      const step = STEPS[st.step];
+      const show = !st.done && step && step.when() && !ui.portaling && !ui.enroute && !(window.CardshipsFX && FX.isPlaying());
+      card.hidden = !show;
+      document.body.classList.toggle('coaching', !!show && !folded);
+      if (!show) return;
+      card.classList.toggle('folded', folded);
+      card.classList.toggle('in-battle', !!inCombat());
+      if (folded) { card.replaceChildren(h('button', { class: 'coach-pill', onclick: () => { folded = false; update(); } }, `Tip ${st.step + 1}/${STEPS.length}: ${step.title} ▴`)); return; }
+      card.replaceChildren(
+        h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'eyebrow' }, `First flight · ${st.step + 1} of ${STEPS.length}`), h('button', { class: 'coach-fold', 'aria-label': 'Fold the tip away', onclick: () => { folded = true; update(); } }, '▾')),
+        h('b', {}, step.title), h('p', {}, step.text),
+        h('div', { class: 'row' },
+          h('button', { class: 'btn small primary', onclick: () => { st.step++; if (st.step >= STEPS.length) st.done = true; save(); update(); } }, st.step === STEPS.length - 1 ? 'Done' : 'Next'),
+          h('button', { class: 'btn small', onclick: () => { st.done = true; save(); update(); } }, 'Skip tutorial')));
+    }
+    return { update, done: () => st.done, reset: () => { st = { step: 0, done: false }; save(); } };
+  })();
+
+  // Between runs: the main menu (over the scene), the Workshop, or the launch screen.
+  function menuOpen() { return !game && (ui.screen || 'menu') === 'menu'; }
+  function goScreen(name) { ui.screen = name; ui.pickCore = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function mainMenu() {
+    const saved = loadSave();
+    const item = (label, sub, onclick, primary = false) => h('button', { class: `menu-btn ${primary ? 'primary' : ''}`, onclick }, h('span', { class: 'menu-label' }, label), sub ? h('span', { class: 'menu-sub' }, sub) : null);
+    return h('div', { class: 'main-menu' },
+      h('div', { class: 'title-hero' }, h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike'), h('h1', {}, 'Cardships')),
+      h('nav', { class: 'menu-list', 'aria-label': 'Main menu' },
+        saved && saved.core ? item('Continue', `${D.CORES[saved.core.id].name.replace(' Core', '')} · Area ${D.AREAS[saved.area || 0].numeral}, column ${saved.depth}`, () => continueRun(saved), true) : null,
+        saved && saved.core ? h('button', { class: 'menu-abandon', onclick: () => { if (confirm('Abandon the saved run? It cannot be resumed.')) { clearSave(); render(); } } }, 'Abandon saved run') : null,
+        item('New run', meta.runs ? 'Choose a Core and a ship' : 'Start here', () => goScreen('launch'), !(saved && saved.core)),
+        item('Workshop', `${meta.blueprints} Blueprints · upgrades, Logbook, Vault`, () => goScreen('workshop')),
+        item('How to play', Tutorial.done() ? 'Replay the guided first flight' : 'A short guided first flight', () => { Tutorial.reset(); goScreen('launch'); }),
+        item('Settings', null, () => { $('settings').hidden = false; renderSettings(); })),
+      h('span', { class: 'menu-foot' }, meta.runs ? `Runs ${meta.runs} · Wins ${meta.wins} · Bosses sunk ${meta.bossesBeaten.length} · Legendaries ${meta.legendaries.length}` : 'Three skies. Three bosses. One ship.'));
+  }
+  function backBar(title) {
+    return h('div', { class: 'back-bar' }, h('button', { class: 'btn small', onclick: () => goScreen('menu') }, '◂ Main menu'), h('h2', {}, title));
+  }
+  const WS_TABS = [['upgrades', 'Upgrades'], ['parts', 'Parts'], ['logbook', 'Logbook'], ['vault', 'Legendary Vault'], ['livery', 'Livery & honours']];
   function titleScreen() {
-    const tab = ui.wsTab || 'hangar';
-    const tabs = h('nav', { class: 'ws-tabs', role: 'tablist' }, WS_TABS.map(([id, label]) => h('button', { class: `ws-tab ${tab === id ? 'on' : ''}`, role: 'tab', 'aria-selected': tab === id ? 'true' : 'false', onclick: () => { ui.wsTab = id; ui.pickCore = null; render(); } }, label)));
-    const body = { hangar: hangarTab, upgrades: upgradesTab, parts: partsTab, logbook: logbookTab, vault: vaultTab, livery: liveryTab }[tab]();
-    return [workshopHeader(), tabs, ...body];
+    const screen = ui.screen || 'menu';
+    if (screen === 'menu') return [];
+    if (screen === 'launch') return [backBar('New run'), ...hangarTab()];
+    let tab = ui.wsTab || 'upgrades';
+    if (!WS_TABS.some(([id]) => id === tab)) tab = 'upgrades';
+    const tabs = h('nav', { class: 'ws-tabs', role: 'tablist' }, WS_TABS.map(([id, label]) => h('button', { class: `ws-tab ${tab === id ? 'on' : ''}`, role: 'tab', 'aria-selected': tab === id ? 'true' : 'false', onclick: () => { ui.wsTab = id; render(); } }, label)));
+    const body = { upgrades: upgradesTab, parts: partsTab, logbook: logbookTab, vault: vaultTab, livery: liveryTab }[tab]();
+    return [backBar('The Workshop'), workshopHeader(), tabs, ...body];
   }
   function hangarTab() {
     const cores = Object.values(D.CORES).map((c) => {
@@ -381,7 +451,6 @@
         best != null ? h('span', { class: 'tier-best' }, `Best clear: Storm Tier ${best}`) : null,
         !open && cost != null ? h('div', { class: 'row' }, buyBtn(cost, () => Meta.buyUnlock(meta, c.id), 'Build')) : null);
     });
-    const saved = loadSave();
     const seedBox = h('div', { class: 'row seed-row' },
       h('label', { for: 'seed-input', class: 'hud-label' }, 'Seed'),
       h('input', { id: 'seed-input', class: 'seed-input', placeholder: 'Random', value: ui.seedCode, maxlength: '16', autocomplete: 'off', oninput: (e) => { ui.seedCode = e.target.value; } }),
@@ -393,25 +462,11 @@
       h('div', { class: 'tier-row' }, [0, ...D.STORM_TIERS.filter((t) => t.tier <= meta.tierUnlocked).map((t) => t.tier)].map((n) => h('button', { class: `tier-pick ${meta.tier === n ? 'on' : ''}`, onclick: () => { Meta.setTier(meta, n); render(); } }, n ? `Tier ${n}` : 'Calm skies'))),
       meta.tier ? h('ul', { class: 'tier-mods' }, D.STORM_TIERS.filter((t) => t.tier <= meta.tier).map((t) => h('li', {}, h('b', {}, `${t.name}: `), t.text))) : h('span', { class: 'muted' }, 'No modifiers.')) : null;
     return [
-      saved && saved.core ? h('div', { class: 'panel row', style: 'justify-content:space-between' },
-        h('div', { class: 'stack', style: 'gap:2px' }, h('span', { class: 'eyebrow' }, 'Autosaved run'),
-          h('b', {}, `${D.CORES[saved.core.id].name} · Area ${D.AREAS[saved.area || 0].numeral}, column ${saved.depth} of ${saved.maxDepth} · seed ${Game.seedCode(saved.seed)}${saved.tier ? ` · Storm Tier ${saved.tier}` : ''}`)),
-        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => continueRun(saved) }, 'Continue run'), h('button', { class: 'btn', onclick: () => { clearSave(); render(); } }, 'Abandon'))) : null,
+      h('p', { class: 'muted launch-intro' }, `Choose a Core, then the ship that carries it.${meta.tierUnlocked ? ' Pick a Storm Tier for a harder flight.' : ''}`),
       tiers,
       h('div', { class: 'cores' }, cores),
       shipPicker(),
       seedBox,
-      h('div', { class: 'panel stack' },
-        h('h3', {}, 'How it flies'),
-        h('div', { class: 'primer' },
-          h('div', {}, h('b', {}, 'Two decks'), h('span', {}, 'Build out from the Core along the hull: up to 3 modules in the bow (facing the enemy) and 3 in the stern. An upper deck sits on top: any hull module, or the Core itself (the bridge), can carry one more. 8 modules in all.')),
-          h('div', {}, h('b', {}, 'Firing'), h('span', {}, 'Straight guns fire from the front of a deck: the prow of the hull, or the foremost upper module. Mortars and Tesla Coils arc from any slot with open sky above.')),
-          h('div', {}, h('b', {}, 'Intents'), h('span', {}, 'The enemy\'s next move and target are shown before you act. Answer it: swap modules, Evade, cleanse, or kill it first.')),
-          h('div', {}, h('b', {}, 'Steam'), h('span', {}, 'Refills every turn and pays for everything. Durability is only health.')),
-          h('div', {}, h('b', {}, 'Three areas'), h('span', {}, 'Sink each area\'s boss to tear open a portal to the next: the Open Skies, the Aurora Reaches, then the Blood Moon. Your ship flies through intact, and the Core is fully repaired.')),
-          h('div', {}, h('b', {}, 'Weight'), h('span', {}, 'Lighter than the enemy: +1 Steam on turn one and cheap Evades. Heavier: rams and crosswinds hurt less.')),
-          h('div', {}, h('b', {}, 'Dice'), h('span', {}, 'Everything rolls a d6. Results with a downside give you a choice.')),
-        )),
     ];
   }
   function upgradesTab() {
@@ -1316,7 +1371,7 @@
         E.achievements.length ? h('div', { class: 'banner unlock-banner' }, h('span', {}, 'Honours: ' + E.achievements.map((a) => `${a.name} (${D.COSMETICS[a.reward[0]][a.reward[1]].name})`).join(', '))) : null,
         E.tier ? h('div', { class: 'banner unlock-banner' }, h('span', {}, `Storm Tier ${E.tier} is open: ${D.STORM_TIERS[E.tier - 1].name}.`)) : null,
         h('p', { class: 'muted' }, `Seed ${Game.seedCode(game.seed)}. Enter it in the Workshop to fly the same route again.`),
-        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; ui.wsTab = 'hangar'; meta = Meta.load(); applyLivery(); render(); } }, 'Return to the Workshop')),
+        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { game = null; ui.selected = null; ui.screen = 'workshop'; meta = Meta.load(); applyLivery(); render(); } }, 'Return to the Workshop'), h('button', { class: 'btn', onclick: () => { game = null; ui.selected = null; ui.screen = 'menu'; meta = Meta.load(); applyLivery(); render(); } }, 'Main menu')),
       ),
       shipView({ title: 'Final ship' }),
     ];
