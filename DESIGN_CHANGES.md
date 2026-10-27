@@ -754,3 +754,27 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - Each tier adds one modifier on top of the ones before it: Squall (+10% enemy Durability), Lean Holds (−10 cogs, shops +15%), Hardened Crews (+1 enemy damage), Dread Captains (bosses +20%), Thin Hulls (−3 Core), Black Storm (enemies start behind 3 Block).
   - Each Core's card shows the best tier it has cleared.
 - **Saving.** Meta progress is saved under `cardships.meta.v3`, separately from the run save. An old v2 record carries over: its runs, unlocks and legendaries, plus starting Blueprints for its runs and wins.
+
+## Balance pass for three-area runs (expansion step 6)
+
+The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tier, runs now clear Area 1 about 60% of the time and Area 2 about 35%, and win 17–18%, all within the targets. The design changes:
+
+- **Area 1 is a checkpoint, not a finale.** Enemy Durability grows 4% per column (was 8%), and bosses have ×1.25 Durability (was ×1.5).
+- **The Aurora Reaches got harder.** Its enemies have +20% Durability, and the Archon has 54 (was 40).
+- **The Blood Moon builds instead of pinning at full:**
+  - It rises every 2 rounds and wanes 4 after a fight.
+  - Enemies deal +1 from moon 3.
+  - Frenzy adds +1 (was +2) and still makes every hit bleed.
+
+  *Reason: runs were dying with the moon at 6 in every fight.*
+- **Area 3's enemies are leaner, so their danger is Bleed and the moon:**
+  - Area 3's Durability multiplier is ×0.85.
+  - Bone Galleon 17, Blood Cultist 22, Wraith Clipper 16.
+  - The Crimson Sovereign has 34 Durability. Crimson Tide heals her half of what it drains. The Blood Beam comes every third move, and she summons bats once in her first phase.
+- **Cores:**
+  - The Battleship's Ram and the Zeppelin's Bombard now crash through: Armor (Ram only) and a Ward no longer swallow the blow.
+  - The Sanguine Core gets 4 Steam.
+  - The Eclipse Core's Umbral Strike has a base of 3, and the Core has 11 Durability.
+
+  *Reason: the Battleship cleared Area 2 only 6% of the time against armor and wards. The Sanguine Core cleared Area 1 only 20% of the time.*
+- **New `BALANCE` knobs** for further tuning: `moonRising`, `frenzyBonus`, `moonEvery`, `moonWane`, `beamRest`, `drainHeal`, `umbraBase`.

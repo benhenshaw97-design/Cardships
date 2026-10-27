@@ -7,7 +7,7 @@ The current brief, so a fresh session can pick up mid-way. Build in this order a
 3. Area 2: The Aurora Reaches: **done**
 4. Area 3: The Blood Moon: **done**
 5. The Workshop (meta-progression): **done**
-6. Balance pass
+6. Balance pass: **done**
 
 Update this file after each step: mark the step done and note anything left for later steps.
 
@@ -194,21 +194,22 @@ Update this file after each step: mark the step done and note anything left for 
 - **Bot:** scores the new Core abilities.
 - **Tests:** 70 pass.
 
-## Balance pass (step 6): what to do
+## Balance pass (step 6): done
 
-- Run `node tools/simulate.js 300` (all 9 Cores, tier 0, everything unlocked). Targets: Area 1 clear about 60%, Area 2 about 35%, full win 15–25%.
-- Levers:
-  - `AREAS[n].hp/dmg/bossHp`, enemy base hp, `BALANCE.moonMax/moonWane/beamDamage`.
-  - The Sovereign and Archon hp.
-  - Core stats for Sanguine and Eclipse (weak in Area 1 at step 5: about 25%).
-- At step 5, Area 3 is far too hard (wins about 3%). Look at deaths by enemy, and at whether the bot handles Bleed and the Wraith.
-- Update BALANCE_REPORT.md with per-Core tables, per-boss win rates, and Storm Tier 1–6 results for a couple of Cores.
+- Results and method are in BALANCE_REPORT.md. Averages over 9 Cores at tier 0 (seed 1): Area 1 60.1%, Area 2 36.0%, full win 18.0%. Seeds 2 and 3 agree within 3 points.
+- Possible follow-ups (none are required by the brief):
+  - The Battleship's win rate is low (about 10%).
+  - Tempest is the strongest Core (about 27%).
+  - Storm Tiers 4–6 sit close together; give them sharper modifiers if wanted.
+  - The bot never rearranges at the Sky Dock.
+- To retune: `BRIEF=1 node tools/simulate.js 200`, with `TUNE='{"AREAS":{"2":{"hp":0.9}}}'`-style overrides (arrays by index).
 
 ## Status
 
 - Step 1 is done: run structure, portals, the simulator, and tests.
 - Step 2 is done: legendaries for the Area 1 bosses, enemy defence layers, generated card art. 47 tests pass.
 - Step 3 is done: the Aurora Reaches, the Archon and its pool. 55 tests pass, and a 300-run fuzz through all areas holds its invariants.
+- **All six steps are done.** Step 6: the balance pass hit all three targets. 70 tests pass.
 - Step 5 is done: the Workshop hub, Blueprints, 3 new Cores, part drafting, upgrades, Logbook, Vault, cosmetics and Storm Tiers. 70 tests pass.
 - Step 4 is done: the Blood Moon, the Crimson Sovereign and its pool. 65 tests pass, and the fuzz holds. Sim at step 4 (60 runs per Core): Area 1/Area 2 as before; full wins are about 0–5%, so Area 3 is too hard for now. Step 6 tunes.
 - Sim at step 3 (60 runs per Core, Area 1 clear / Area 2 clear / win): airship 58/33/20, battleship 52/5/0, zeppelin 45/27/2, clockwork 43/35/15, privateer 45/32/8, tempest 58/35/20. Area 3 is still a scaled placeholder. Step 6 tunes; the battleship needs help in Area 2.

@@ -1487,14 +1487,15 @@
     hexed(card) { return !!card && !!card.tokens && !!card.tokens.hex; }
 
     // ---------- the Blood Moon (Area 3) ----------
-    // The moon gauge rises 1 each round of an Area 3 fight (up to 6) and wanes 3 after it.
-    // At 2+ enemies deal +1; at 4+ they grow aggressive (a move that isn't an attack is rerolled
-    // once); at 6 they Frenzy: +2, and every hit leaves 1 Bleed.
+    // The moon gauge rises 1 every BALANCE.moonEvery rounds of an Area 3 fight (up to moonMax) and
+    // wanes moonWane after it. From moonRising enemies deal +1; at 4+ they grow aggressive (a move
+    // that isn't an attack is rerolled once); at full they Frenzy: +frenzyBonus, and every hit
+    // leaves 1 Bleed.
     moonActive() { return !!this.areaDef().moon; }
-    moonBonus() { return !this.moonActive() ? 0 : this.moon >= BALANCE.moonMax ? 2 : this.moon >= 2 ? 1 : 0; }
+    moonBonus() { return !this.moonActive() ? 0 : this.moon >= BALANCE.moonMax ? BALANCE.frenzyBonus : this.moon >= BALANCE.moonRising ? 1 : 0; }
     moonAggressive() { return this.moonActive() && this.moon >= 4; }
     frenzy() { return this.moonActive() && this.moon >= BALANCE.moonMax; }
-    moonName() { return this.moon >= BALANCE.moonMax ? 'Frenzy' : this.moon >= 4 ? 'Aggressive' : this.moon >= 2 ? 'Rising' : 'New'; }
+    moonName() { return this.moon >= BALANCE.moonMax ? 'Frenzy' : this.moon >= 4 ? 'Aggressive' : this.moon >= BALANCE.moonRising ? 'Rising' : 'New'; }
     // Blood costs come out of the Core.
     payBlood(n, what) {
       this.core.hp -= n;
@@ -1603,7 +1604,7 @@
       }
       if (c.enemyId === 'archon' && pi === 2 && c.grandRest <= 0) intent = this.grandIntent();
       else if (c.eclipse && c.beamRest <= 0) {
-        c.beamRest = 1;
+        c.beamRest = BALANCE.beamRest;
         intent = { kind: 'beam', name: 'Blood Beam', dmg: BALANCE.beamDamage, roll: 0, target: { kind: 'direct', row: this.d6('Beam deck') <= 3 ? HULL : UPPER, depth: 0, beam: true } };
       } else {
         if (c.grandRest > 0) c.grandRest--;
@@ -1738,10 +1739,10 @@
       if (this.checkEnd()) return;
       this.tickBleed();
       if (this.checkEnd()) return;
-      if (this.moonActive() && c.round > 1 && this.moon < BALANCE.moonMax) {
+      if (this.moonActive() && c.round > 1 && (c.round - 1) % (BALANCE.moonEvery || 1) === 0 && this.moon < BALANCE.moonMax) {
         this.moon++;
         this.emit('moon', { moon: this.moon });
-        this.say(`The Blood Moon rises: ${this.moon}/${BALANCE.moonMax}${[2, 4, 6].includes(this.moon) ? ` (${this.moonName()})` : ''}.`, this.moon >= 2 ? 'warn' : 'sys');
+        this.say(`The Blood Moon rises: ${this.moon}/${BALANCE.moonMax}${[BALANCE.moonRising, 4, BALANCE.moonMax].includes(this.moon) ? ` (${this.moonName()})` : ''}.`, this.moon >= BALANCE.moonRising ? 'warn' : 'sys');
       }
       if (this.heartOnCore() && this.core.hp < this.maxHp(this.core)) { this.say('The Clockwork Heart ticks: +1 Core.', 'good'); this.healCore(1); }
       if (this.core.id === 'clockwork') {
@@ -1938,7 +1939,8 @@
         this.emit('enemyShot', { drain: true, dmg });
         this.applyPlan(plan, 'attack');
         const taken = before - this.cards().reduce((n, x) => n + Math.max(0, x.hp), 0);
-        if (taken > 0) { const b = en.hp; en.hp = Math.min(en.max, en.hp + taken); this.emit('enemyHeal', { amount: en.hp - b }); this.say(`She drinks ${taken} Durability from your ship and heals ${en.hp - b}.`, 'bad'); }
+        const heal = Math.ceil(taken * BALANCE.drainHeal);
+        if (taken > 0) { const b = en.hp; en.hp = Math.min(en.max, en.hp + heal); this.emit('enemyHeal', { amount: en.hp - b }); this.say(`She drinks ${taken} Durability from your ship and heals ${en.hp - b}.`, 'bad'); }
       } else if (it.kind === 'beam') {
         this.emit('enemyShot', { target: it.target, beam: true, dmg });
         this.applyPlan(this.intentPlan(it, dmg), 'attack');
@@ -2019,9 +2021,10 @@
         this.emit('wardPop', { left: en.ward, kind });
         this.say(`${{ illusion: 'An illusion bursts: it was not the real ship', crystal: 'A focus crystal shatters', glimmer: 'Its shimmer breaks', bats: 'A bat takes the hit and falls' }[kind] || 'A Ward takes the whole hit'} (${en.ward} left).`, en.ward ? 'warn' : 'good');
         if (!en.ward && c.grand) this.shatterGrand();
-        return 0;
+        // A Battleship's ram crashes through the Ward and still lands.
+        if (!opts.crash || c.over) return 0;
       }
-      if (en.armor > 0 && !skip.has('armor')) {
+      if (en.armor > 0 && !skip.has('armor') && !opts.ignoreArmor) {
         n -= en.armor;
         if (n <= 0) { this.say(`The shot glances off its armor (${en.armor}).`, 'warn'); this.emit('enemyBlocked', { amount: en.armor }); return 0; }
       }
@@ -2251,7 +2254,7 @@
       if (a.id === 'umbra') summary = `${this.umbraDamage()} piercing`;
       return { ability: a, blocked, summary, cost: a.cost };
     }
-    umbraDamage() { return 2 + this.totalResonance() + (this.combat ? this.combat.enemy.bleed || 0 : 0); }
+    umbraDamage() { return BALANCE.umbraBase + this.totalResonance() + (this.combat ? this.combat.enemy.bleed || 0 : 0); }
     ramDamage() { return 2 + Math.floor(Math.max(0, this.weight()) / 2); }
     useCore() {
       if (!this.canAct()) return false;
@@ -2267,14 +2270,14 @@
       if (a.id === 'bombard') this.emit('bombard', {});
       if (a.id === 'ram') {
         this.emit('ram', { player: true });
-        this.damageEnemy(this.ramDamage(), { source: 'ram' });
+        this.damageEnemy(this.ramDamage(), { source: 'ram', ignoreArmor: true, crash: true });
         if (!this.combat.over) {
           const prow = this.front(HULL);
           this.say('The impact jars your prow.', 'bad');
           this.damageModule(prow ? prow.uid : 'core', 1, 'recoil');
         }
       }
-      if (a.id === 'bombard') { const p = this.core.pressure; this.core.pressure = 0; this.damageEnemy(Math.floor(BALANCE.bombardPerPressure * p), { pierce: true, source: 'bombard' }); }
+      if (a.id === 'bombard') { const p = this.core.pressure; this.core.pressure = 0; this.damageEnemy(Math.floor(BALANCE.bombardPerPressure * p), { pierce: true, source: 'bombard', crash: true }); }
       if (a.id === 'overclock') { this.combat.overclock = true; this.say('Gears whir: your next weapon fires twice.', 'good'); }
       if (a.id === 'board') { const en = this.combat.enemy; if (en.block > 0) this.say(`Your boarders tear away ${en.block} Block.`, 'good'); en.block = 0; this.emit('ram', { player: true }); this.damageEnemy(BALANCE.boardDamage, { pierce: true, source: 'board' }); }
       if (a.id === 'pulse') { this.emit('pulse', {}); for (const x of this.cards()) if (!this.combat.over && this.locate(x.uid)) this.resonate(x.uid, 1); }

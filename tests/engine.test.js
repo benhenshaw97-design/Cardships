@@ -524,6 +524,7 @@ test('only the third boss wins the run', () => {
   assert.equal(g.stats.areasCleared, 3);
 });
 
+// Area 3's danger is the Blood Moon and Bleed rather than raw Durability, so it is checked by the moon.
 test("each area's enemies are tougher than the last's at the same column", () => {
   const D = require('../js/data.js');
   const avg = (a) => {
@@ -533,7 +534,8 @@ test("each area's enemies are tougher than the last's at the same column", () =>
     const pool = D.AREAS[a].tiers[0].pool;
     return pool.reduce((n, id) => { g.startCombat(id, { col: 3, enc: 'patrol' }); return n + g.combat.enemy.max; }, 0) / pool.length;
   };
-  for (let a = 1; a < D.AREAS.length; a++) assert.ok(avg(a) > avg(a - 1), `area ${a + 1} vs ${a}`);
+  assert.ok(avg(1) > avg(0), 'area 2 vs 1');
+  assert.ok(D.AREAS[2].moon && avg(2) > avg(0), 'area 3 has the moon, and outlasts Area 1');
 });
 
 test('a run saved in Area 2 resumes there', () => {
@@ -804,17 +806,18 @@ function blood(ship, enemy = 'bats', intent = idle(), seed = 1, moon = 0) {
 
 test('the Blood Moon rises each round, strengthens enemies, and wanes after a fight', () => {
   const g = blood([['harpoon', 0, 1]]);
+  const B = require('../js/data.js').BALANCE;
   assert.equal(g.moon, 0);
-  for (let i = 0; i < 3; i++) { g.combat.enemy.intent = idle(); g.endTurn(); }
-  assert.equal(g.moon, 3, '+1 each round after the first');
-  assert.equal(g.intentDamage(direct(3)), 3 + 1 + g.combat.enemy.dmgBonus, 'moon 2+: enemies deal +1');
+  for (let i = 0; i < 3 * B.moonEvery; i++) { g.combat.enemy.intent = idle(); g.endTurn(); }
+  assert.equal(g.moon, 3, `+1 every ${B.moonEvery} rounds`);
+  assert.equal(g.intentDamage(direct(3)), 3 + 1 + g.combat.enemy.dmgBonus, 'a rising moon: enemies deal +1');
   g.moon = 6;
   assert.ok(g.frenzy());
-  assert.equal(g.moonBonus(), 2);
+  assert.equal(g.moonBonus(), B.frenzyBonus);
   g.combat.enemy.hp = 1; g.combat.enemy.ward = 0;
   g.fire(at(g, 0, 1).uid);
   assert.equal(g.combat.over, true);
-  assert.equal(g.moon, 3, 'it wanes 3 after the fight');
+  assert.equal(g.moon, 6 - B.moonWane, 'it wanes after the fight');
   // Outside Area 3 the moon does nothing.
   const a1 = fight('battleship', [['harpoon', 0, 1]], 'gunship', idle());
   a1.moon = 6;
@@ -1051,5 +1054,5 @@ test('the Workshop Cores: Attuned, Bloodletting and Umbral Strike', () => {
   e.combat.enemy.bleed = 3; e.combat.enemy.block = 5;
   const ehp = e.combat.enemy.hp;
   assert.ok(e.useCore());
-  assert.equal(e.combat.enemy.hp, ehp - 5, '2 + 0 Resonance + 3 Bleed, piercing');
+  assert.equal(e.combat.enemy.hp, ehp - (D.BALANCE.umbraBase + 3), 'base + 0 Resonance + 3 Bleed, piercing');
 });

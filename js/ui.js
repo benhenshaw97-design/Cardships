@@ -902,7 +902,8 @@
   // The Blood Moon gauge: six pips that redden as it rises, and what the moon does at this level.
   function moonGauge(cls = 'bb-moon') {
     const m = game.moon, max = D.BALANCE.moonMax;
-    const what = m >= max ? 'Frenzy: +2 and every hit bleeds' : m >= 4 ? 'Aggressive: +1, attacks favoured' : m >= 2 ? 'Rising: enemies +1' : 'New moon';
+    const B = D.BALANCE;
+    const what = m >= max ? `Frenzy: +${B.frenzyBonus} and every hit bleeds` : m >= 4 ? 'Aggressive: +1, attacks favoured' : m >= B.moonRising ? 'Rising: enemies +1' : 'New moon';
     return h('span', { class: `${cls} ${m >= max ? 'full' : ''}`, title: `Blood Moon ${m}/${max}: ${what}` }, h('b', { class: 'moon-disc', style: `--m:${m / max}` }), h('span', { class: 'moon-pips' }, Array.from({ length: max }, (_, i) => h('i', { class: i < m ? 'on' : '' }))), what);
   }
   function intentText(it) {

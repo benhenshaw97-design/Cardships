@@ -17,7 +17,7 @@
       style: 'Juggernaut',
       blurb: 'A flying fortress. Never dodges; shrugs off rams and rams back harder the heavier it gets.',
       passive: { name: 'Ironsides', text: 'Rams against you deal 2 less damage. You cannot Evade.' },
-      ability: { id: 'ram', name: 'Ram', cost: 2, text: 'Deal 2 damage plus half your ship\'s Weight. Your prow (front of the hull, or the Core) takes 1.' },
+      ability: { id: 'ram', name: 'Ram', cost: 2, text: 'Deal 2 damage plus half your ship\'s Weight, smashing through Armor (it breaks a Ward and still lands). Your prow (front of the hull, or the Core) takes 1.' },
       start: [['plating', 0, 1], ['cannon', 1, 0]],
     },
     zeppelin: {
@@ -62,7 +62,7 @@
       start: [['manalens', 0, -1], ['runecannon', 0, 1]],
     },
     sanguinist: {
-      id: 'sanguinist', name: 'Sanguine Core', weight: 2, hp: 12, steam: 3,
+      id: 'sanguinist', name: 'Sanguine Core', weight: 2, hp: 12, steam: 4,
       style: 'Bloodletter', locked: true,
       blurb: 'A beating iron heart that runs on its own blood, and drinks the enemy\'s.',
       passive: { name: 'Blood Pact', text: 'Each time one of your weapons deals damage, your Core heals 1 (up to 2 a turn).' },
@@ -70,11 +70,11 @@
       start: [['thornhull', 0, -1], ['bloodharpoon', 0, 1]],
     },
     eclipse: {
-      id: 'eclipse', name: 'Eclipse Core', weight: 1, hp: 10, steam: 4,
+      id: 'eclipse', name: 'Eclipse Core', weight: 1, hp: 11, steam: 4,
       style: 'Twilight', locked: true,
       blurb: 'Starlight and blood in one black sphere. Its spells open wounds.',
       passive: { name: 'Twilight', text: 'Whenever one of your modules casts a spell, the enemy gains 2 Bleed.' },
-      ability: { id: 'umbra', name: 'Umbral Strike', cost: 2, text: 'Deal 2 damage, plus all the Resonance on your ship and the enemy\'s Bleed, ignoring Block and Armor.' },
+      ability: { id: 'umbra', name: 'Umbral Strike', cost: 2, text: 'Deal 3 damage, plus all the Resonance on your ship and the enemy\'s Bleed, ignoring Block and Armor.' },
       start: [['crystalward', 0, -1], ['runecannon', 0, 1]],
     },
   };
@@ -514,7 +514,7 @@
       ],
     },
     archon: {
-      name: 'The Aurora Archon', weight: 6, hp: 40, look: 'archon', boss: true, area: 1, wardKind: 'crystal',
+      name: 'The Aurora Archon', weight: 6, hp: 54, look: 'archon', boss: true, area: 1, wardKind: 'crystal',
       gimmick: 'Living Light. Runefall: its runes strike every module on a telegraphed deck, past armor. Prismatic Shift: the aurora turns every half-turn and the Archon copies its power. Grand Convergence: it charges a spell for 2 turns behind 4 focus crystals. Break every crystal or Evade the blast.',
       phases: [
         { name: 'Runefall', min: 27, table: [I.rune(2), I.rune(2), I.shot(4, 'Light Lance'), I.ward(2, 'Prism Ward'), I.token('hex', 1, 'Hex Sigil'), I.charge(3, 'Gather Light')] },
@@ -534,7 +534,7 @@
       ],
     },
     wraith: {
-      name: 'Wraith Clipper', weight: 3, hp: 18, look: 'wraith', area: 2, phased: true,
+      name: 'Wraith Clipper', weight: 3, hp: 16, look: 'wraith', area: 2, phased: true,
       gimmick: 'Ghostly: on odd rounds it phases out of the world and your shots pass through it. Bleed and Burn still tick.',
       phases: [
         { name: 'Haunting', min: 11, table: [I.shot(4, 'Spectral Cannon'), I.shot(4, 'Spectral Cannon'), I.bleed(2, 2, 'Soul Hook'), I.rake(2, 'Wailing Volley'), I.charge(3, 'Gather Dread'), I.block(4, 'Ectoplasm')] },
@@ -542,7 +542,7 @@
       ],
     },
     bonegalleon: {
-      name: 'Bone Galleon', weight: 7, hp: 22, look: 'bonegalleon', area: 2, rises: true, armor: 1,
+      name: 'Bone Galleon', weight: 7, hp: 17, look: 'bonegalleon', area: 2, rises: true, armor: 1,
       gimmick: 'Deathless: the first time it sinks it rises again at half Durability. Bone plating: Armor 1.',
       phases: [
         { name: 'Grave March', min: 13, table: [I.shot(4, 'Bone Cannon'), I.ram(5, 2, 'Ossuary Ram'), I.broadside(2, 'Rib Volley'), I.block(5, 'Bone Wall'), I.shot(4, 'Bone Cannon'), I.bleed(2, 1, 'Splinter Shot')] },
@@ -550,7 +550,7 @@
       ],
     },
     cultist: {
-      name: 'Blood Cultist Barge', weight: 6, hp: 26, look: 'cultist', area: 2, bleedFeeds: true,
+      name: 'Blood Cultist Barge', weight: 6, hp: 22, look: 'cultist', area: 2, bleedFeeds: true,
       gimmick: 'Blood Rites: every point of Bleed damage your ship takes heals it.',
       phases: [
         { name: 'Bloodletting', min: 13, table: [I.bleed(2, 2, 'Ritual Knife'), I.bleed(2, 2, 'Ritual Knife'), I.bleedRake(1, 'Thorn Rain'), I.shot(4, 'Sacrificial Gun'), I.block(4, 'Blood Ward'), I.repair(3, 'Transfusion')] },
@@ -558,10 +558,10 @@
       ],
     },
     sovereign: {
-      name: 'The Crimson Sovereign', weight: 8, hp: 46, look: 'sovereign', boss: true, area: 2,
+      name: 'The Crimson Sovereign', weight: 8, hp: 34, look: 'sovereign', boss: true, area: 2,
       gimmick: 'Queen of the Blood Moon. Blood Tithe: Bleed barrages, and bat swarms that screen her and bite. Crimson Tide: the moon locks full and she drains your modules to heal. Eclipse: the sky goes dark and she fires a blood beam down a telegraphed deck. Block it with front armor, Evade it, or kill her first.',
       phases: [
-        { name: 'Blood Tithe', min: 31, table: [I.bleedRake(1, 'Crimson Barrage'), I.bleedRake(2, 'Crimson Barrage'), I.summon(2), I.bleed(3, 2, 'Thorned Lance'), I.shot(5, 'Royal Cannon'), I.summon(2)] },
+        { name: 'Blood Tithe', min: 31, table: [I.bleedRake(1, 'Crimson Barrage'), I.bleedRake(2, 'Crimson Barrage'), I.summon(2), I.bleed(3, 2, 'Thorned Lance'), I.shot(5, 'Royal Cannon'), I.bleedRake(1, 'Crimson Barrage')] },
         { name: 'Crimson Tide', min: 16, table: [I.drain(1), I.drain(1), I.bleedRake(2, 'Crimson Barrage'), I.shot(5, 'Royal Cannon'), I.bleed(3, 2, 'Thorned Lance'), I.broadside(3, 'Twin Fangs')] },
         { name: 'Eclipse', min: 1, table: [I.shot(5, 'Royal Cannon'), I.bleedRake(2, 'Crimson Barrage'), I.bleed(3, 3, 'Thorned Lance'), I.drain(1), I.broadside(3, 'Twin Fangs'), I.summon(2)] },
       ],
@@ -672,7 +672,7 @@
       nodeWeights: { patrol: 32, lair: 10, shrine: 8, spire: 8, starchart: 6, trader: 10, beacon: 8, guild: 6, hangar: 8, rift: 6 },
       names: { patrol: 'Spell Patrol', lair: 'Arcane Bastion', beacon: 'Glimmering Lure' },
       bands: [{ upTo: 3, biome: 'aurora' }, { upTo: 7, biome: 'auroraRift' }, { upTo: 99, biome: 'auroraDeep' }],
-      hp: 1, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'archon', aurora: true, accent: '#6ff0d0',
+      hp: 1.2, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'archon', aurora: true, accent: '#6ff0d0',
     },
     {
       id: 'bloodmoon', name: 'The Blood Moon', numeral: 'III', blurb: 'A crimson night under a vast red moon, haunted by gothic wrecks.', cols: 11, midCol: 5, lairFrom: 3,
@@ -681,7 +681,7 @@
       nodeWeights: { patrol: 32, lair: 10, bloodaltar: 7, crypt: 8, moonwell: 7, trader: 10, beacon: 8, guild: 6, hangar: 8 },
       names: { patrol: 'Night Hunters', lair: 'Gothic Keep', beacon: 'Bleeding Beacon' },
       bands: [{ upTo: 3, biome: 'bloodmoon' }, { upTo: 7, biome: 'bloodFog' }, { upTo: 99, biome: 'bloodSpires' }],
-      hp: 1.1, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'eclipse', moon: true, accent: '#ff5a5a',
+      hp: 0.85, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'eclipse', moon: true, accent: '#ff5a5a',
     },
   ];
   AREAS.forEach((a, i) => { a.index = i; });
@@ -808,9 +808,9 @@
 
   // Global difficulty knobs, tuned by simulation (see BALANCE_REPORT.md).
   const BALANCE = {
-    hpPerColumn: 0.08,       // pirate Durability +8% per map column
+    hpPerColumn: 0.04,       // pirate Durability +4% per map column
     veteranColumns: [6, 11], // +1 damage per hit from each listed column onward
-    bossHp: 1.5,             // boss Durability multiplier
+    bossHp: 1.25,            // boss Durability multiplier
     startCogs: 20,
     bombardPerPressure: 1.75, // Zeppelin Bombard damage per point of Pressure (rounded down)
     maxPressure: 6,
@@ -831,10 +831,16 @@
     grandDamage: 4,          //   the spell's damage to every module (the Core takes 1 less)
     grandBacklash: 8,        //   damage it takes if every crystal breaks first
     moonMax: 6,              // Blood Moon gauge: +1 each round of an Area 3 fight
-    moonWane: 3,             //   and it wanes this much after each fight
+    moonRising: 3,           //   enemies deal +1 from this level
+    frenzyBonus: 1,          //   and this much at full moon (Frenzy)
+    moonEvery: 2,            //   rising 1 every this many rounds
+    moonWane: 4,             //   and it wanes this much after each fight
     beamDamage: 10,          // Crimson Sovereign: the eclipse blood beam
+    beamRest: 2,             //   with this many other moves between beams
+    drainHeal: 0.5,            //   Crimson Tide heals this share of what it drains
     bitePerBat: 1,           //   each summoned bat bites for this (and 1 Bleed) at the start of her turn
     chaliceCap: 3,           // Sovereign's Chalice: most Core healed per turn
+    umbraBase: 3,            // Eclipse Core: Umbral Strike's base damage
   };
 
   const data = { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RESONANCE, AURORA, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, UPGRADES, BLUEPRINTS, STORM_TIERS, COSMETICS, ACHIEVEMENTS, LORE, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };
