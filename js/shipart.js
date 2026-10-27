@@ -133,7 +133,7 @@
     k_mirage: { w: 150, faces: 'R', hull: 0.8, upper: 0.6, span: 0.38 },
     k_archon: { w: 210, faces: 'R', hull: 0.8, upper: 0.6, span: 0.4 },
     // Area 3.
-    k_bats: { w: 120, faces: 'R', hull: 0.7, upper: 0.5, span: 0.34 },
+    k_bats: { w: 170, faces: 'R', hull: 0.74, upper: 0.52, span: 0.38 },
     k_wraith: { w: 140, faces: 'R', hull: 0.84, upper: 0.66, span: 0.36 },
     k_bonegalleon: { w: 160, faces: 'R', hull: 0.82, upper: 0.62, span: 0.4 },
     k_cultist: { w: 160, faces: 'R', hull: 0.82, upper: 0.62, span: 0.4 },
@@ -185,7 +185,7 @@
     mirage: { hull: 'k_mirage', wash: 'rgba(200,180,255,0.24)', light: '#e2d4ff' },
     archon: { hull: 'k_archon', wash: 'rgba(110,255,210,0.26)', light: '#a8ffe8', ribbons: true },
     // Area 3: gothic hulks under the Blood Moon, rimmed in red moonlight.
-    bats: { hull: 'k_bats', wash: 'rgba(120,10,20,0.28)', rim: '#ff3a3a', flutter: true },
+    bats: { hull: 'k_bats', rim: '#ffe2d0', flutter: true },
     wraith: { hull: 'k_wraith', wash: 'rgba(160,190,200,0.3)', rim: '#cfe8ff', ghost: true },
     bonegalleon: { hull: 'k_bonegalleon', wash: 'rgba(230,215,180,0.22)', rim: '#ff5a4a' },
     cultist: { hull: 'k_cultist', wash: 'rgba(150,0,20,0.3)', rim: '#ff2a3a', light: '#ff3040' },

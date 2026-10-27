@@ -215,7 +215,7 @@ KEYED_CUTS = {
  # Area 2, the Aurora Reaches: spell-ships from the magic sheet (washed in aurora light in code).
  'k_wisp': ('magic', 4), 'k_corvette': ('magic', 2), 'k_barge': ('magic', 3), 'k_mirage': ('magic', 7), 'k_archon': ('magic', 0),
  # Area 3, the Blood Moon: ghost and undead ships (rimmed in red moonlight in code).
- 'k_bats': ('7708', 1), 'k_wraith': ('undead', 5), 'k_bonegalleon': ('ghost', 1), 'k_cultist': ('undead', 6), 'k_sovereign': ('undead', 9),
+ 'k_bats': ('bats', 0), 'k_wraith': ('undead', 5), 'k_bonegalleon': ('ghost', 1), 'k_cultist': ('undead', 6), 'k_sovereign': ('undead', 9),
  # The Workshop's three new Cores, three ships each.
  'k_arcanist': ('magic', 1), 'k_arcanist2': ('magic', 10), 'k_arcanist3': ('magic', 11),
  'k_sanguine': ('ghost', 11), 'k_sanguine2': ('ghost', 2), 'k_sanguine3': ('ghost', 7),

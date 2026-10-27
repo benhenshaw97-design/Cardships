@@ -248,7 +248,10 @@
 
   // A part's card picture: painted art where it exists, otherwise an illustration drawn in code.
   const ArtGen = window.CardshipsArtGen;
-  const cardSrc = (id) => (ArtGen && ArtGen.has(id) ? ArtGen.cardArt(id) : `assets/art/cards/${id}.jpg`);
+  // Every part now has painted card art; the code-drawn emblems (js/artgen.js) stand in only for a
+  // part added later without a picture. List such parts here to use their painter.
+  const DRAWN_ONLY = new Set([]);
+  const cardSrc = (id) => (ArtGen && DRAWN_ONLY.has(id) && ArtGen.has(id) ? ArtGen.cardArt(id) : `assets/art/cards/${id}.jpg`);
 
   // ---------- painted icons ----------
   // Status and stat icons (assets/art/status), event banners (assets/art/scenes), unlock badges.
@@ -356,7 +359,7 @@
         h('span', { class: 'muted' }, 'Every run earns Blueprints: more for each area cleared, boss sunk and contract fulfilled. Spend them here.')));
   }
   // Cores with painted card art; the Workshop's newer Cores show their ship instead.
-  const CORE_ART = new Set(['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest']);
+  const CORE_ART = new Set(['airship', 'battleship', 'zeppelin', 'clockwork', 'privateer', 'tempest', 'arcanist', 'sanguinist', 'eclipse']);
   // ---------- the guided first flight ----------
   // A short coach card that steps a new captain through the first run. Each step shows once its
   // moment arrives; Next moves on, Skip ends the tour. Replayable from "How to play".
