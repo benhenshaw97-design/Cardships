@@ -163,6 +163,7 @@
       if (!pt) continue;
       if (m.tokens.fire && Math.random() < dt * 22) parts.push({ kind: 'ember', x: pt.x + rand(-10, 10), y: pt.y - 8, vx: rand(-20, 10), vy: rand(-70, -30), g: -20, life: rand(0.5, 1), max: 1, r: rand(1, 2.2) });
       if (m.tokens.gas && Math.random() < dt * 4) parts.push({ kind: 'gas', x: pt.x + rand(-20, 20), y: pt.y + rand(-14, 10), vx: rand(-8, 8), vy: rand(-6, 4), g: 0, life: 1.6, max: 1.6, r: rand(8, 14) });
+      if (m.tokens.bleed > 0 && Math.random() < dt * (2 + m.tokens.bleed * 1.5)) parts.push({ kind: 'drip', x: pt.x + rand(-12, 12), y: pt.y + 6, vx: 0, vy: 12, g: 220, life: 0.8, max: 0.8, r: 2.2, color: '#c8101e' });
       if (m.tokens.glue && Math.random() < dt * 2.5) parts.push({ kind: 'drip', x: pt.x + rand(-12, 12), y: pt.y + 10, vx: 0, vy: 10, g: 160, life: 0.9, max: 0.9, r: 2.4 });
     }
     const en = window.cardships.game && window.cardships.game.combat;
@@ -248,7 +249,7 @@
         case 'flame': { const r = p.r * (0.5 + a * 0.6); g.fillStyle = `rgba(255,${Math.floor(120 + a * 110)},50,${a})`; g.beginPath(); g.arc(p.x, p.y, r, 0, TAU); g.fill(); break; }
         case 'ember': g.fillStyle = `rgba(255,${150 + Math.floor(a * 80)},60,${a})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, TAU); g.fill(); break;
         case 'gas': g.fillStyle = `rgba(160,130,215,${a * 0.35})`; g.beginPath(); g.arc(p.x + Math.sin(v.t * 2 + p.r) * 4, p.y, p.r * (1.4 - a * 0.4), 0, TAU); g.fill(); break;
-        case 'drip': g.fillStyle = `rgba(150,210,80,${a})`; g.beginPath(); g.ellipse(p.x, p.y, p.r * 0.8, p.r * 1.3, 0, 0, TAU); g.fill(); break;
+        case 'drip': g.fillStyle = p.color ? p.color : `rgba(150,210,80,${a})`; if (p.color) g.globalAlpha = a; g.beginPath(); g.ellipse(p.x, p.y, p.r * 0.8, p.r * 1.3, 0, 0, TAU); g.fill(); g.globalAlpha = 1; break;
         case 'gear': case 'bolt': case 'wrench': case 'cog': {
           // Painted debris and coin sprites; the drawn shapes below stand in until they load.
           const im = p.kind === 'cog' ? BITS.coin[Math.floor((p.max - p.life) * 14 + (p.seed || 0)) % BITS.coin.length] : bitFor(p);
@@ -424,11 +425,23 @@
     },
     aurora() { flash(0.06); return 0; },
     prism(ev) { const p = playerPt(ev.uid); for (const [c, r] of [['rgba(255,110,110,0.9)', 26], ['rgba(110,255,150,0.9)', 34], ['rgba(110,170,255,0.9)', 42]]) ring(p.x, p.y, c, 6, r, 0.5, 3); sfx('zap'); return 220; },
-    enemyWard(ev) { const p = enemyPt(); ring(p.x, p.y, ev.illusion ? 'rgba(220,200,255,0.8)' : ev.crystal ? 'rgba(170,255,230,0.95)' : 'rgba(170,255,230,0.75)', p.r * 0.3, p.r * 1.2, 0.6, 4); sfx('clang'); return 240; },
+    enemyWard(ev) { const p = enemyPt(); ring(p.x, p.y, ev.bats ? 'rgba(255,50,60,0.8)' : ev.illusion ? 'rgba(220,200,255,0.8)' : ev.crystal ? 'rgba(170,255,230,0.95)' : 'rgba(170,255,230,0.75)', p.r * 0.3, p.r * 1.2, 0.6, 4); sfx('clang'); return 240; },
     enemyArmor() { const p = enemyPt(); burst(p.x, p.y, 14, 'spark', { min: 30, max: 120, life: 0.5, color: '#bff6ff' }); sfx('clank'); return 160; },
     channel() { const p = enemyPt(); ring(p.x, p.y, 'rgba(200,160,255,0.9)', p.r * 1.4, p.r * 0.2, 0.7, 5); sfx('zap'); return 260; },
     grandBroken() { const p = enemyPt(); flash(0.5); shake(14); for (let i = 0; i < 3; i++) ring(p.x, p.y, 'rgba(200,255,240,0.95)', 8, 90 + i * 30, 0.6, 6); explosion(p.x, p.y, 140, true); phaseBanner = { text: 'Convergence broken!', life: 1.3, max: 1.3 }; sfx('bigHit'); return 500; },
     shards(ev) { const from = playerPt(ev.uid), to = enemyPt(); for (let i = 0; i < 2 + ev.dmg; i++) setTimeout(() => shoot({ x: from.x, y: from.y }, { x: to.x + rand(-20, 20), y: to.y + rand(-14, 14) }, 'tracer', 0.2), i * 50); sfx('clang'); return 180; },
+    // ---------- Area 3 ----------
+    moon(ev) { if (ev.locked || ev.well) flash(0.18); numberAt(enemyPt().x, 60, ev.well ? 'The moon wanes' : ev.locked ? 'FULL MOON' : `Moon ${ev.moon}`, '#ff6a6a', ev.locked ? 22 : 15); return ev.locked ? 400 : 120; },
+    eclipse() { flash(0.7); shake(16); phaseBanner = { text: 'Eclipse', life: 1.6, max: 1.6 }; sfx('bigHit'); return 700; },
+    bleed(ev) { const p = playerPt(ev.uid); burst(p.x, p.y - 4, 8 + ev.dmg * 2, 'drip', { min: 30, max: 120, g: 300, life: 0.7, rmin: 2, rmax: 4, color: '#c8101e' }); ring(p.x, p.y, 'rgba(220,20,40,0.9)', 6, 28, 0.3, 4); sfx('splat'); return 140; },
+    enemyBleed() { const p = enemyPt(); burst(p.x, p.y, 16, 'drip', { min: 40, max: 160, g: 300, life: 0.8, rmin: 2, rmax: 5, color: '#c8101e' }); sfx('splat'); return 180; },
+    batBite(ev) { const from = enemyPt(), p = playerPt(ev.uid); shoot({ x: from.x, y: from.y - 20 }, { x: p.x, y: p.y }, 'enemyTracer', 0.25); return 120; },
+    thorns(ev) { const p = playerPt(ev.uid), to = enemyPt(); burst(p.x, p.y, 10, 'spark', { min: 60, max: 200, life: 0.4, color: '#ff4a5a' }); shoot({ x: p.x, y: p.y }, to, 'tracer', 0.2); return 160; },
+    chalice() { const c = playerPt('core'); ring(c.x, c.y, 'rgba(255,60,80,0.85)', 4, 26, 0.4, 3); return 40; },
+    bloodburn(ev) { const p = playerPt(ev.uid); ring(p.x, p.y, 'rgba(255,40,60,0.95)', 4, 40, 0.5, 5); burst(p.x, p.y, 12, 'flame', { up: 60, min: 10, max: 60, g: -60, life: 0.5, rmin: 3, rmax: 7 }); sfx('crackle'); return 220; },
+    altar(ev) { const p = ev.uid ? playerPt(ev.uid) : playerPt('core'); for (let i = 0; i < 3; i++) ring(p.x, p.y, 'rgba(200,0,30,0.9)', 8, 50 + i * 20, 0.7, 5); burst(p.x, p.y, 24, 'drip', { min: 40, max: 200, g: 200, life: 0.9, rmin: 2, rmax: 5, color: '#c8101e' }); sfx('bigHit'); return 420; },
+    rise() { const p = enemyPt(); flash(0.3); for (let i = 0; i < 3; i++) ring(p.x, p.y, 'rgba(230,220,190,0.9)', p.r * 1.2, 10, 0.7, 5); phaseBanner = { text: 'It rises again!', life: 1.3, max: 1.3 }; sfx('bigHit'); return 600; },
+    phasedMiss() { const p = enemyPt(); numberAt(p.x, p.y - 30, 'PHASED', '#cfe8ff', 16); ring(p.x, p.y, 'rgba(200,230,255,0.6)', p.r * 0.5, p.r * 1.1, 0.4, 3); return 160; },
     blessing() { const c = playerPt('core'); for (let i = 0; i < 3; i++) ring(c.x, c.y, ['rgba(93,255,168,0.9)', 'rgba(79,216,255,0.9)', 'rgba(192,140,255,0.9)'][i], 10, 70 + i * 20, 0.8, 4); sfx('ratchet'); return 400; },
     enchant(ev) { const p = playerPt(ev.uid); ring(p.x, p.y, 'rgba(160,255,230,0.95)', 4, 50, 0.7, 4); burst(p.x, p.y, 16, 'spark', { min: 30, max: 120, life: 0.8, g: -30, color: '#9fffe8' }); sfx('zap'); return 400; },
     // Leviathan Plating: a golden flare at the bow, then the blocked force flung back.
@@ -499,6 +512,25 @@
     enemyBlock() { const p = enemyPt(); ring(p.x, p.y, 'rgba(147,166,179,0.9)', p.r * 0.4, p.r * 1.1, 0.5, 6); sfx('clang'); return 320; },
     enemyHeal() { const p = enemyPt(); for (let i = 0; i < 6; i++) parts.push({ kind: 'wrench', x: p.x + rand(-p.r * 0.5, p.r * 0.5), y: p.y, vx: rand(-30, 30), vy: rand(-90, -40), g: 60, life: 0.9, max: 0.9, rot: 0, vr: rand(-12, 12) }); ring(p.x, p.y, 'rgba(120,220,140,0.9)', 10, p.r, 0.5, 5); sfx('ratchet'); return 300; },
     enemyShot(ev) {
+      // The eclipse blood beam: a thick red lance from her prow to its deck.
+      if (ev.beam) {
+        const from = enemyPt();
+        const t = [];
+        for (const e of lookahead) { if (e.type === 'enemyShot' || e.type === 'intent') break; if (['hit', 'block'].includes(e.type) && !t.includes(e.uid)) t.push(e.uid); }
+        const to = playerPt(t[0] || 'core');
+        for (let i = 0; i < 5; i++) setTimeout(() => shoot({ x: from.x - from.r * 0.6, y: from.y }, { x: to.x + rand(-6, 6), y: to.y + rand(-6, 6) }, 'lightning', 0.14), i * 30);
+        ring(from.x, from.y, 'rgba(255,40,50,0.95)', 10, from.r * 1.3, 0.5, 8);
+        flash(0.5); shake(22); hitStop(160);
+        sfx('bigHit', { enemy: true });
+        return 520;
+      }
+      // Crimson Tide: blood threads drawn out of every module and into her.
+      if (ev.drain) {
+        const to = enemyPt();
+        A().player.mods.forEach((m, uid) => { const p = playerPt(uid); for (let i = 0; i < 3; i++) setTimeout(() => burst(p.x, p.y, 4, 'drip', { min: 20, max: 60, g: 0, life: 0.5, rmin: 2, rmax: 3, color: '#d0101e' }), i * 60); setTimeout(() => shoot({ x: p.x, y: p.y }, to, 'enemyTracer', 0.4), 200); });
+        sfx('splat', { enemy: true });
+        return 520;
+      }
       // Runes flare over every module they strike; the Grand Convergence floods the whole ship.
       if (ev.rune || ev.grand) {
         const targets = [];
@@ -564,6 +596,7 @@
       const p = playerPt(ev.uid);
       if (ev.token === 'fire') { sprite(p.x, p.y - 8, ['napalm', 'sticky_fire', 'fire_sticky'], 44, 0.7, { grow: 0.15 }); burst(p.x, p.y - 4, 10, 'flame', { min: 20, max: 120, g: -60, life: 0.6, rmin: 4, rmax: 9 }); }
       if (ev.token === 'glue') { sprite(p.x, p.y - 4, 'glue_spray', 40, 0.6, { grow: 0.2 }); burst(p.x, p.y, 10, 'drip', { min: 40, max: 160, g: 300, life: 0.7, rmin: 2, rmax: 4 }); }
+      if (ev.token === 'bleed') { burst(p.x, p.y, 10, 'drip', { min: 40, max: 140, g: 300, life: 0.7, rmin: 2, rmax: 4, color: '#c8101e' }); ring(p.x, p.y, 'rgba(220,20,40,0.9)', 6, 26, 0.3, 4); }
       if (ev.token === 'gas') smokeCloud(p.x, p.y - 6, 60, 'green', { life: 1.4, vy: -8 });
       if (ev.token === 'gas') for (let i = 0; i < 8; i++) parts.push({ kind: 'gas', x: p.x + rand(-20, 20), y: p.y + rand(-12, 12), vx: rand(-30, 30), vy: rand(-20, 10), g: 0, life: 1.4, max: 1.4, r: rand(10, 16) });
       sfx(ev.token === 'fire' ? 'crackle' : 'splat');

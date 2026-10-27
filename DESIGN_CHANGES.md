@@ -654,3 +654,58 @@ All cut from `assets/art/source/ui2/` and the full-size sky paintings by `batch2
   - **Enchanter's Spire:** enchant a module. It gains +1 max Durability and starts every fight with 2 Resonance, and it becomes arcane if it wasn't.
   - **Star Chart:** reveals the whole area's route and the Archon's tactics table. In later areas the boss's tactics stay hidden until charted.
 - **Art in code.** The Area 2 parts, the Archon's legendaries, and the three new place icons and banners are painted in `js/artgen.js`. The Area 2 ships are cut from your keyed ship sheets.
+
+## Area 3: the Blood Moon (expansion step 4)
+
+- **The area.** A crimson night, ten columns long:
+  - A vast red moon hangs low in the sky, with craters and a glow that swells as the moon gauge rises.
+  - Gothic cathedral spires float in the clouds, alongside drifting wrecks.
+  - Bat flocks pass overhead, ash falls, and red fog rolls low across the scene.
+  - Enemy ships are rimmed in red moonlight.
+  - The chart turns blood-red with falling ash, and the UI accent turns red.
+  - Patrols are "Night Hunters", lairs are "Gothic Keeps" and beacons are "Bleeding Beacons".
+  - The music shifts to the roaming theme slowed and darkened on the map, and to the demon riff in combat and the boss fight.
+
+  *Reason: the brief's palette and presentation.*
+- **The Blood Moon gauge** (0–6) rises 1 each round of an Area 3 fight and wanes 3 after each fight, so it builds across the area.
+  - **2+:** enemies deal +1.
+  - **4+:** enemies are aggressive: a rolled move that isn't an attack is rerolled once.
+  - **6:** Frenzy. Enemies deal +2, and every hit leaves 1 Bleed.
+
+  The gauge sits on the battle bar and in the top bar.
+
+  *Reason: "fills each turn of combat; enemies grow stronger and more aggressive; frenzy at full". Carrying it between fights makes the Moon Well and fast kills matter.*
+- **Bleed** is a stacking token. At the start of your turn it deals damage equal to its stacks, then loses 1. Venting clears it. Enemies can bleed too, ticking at the start of their turn.
+- **Blood costs.** Blood parts take their Blood cost from your Core's Durability on top of any Steam, and can't be used if that would kill the Core.
+- **Parts:**
+
+  | Part | What it does |
+  | --- | --- |
+  | Blood Harpoon | 1 Steam, Blood 1: deals 3, and your Core heals half the damage that lands. |
+  | Thorned Hull | Armor that cuts each hit by 1. Whatever hits it gains 2 Bleed. |
+  | Sanguine Engine | Blood 1: +2 Steam, once a turn. |
+  | Crimson Altar | 1 Steam, once a fight: sacrifice a touching module. Your weapons deal +1 for the rest of the run, and the Core heals what the module had left. |
+  | Moon Mortar | Arcs. Deals 2, +1 per 2 points of the moon (up to 5). |
+
+- **Enemies.** Each has d6 tables for every phase.
+
+  | Enemy | What it does |
+  | --- | --- |
+  | Bat Swarm | Light and fast. Raking fang storms where every hit bleeds. |
+  | Wraith Clipper | Phases out on odd rounds: your hits pass through, but Bleed and Burn still tick. Drawn translucent while phased. |
+  | Bone Galleon | Bone plating (Armor 1). The first time it sinks, it rises again at half Durability. |
+  | Blood Cultist Barge | Heavy Bleed, and it heals from every point of Bleed damage your ship takes. |
+
+- **The Crimson Sovereign** (final boss):
+  1. **Blood Tithe:** Bleed barrages, and swarms of bats that circle her. Each bat stops a whole hit, and each bites a random module for 1 and 1 Bleed at the start of her turn.
+  2. **Crimson Tide:** the moon swells to full and locks there. She drains 1 from every module (past armor) and heals what she takes.
+  3. **Eclipse:** the moon goes black, the screen runs dark red, and every other turn she fires a Blood Beam. It is telegraphed on a deck and deals 10 plus the moon's +2 to the front of that deck. Put armor there, brace it, Evade, or kill her first.
+
+  Her pool:
+  - **Sovereign's Chalice:** whenever the enemy takes damage, your Core heals 1 (up to 3 a turn).
+  - **Eclipse Blade:** Blood 2. Deals 6 piercing, +1 per Bleed stack on your ship and the enemy.
+- **Points of interest:**
+  - **Blood Altar:** bleed 4 Core for a pick of 2 rare parts, or 8 for a pick of 2 legendaries.
+  - **Crypt Wreck:** search it and roll a d6. On a 1–2 a Bone Galleon or a Bat Swarm ambushes you, with salvage if you win. A 3 bleeds a module but offers a pick of 3 parts; 4 gives cogs, 5 an armory pick, and 6 a rare part.
+  - **Moon Well:** the moon wanes to 0, and its water mends the Core by 2.
+- **Art in code.** Card art for the five parts and two legendaries, plus map icons and banners for the three places, are painted in `js/artgen.js`. The ships are cut from your keyed sheets.

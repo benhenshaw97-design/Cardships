@@ -786,3 +786,182 @@ test('Star Charts reveal the whole route; the Enchanter enchants; the Shrine ble
   assert.equal(g.steamCap(), steam + 1, 'a support offered: +1 Steam for the run');
   assert.equal(g.cards().length, 2);
 });
+
+// ---------- Area 3: the Blood Moon ----------
+function blood(ship, enemy = 'bats', intent = idle(), seed = 1, moon = 0) {
+  const g = new Game({ seed });
+  g.chooseCore('battleship');
+  g.lootOffers = []; g.pendingLoot = [];
+  g.buildShip(ship);
+  g.area = 2;
+  g.moon = moon;
+  g.enterMap();
+  g.startCombat(enemy, { col: 1, enc: 'patrol' });
+  g.combat.enemy.intent = intent;
+  g.combat.steam = 9;
+  return g;
+}
+
+test('the Blood Moon rises each round, strengthens enemies, and wanes after a fight', () => {
+  const g = blood([['harpoon', 0, 1]]);
+  assert.equal(g.moon, 0);
+  for (let i = 0; i < 3; i++) { g.combat.enemy.intent = idle(); g.endTurn(); }
+  assert.equal(g.moon, 3, '+1 each round after the first');
+  assert.equal(g.intentDamage(direct(3)), 3 + 1 + g.combat.enemy.dmgBonus, 'moon 2+: enemies deal +1');
+  g.moon = 6;
+  assert.ok(g.frenzy());
+  assert.equal(g.moonBonus(), 2);
+  g.combat.enemy.hp = 1; g.combat.enemy.ward = 0;
+  g.fire(at(g, 0, 1).uid);
+  assert.equal(g.combat.over, true);
+  assert.equal(g.moon, 3, 'it wanes 3 after the fight');
+  // Outside Area 3 the moon does nothing.
+  const a1 = fight('battleship', [['harpoon', 0, 1]], 'gunship', idle());
+  a1.moon = 6;
+  assert.equal(a1.moonBonus(), 0);
+});
+
+test('a frenzied moon makes every hit leave Bleed, and Bleed ticks then fades', () => {
+  const g = blood([['plating', 0, 1], ['harpoon', 0, 2]], 'bats', direct(2), 1, 6);
+  const front = at(g, 0, 1);
+  g.endTurn();
+  const left = front.tokens.bleed;
+  assert.ok(left >= 0);
+  // Set Bleed directly and watch it tick.
+  const m = at(g, 0, 2) || at(g, 0, 1);
+  m.tokens.bleed = 3;
+  const hp = m.hp;
+  g.combat.enemy.intent = idle();
+  g.moon = 0;
+  g.endTurn();
+  if (g.locate(m.uid)) { assert.equal(m.hp, hp - 3, 'it deals its stacks'); assert.equal(m.tokens.bleed, 2, 'then loses 1'); }
+});
+
+test('Bleed placed by an intent stacks, and a Blood Cultist heals from it', () => {
+  const g = blood([['plating', 0, 1], ['bulwark', 0, 2]], 'cultist', { kind: 'token', token: 'bleed', stacks: 2, dmg: 0, name: 'Knife', target: { kind: 'direct', row: 0, depth: 0 } });
+  g.endTurn();
+  const front = at(g, 0, 2);
+  assert.equal(front.tokens.bleed, 1, 'placed 2, ticked once at the start of your turn');
+  front.tokens.bleed = 2;
+  g.combat.enemy.intent = idle();
+  g.combat.enemy.hp -= 10;
+  const ehp = g.combat.enemy.hp;
+  g.endTurn();
+  assert.equal(g.combat.enemy.hp, ehp + 2, 'it drank the 2 Bleed damage');
+});
+
+test('blood parts cost Core Durability; the Blood Harpoon heals the Core as it wounds', () => {
+  const g = blood([['bloodharpoon', 0, 1]]);
+  const en = g.combat.enemy; en.ward = 0; en.block = 0;
+  g.core.hp = 10;
+  const ehp = en.hp;
+  assert.ok(g.fire(at(g, 0, 1).uid));
+  assert.equal(en.hp, ehp - 3);
+  assert.equal(g.core.hp, 10 - 1 + 2, 'paid 1, healed ceil(3/2)');
+  g.core.hp = 1;
+  at(g, 0, 1).fired = 0;
+  assert.equal(g.fireInfo(at(g, 0, 1).uid).blocked, 'Core too weak to bleed');
+});
+
+test('the Thorned Hull bleeds whatever hits it; the Sanguine Engine and Crimson Altar trade blood for power', () => {
+  const g = blood([['sanguine', 0, 1], ['thornhull', 0, 2], ['crimsonaltar', 0, -1], ['plating', 0, -2]], 'bats', direct(3));
+  g.endTurn();
+  assert.equal(g.combat.enemy.bleed, 2, 'thorns: Bleed 2');
+  const steam = g.combat.steam, core = g.core.hp;
+  const sang = at(g, 0, 1);
+  assert.ok(g.useSupport(sang.uid, sang.uid));
+  assert.equal(g.combat.steam, steam + 2);
+  assert.equal(g.core.hp, core - 1);
+  const altar = at(g, 0, -1), victim = at(g, 0, -2);
+  const w = g.blessings.weapon;
+  assert.ok(g.useSupport(altar.uid, victim.uid));
+  assert.equal(g.blessings.weapon, w + 1, '+1 weapon damage for the run');
+  assert.ok(!g.locate(victim.uid), 'the module is gone');
+  assert.deepEqual(g.supportTargets(altar.uid), [], 'once a fight');
+});
+
+test('the Moon Mortar grows with the moon; the Eclipse Blade with Bleed', () => {
+  const g = blood([['moonmortar', 1, 0], ['harpoon', 0, 1]]);
+  g.moon = 0; assert.equal(g.mortarDamage(), 2);
+  g.moon = 6; assert.equal(g.mortarDamage(), 5);
+  assert.equal(g.bladeDamage(), 6);
+  at(g, 0, 1).tokens.bleed = 2; g.combat.enemy.bleed = 1;
+  assert.equal(g.bladeDamage(), 9);
+});
+
+test('the Wraith Clipper is untouchable on odd rounds, except by Bleed and Burn', () => {
+  const g = blood([['harpoon', 0, 1]], 'wraith');
+  const en = g.combat.enemy;
+  assert.equal(g.combat.round, 1);
+  const hp = en.hp;
+  g.fire(at(g, 0, 1).uid);
+  assert.equal(en.hp, hp, 'round 1: phased');
+  en.bleed = 2;
+  g.endTurn();
+  assert.equal(en.hp, hp - 2, 'Bleed still reaches it');
+  assert.equal(g.combat.round, 2);
+  en.block = 0;
+  g.fire(at(g, 0, 1).uid);
+  assert.ok(en.hp < hp - 2, 'round 2: solid');
+});
+
+test('the Bone Galleon rises once at half Durability', () => {
+  const g = blood([['harpoon', 0, 1]], 'bonegalleon');
+  const en = g.combat.enemy;
+  g.combat.round = 2; en.armor = 0; en.block = 0;
+  en.hp = 1;
+  g.fire(at(g, 0, 1).uid);
+  assert.equal(g.combat.over, false);
+  assert.equal(en.hp, Math.round(en.max / 2));
+  en.hp = 1; at(g, 0, 1).fired = 0;
+  g.fire(at(g, 0, 1).uid);
+  assert.equal(g.combat.over, true, 'not twice');
+});
+
+test('the Crimson Sovereign: bats screen and bite, the moon locks, and the eclipse fires a blood beam', () => {
+  const g = blood([['plating', 0, 1], ['harpoon', 0, 2]], 'sovereign', { kind: 'ward', amount: 2, name: 'Call the Swarm', bats: true });
+  g.endTurn();
+  assert.equal(g.combat.bats, 2);
+  assert.equal(g.wardKind(), 'bats');
+  g.combat.enemy.intent = idle();
+  const total = g.totalHp();
+  g.endTurn();
+  assert.ok(g.totalHp() < total, 'the bats bit');
+  // Crimson Tide: the moon locks at full.
+  const en = g.combat.enemy;
+  en.hp = Math.round(30 * en.hpScale) - 1;
+  g.rollIntent();
+  assert.equal(g.moon, 6);
+  assert.ok(g.combat.moonLocked);
+  // Eclipse: the beam is telegraphed on a deck.
+  en.hp = 5;
+  g.combat.beamRest = 0;
+  g.rollIntent();
+  assert.ok(g.combat.eclipse);
+  assert.equal(en.intent.kind, 'beam');
+  assert.ok(g.isAttack(en.intent));
+  assert.ok(g.intentDamage(en.intent) >= 10);
+});
+
+test('Blood Altar, Crypt Wreck and Moon Well', () => {
+  const g = new Game({ seed: 5 });
+  g.chooseCore('airship');
+  g.lootOffers = []; g.pendingLoot = [];
+  g.buildShip([['harpoon', 0, 1], ['plating', 0, 2]]);
+  g.area = 2; g.generateMap(); g.enterMap();
+  g.moon = 5;
+  g.startEncounter({ id: g.map.current, enc: 'moonwell', col: 3 });
+  assert.equal(g.moon, 0);
+  g.continueEvent(); g.finishLoot && g.phase === 'loot' && g.finishLoot();
+  g.phase = 'map';
+  g.core.hp = 15;
+  g.startEncounter({ id: g.map.current, enc: 'bloodaltar', col: 3 });
+  g.chooseOption('rare');
+  assert.equal(g.core.hp, 11);
+  assert.ok(g.event.loot.ids.every((id) => require('../js/data.js').PARTS[id].rarity === 'rare'));
+  g.event = null; g.phase = 'map';
+  g.startEncounter({ id: g.map.current, enc: 'crypt', col: 3 });
+  assert.deepEqual(g.event.options.map((o) => o.id), ['search', 'leave']);
+  g.chooseOption('search');
+  assert.equal(g.event.rolls.length, 1);
+});

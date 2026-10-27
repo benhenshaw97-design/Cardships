@@ -267,9 +267,41 @@
       rules: [['Fire · 2 Steam · Arcs', 'Deal damage equal to all the Resonance on your ship (at least 3), ignoring Block and Armor. Then every module\'s Resonance is spent.'], ['Arcane', 'Builds Resonance when hit.']],
     },
   });
+  // ---------- Area 3: the Blood Moon ----------
+  // blood: paid in Core Durability each use (on top of any Steam). Blood parts heal as they wound.
+  Object.assign(PARTS, {
+    bloodharpoon: {
+      name: 'Blood Harpoon', abbr: 'BLH', type: 'weapon', rarity: 'uncommon', area: 2, blood: 1, weight: 1, hp: 3, cost: 1, dmg: 3, lifesteal: 0.5,
+      rules: [['Fire · 1 Steam · Blood 1', 'Deal 3. Your Core heals half the damage that lands (rounded up).']],
+    },
+    thornhull: {
+      name: 'Thorned Hull', abbr: 'THN', type: 'defense', rarity: 'uncommon', area: 2, weight: 2, hp: 5,
+      rules: [['Thorned Armor', 'Every hit on it deals 1 less. At the front of a deck it catches every direct shot along it.'], ['Thorns', 'Whatever hits it with an attack or a ram gains 2 Bleed.']],
+    },
+    sanguine: {
+      name: 'Sanguine Engine', abbr: 'SNG', type: 'support', rarity: 'uncommon', area: 2, blood: 1, weight: 1, hp: 3, cost: 0,
+      rules: [['Bloodburn · Blood 1', '+2 Steam this turn. Once a turn.']],
+    },
+    crimsonaltar: {
+      name: 'Crimson Altar', abbr: 'ALT', type: 'support', rarity: 'rare', area: 2, weight: 1, hp: 3, cost: 1,
+      rules: [['Blood Rite · 1 Steam', 'Sacrifice a module touching it: your weapons deal +1 damage for the rest of the run, and your Core heals what the module had left. Once a fight.']],
+    },
+    moonmortar: {
+      name: 'Moon Mortar', abbr: 'MMT', type: 'weapon', rarity: 'uncommon', area: 2, weight: 2, hp: 3, cost: 2, dmg: 2, arc: true,
+      rules: [['Fire · 2 Steam · Arcs', 'Deal 2, +1 for every 2 points of the Blood Moon (up to 5). Fires from any slot with open sky above it.']],
+    },
+    chalice: {
+      name: "Sovereign's Chalice", abbr: 'CHL', type: 'utility', rarity: 'legendary', boss: 'sovereign', weight: 1, hp: 4,
+      rules: [['Blood Toll', 'Whenever the enemy takes damage, your Core heals 1 (up to 3 a turn).']],
+    },
+    eclipseblade: {
+      name: 'Eclipse Blade', abbr: 'ECL', type: 'weapon', rarity: 'legendary', boss: 'sovereign', blood: 2, weight: 2, hp: 5, cost: 1,
+      rules: [['Fire · 1 Steam · Blood 2', 'Deal 6 piercing damage, +1 for every Bleed stack on your ship and the enemy.']],
+    },
+  });
   for (const [id, p] of Object.entries(PARTS)) p.id = id;
   // Each boss's legendaries.
-  const LEGENDARY_POOLS = { leviathan: ['leviplating', 'dreadnought'], stormqueen: ['galeengine', 'stormheart'], colossus: ['mainspring', 'titanfist'], archon: ['auroracrown', 'archonlance'] };
+  const LEGENDARY_POOLS = { leviathan: ['leviplating', 'dreadnought'], stormqueen: ['galeengine', 'stormheart'], colossus: ['mainspring', 'titanfist'], archon: ['auroracrown', 'archonlance'], sovereign: ['chalice', 'eclipseblade'] };
 
   // ---------- Resonance and the aurora (Area 2) ----------
   // Arcane modules gain 1 Resonance when used or hit. At the start of your turn, every module with
@@ -324,6 +356,11 @@
     siphon: (amount, name = 'Siphon Light') => ({ kind: 'siphon', amount, name }),            // steals Resonance, heals on it
     rune: (dmg, name = 'Rune of Ruin') => ({ kind: 'rune', dmg, name }),                      // every module on a rolled deck, past armor
     plungeShot: (dmg, name) => ({ kind: 'shot', dmg, name, aim: 'plunge' }),
+    // Area 3: blood.
+    bleed: (dmg, stacks, name) => ({ kind: 'token', token: 'bleed', dmg, stacks, name }),  // a shot that leaves Bleed stacks
+    bleedRake: (dmg, name) => ({ kind: 'rake', dmg, name, bleed: 1 }),                    // a rake whose every hit leaves 1 Bleed
+    summon: (amount, name = 'Call the Swarm') => ({ kind: 'ward', amount, name, bats: true }), // bats screen it, and bite
+    drain: (dmg, name = 'Sanguine Tide') => ({ kind: 'drain', dmg, name }),               // every module, past armor; it heals the total
   };
   // Bombs, lobbed shells, lightning and storms come down from above ("plunging fire"): they drop onto a
   // column, stern or bow, and hit whatever is on top. Everything else is direct fire along a deck from the bow.
@@ -452,6 +489,50 @@
       ],
     },
   });
+  // ---------- Area 3 enemies ----------
+  Object.assign(ENEMIES, {
+    bats: {
+      name: 'Bat Swarm', weight: 1, hp: 15, look: 'bats', area: 2,
+      gimmick: 'A cloud of iron-winged bats: fast, many-fanged raking strikes that leave Bleed.',
+      phases: [
+        { name: 'Swarming', min: 8, table: [I.bleedRake(1, 'Fang Storm'), I.bleedRake(1, 'Fang Storm'), I.bleed(2, 1, 'Bite'), I.bleed(2, 1, 'Bite'), I.rake(2, 'Wing Slash'), I.charge(2, 'Shriek')] },
+        { name: 'Frenzied', min: 1, table: [I.bleedRake(2, 'Fang Storm'), I.bleedRake(1, 'Fang Storm'), I.bleed(3, 2, 'Deep Bite'), I.rake(2, 'Wing Slash'), I.bleedRake(2, 'Fang Storm'), I.bleed(2, 1, 'Bite')] },
+      ],
+    },
+    wraith: {
+      name: 'Wraith Clipper', weight: 3, hp: 18, look: 'wraith', area: 2, phased: true,
+      gimmick: 'Ghostly: on odd rounds it phases out of the world and your shots pass through it. Bleed and Burn still tick.',
+      phases: [
+        { name: 'Haunting', min: 11, table: [I.shot(4, 'Spectral Cannon'), I.shot(4, 'Spectral Cannon'), I.bleed(2, 2, 'Soul Hook'), I.rake(2, 'Wailing Volley'), I.charge(3, 'Gather Dread'), I.block(4, 'Ectoplasm')] },
+        { name: 'Unbound', min: 1, table: [I.shot(5, 'Spectral Cannon'), I.bleed(3, 2, 'Soul Hook'), I.broadside(3, 'Grave Volley'), I.rake(2, 'Wailing Volley'), I.shot(4, 'Spectral Cannon'), I.ram(5, 2, 'Ghost Ram')] },
+      ],
+    },
+    bonegalleon: {
+      name: 'Bone Galleon', weight: 7, hp: 22, look: 'bonegalleon', area: 2, rises: true, armor: 1,
+      gimmick: 'Deathless: the first time it sinks it rises again at half Durability. Bone plating: Armor 1.',
+      phases: [
+        { name: 'Grave March', min: 13, table: [I.shot(4, 'Bone Cannon'), I.ram(5, 2, 'Ossuary Ram'), I.broadside(2, 'Rib Volley'), I.block(5, 'Bone Wall'), I.shot(4, 'Bone Cannon'), I.bleed(2, 1, 'Splinter Shot')] },
+        { name: 'Splintering', min: 1, table: [I.shot(5, 'Bone Cannon'), I.ram(6, 2, 'Ossuary Ram'), I.broadside(3, 'Rib Volley'), I.bleedRake(2, 'Splinter Hail'), I.repair(3, 'Knit Bones'), I.shot(4, 'Bone Cannon')] },
+      ],
+    },
+    cultist: {
+      name: 'Blood Cultist Barge', weight: 6, hp: 26, look: 'cultist', area: 2, bleedFeeds: true,
+      gimmick: 'Blood Rites: every point of Bleed damage your ship takes heals it.',
+      phases: [
+        { name: 'Bloodletting', min: 13, table: [I.bleed(2, 2, 'Ritual Knife'), I.bleed(2, 2, 'Ritual Knife'), I.bleedRake(1, 'Thorn Rain'), I.shot(4, 'Sacrificial Gun'), I.block(4, 'Blood Ward'), I.repair(3, 'Transfusion')] },
+        { name: 'Exsanguinate', min: 1, table: [I.bleed(3, 3, 'Ritual Knife'), I.bleedRake(2, 'Thorn Rain'), I.shot(5, 'Sacrificial Gun'), I.bleed(2, 2, 'Ritual Knife'), I.broadside(3, 'Red Volley'), I.charge(3, 'Dark Chant')] },
+      ],
+    },
+    sovereign: {
+      name: 'The Crimson Sovereign', weight: 8, hp: 46, look: 'sovereign', boss: true, area: 2,
+      gimmick: 'Queen of the Blood Moon. Blood Tithe: Bleed barrages, and bat swarms that screen her and bite. Crimson Tide: the moon locks full and she drains your modules to heal. Eclipse: the sky goes dark and she fires a blood beam down a telegraphed deck. Block it with front armor, Evade it, or kill her first.',
+      phases: [
+        { name: 'Blood Tithe', min: 31, table: [I.bleedRake(1, 'Crimson Barrage'), I.bleedRake(2, 'Crimson Barrage'), I.summon(2), I.bleed(3, 2, 'Thorned Lance'), I.shot(5, 'Royal Cannon'), I.summon(2)] },
+        { name: 'Crimson Tide', min: 16, table: [I.drain(1), I.drain(1), I.bleedRake(2, 'Crimson Barrage'), I.shot(5, 'Royal Cannon'), I.bleed(3, 2, 'Thorned Lance'), I.broadside(3, 'Twin Fangs')] },
+        { name: 'Eclipse', min: 1, table: [I.shot(5, 'Royal Cannon'), I.bleedRake(2, 'Crimson Barrage'), I.bleed(3, 3, 'Thorned Lance'), I.drain(1), I.broadside(3, 'Twin Fangs'), I.summon(2)] },
+      ],
+    },
+  });
   for (const [id, e] of Object.entries(ENEMIES)) {
     e.id = id;
     for (const p of e.phases) p.table = p.table.map((it) => (PLUNGING.has(it.name) ? { ...it, aim: 'plunge' } : it));
@@ -506,6 +587,20 @@
       name: 'Star Chart', kind: 'Chart', biome: 'aurora',
       text: "An astronomer's island. Its charts reveal the whole area's route, and the movements of the Archon itself.",
     },
+    // Area 3: the Blood Moon.
+    bloodaltar: {
+      name: 'Blood Altar', kind: 'Altar', biome: 'bloodmoon',
+      text: 'A black altar slick with old blood. It trades in Durability: bleed your Core into it for a rare part, or a legendary.',
+    },
+    crypt: {
+      name: 'Crypt Wreck', kind: 'Salvage', biome: 'bloodmoon',
+      text: 'A sunken cathedral-ship full of tombs and treasure. Search it, and roll a d6: something may still be guarding it.',
+      table: ['Ambush! A Bone Galleon rises from the crypt', 'Ambush! A Bat Swarm bursts from the bell tower', 'Cursed reliquary: a module gains 2 Bleed, but pick 1 of 3 parts', 'Offering plates: +22 cogs', 'The armory: pick 1 of 3 parts', 'The bishop\'s hoard: a rare part'],
+    },
+    moonwell: {
+      name: 'Moon Well', kind: 'Well', biome: 'bloodmoon',
+      text: 'A still pool that holds the moon\'s reflection. Draw its light down and the Blood Moon wanes to nothing.',
+    },
     boss: { name: 'Boss', kind: 'Boss', text: 'The final gate.' },
   };
   for (const [id, e] of Object.entries(ENCOUNTERS)) e.id = id;
@@ -547,9 +642,12 @@
     },
     {
       id: 'bloodmoon', name: 'The Blood Moon', numeral: 'III', blurb: 'A crimson night under a vast red moon, haunted by gothic wrecks.', cols: 11, midCol: 5, lairFrom: 3,
-      bosses: BOSSES, tiers: [{ upTo: 4, pool: ['gunship', 'sentinel', 'bomber'] }, { upTo: 99, pool: ['sentinel', 'gunship', 'flagship'] }], elites: ELITES, beacon: ['gunship', 'sentinel'], nodeWeights: NODE_WEIGHTS,
-      bands: [{ upTo: 4, biome: 'dusk' }, { upTo: 7, biome: 'lair' }, { upTo: 99, biome: 'dusk' }],
-      hp: 2.1, dmg: 2, bossHp: 1.6, veteranColumns: [6], bossBiome: 'lair',
+      bosses: ['sovereign'], tiers: [{ upTo: 4, pool: ['bats', 'wraith', 'cultist'] }, { upTo: 99, pool: ['wraith', 'cultist', 'bonegalleon', 'bats'] }],
+      elites: ['bonegalleon', 'cultist'], beacon: ['bats', 'wraith'],
+      nodeWeights: { patrol: 32, lair: 10, bloodaltar: 7, crypt: 8, moonwell: 7, trader: 10, beacon: 8, guild: 6, hangar: 8 },
+      names: { patrol: 'Night Hunters', lair: 'Gothic Keep', beacon: 'Bleeding Beacon' },
+      bands: [{ upTo: 3, biome: 'bloodmoon' }, { upTo: 7, biome: 'bloodFog' }, { upTo: 99, biome: 'bloodSpires' }],
+      hp: 1.1, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'eclipse', moon: true, accent: '#ff5a5a',
     },
   ];
   AREAS.forEach((a, i) => { a.index = i; });
@@ -577,6 +675,7 @@
     fire: { name: 'Fire', text: 'Deals 1 damage to this module at the start of your turn.' },
     glue: { name: 'Glue', text: 'A glued weapon deals 1 less damage, and a glued module cannot be swapped.' },
     gas: { name: 'Gas', text: 'Using this module costs 1 more Steam.' },
+    bleed: { name: 'Bleed', text: 'Stacks. At the start of your turn it deals damage equal to its stacks, then loses 1.' },
     hex: { name: 'Hex', text: 'Inverted until the end of your next turn: a hexed weapon heals the enemy, hexed armor takes +1 instead of blocking, a hexed repair wounds, and a hexed Steam module drains Steam.' },
   };
 
@@ -612,6 +711,11 @@
     grandCrystals: 4,        // Aurora Archon: focus crystals guarding its Grand Convergence
     grandDamage: 4,          //   the spell's damage to every module (the Core takes 1 less)
     grandBacklash: 8,        //   damage it takes if every crystal breaks first
+    moonMax: 6,              // Blood Moon gauge: +1 each round of an Area 3 fight
+    moonWane: 3,             //   and it wanes this much after each fight
+    beamDamage: 10,          // Crimson Sovereign: the eclipse blood beam
+    bitePerBat: 1,           //   each summoned bat bites for this (and 1 Bleed) at the start of her turn
+    chaliceCap: 3,           // Sovereign's Chalice: most Core healed per turn
   };
 
   const data = { BALANCE, CORES, SHIPS, PARTS, LEGENDARY_POOLS, RESONANCE, AURORA, RARITY_ODDS, ENEMIES, ENCOUNTERS, NODE_WEIGHTS, ENEMY_TIERS, ELITES, BOSSES, BIOME_BANDS, AREAS, PRICES, UNLOCKS, QUESTS, TOKENS, ROW_TABLE, DEPTH_TABLE, PLUNGE_TABLE };

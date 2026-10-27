@@ -5,7 +5,7 @@ The current brief, so a fresh session can pick up mid-way. Build in this order a
 1. Run structure and portals: **done**
 2. Legendaries: **done** (Area 1 pools; the Archon's and Sovereign's come in steps 3 and 4)
 3. Area 2: The Aurora Reaches: **done**
-4. Area 3: The Blood Moon
+4. Area 3: The Blood Moon: **done**
 5. The Workshop (meta-progression)
 6. Balance pass
 
@@ -52,7 +52,7 @@ Update this file after each step: mark the step done and note anything left for 
   - `hp`, `dmg`, `bossHp`, `veteranColumns`: enemy scaling.
   - `bossBiome`, `blurb`.
   - Optional: `names` (encounter renames per area), `aurora: true` (aurora in every fight), `accent`.
-  - Area 3 still reuses Area 1's enemies, scaled up, as a placeholder. Step 4 replaces its `bosses`, `tiers`, `elites`, `beacon`, `nodeWeights` and `bands`.
+  - Area 3 also has `moon: true`.
 - `js/engine.js`:
   - `game.area` is the area index, and `game.bossIds` holds one boss per area, rolled at the start (`rollBosses`). `game.bossId` is the current area's boss.
   - `areaDef()` returns the area's data. `progress()` is the total columns cleared.
@@ -102,7 +102,7 @@ Update this file after each step: mark the step done and note anything left for 
   - The legendary frame is `.card.legendary` / `.enc.part.legendary` in style.css.
   - The flight-view glow is `legendGlow()` in shipart.js.
   - Effect handlers: `reflect`, `stormheart`, `galeShift`, `wardPop`, `enemyLayers`.
-- **Still to add.** Sovereign pool (step 4): Sovereign's Chalice (heal the Core when the enemy takes damage, max 3 a turn) and Eclipse Blade (Blood 2: 6 piercing, +1 per Bleed stack on your ship). The Legendary Vault comes in step 5.
+- **Still to add.** The Legendary Vault comes in step 5.
 
 ## Area 2 (step 3): where things are
 
@@ -126,43 +126,82 @@ Update this file after each step: mark the step done and note anything left for 
   - `fx.js` handlers: resonance, spell, aurora, prism, enemyWard, enemyArmor, channel, grandBroken, shards, blessing, enchant.
   - `ui.js`: `resPips`, aurora chip and Crown picker on the battle bar, hexed and enchanted marks.
 
-## Area 3 plan (step 4, agreed design)
+## Area 3 (step 4): where things are
 
-- **Moon gauge.**
-  - `game.moon` lasts through Area 3's fights. It rises 1 each round (max 6) and wanes 3 after each fight.
-  - Moon 2–3: enemies deal +1. Moon 4–5: also aggressive (a non-attack intent rerolls once). Moon 6: Frenzy (+2, and attacks apply Bleed 1).
-  - The Moon Well sets the moon to 0.
-- **Bleed** is a numeric token on modules, and on the enemy too. At the start of the owner's turn, each stack deals 1, then the token loses 1.
-- **Blood costs** are paid from Core durability. Lifesteal heals the Core.
-- **Parts:**
-  - Blood Harpoon: Blood 1. Deals 3 and heals the Core for half.
-  - Thorned Hull: armor that bleeds the attacker.
-  - Sanguine Engine: support. Drains 2 from a touching module for +2 Steam.
-  - Crimson Altar: once a fight, sacrifice a touching module for +1 damage on all weapons for the rest of the run.
-  - Moon Mortar: arcs. Deals 2 + moon/2.
-- **Enemies:**
-  - Bat Swarm: rakes that bleed.
-  - Wraith Clipper: phased on odd rounds; Bleed still ticks.
-  - Bone Galleon: rises once at 50%.
-  - Blood Cultist Barge: heals from your Bleed.
-- **Points of interest:**
-  - Blood Altar: pay Core durability for a rare or legendary.
-  - Crypt Wreck: salvage with an ambush chance.
-  - Moon Well: empties the moon.
-- **The Crimson Sovereign:**
-  - P1: Bleed barrages and summoned bats, as a 'bats' ward that also bites.
-  - P2: the moon is locked full, and it drains your modules to heal.
-  - P3: an eclipse turns the screen dark red, then a blood beam hits a telegraphed deck for about 12. Front armor catches it, and Evade dodges it.
-  - Pool: Sovereign's Chalice and Eclipse Blade (see above).
-- **Already in place:**
-  - The music cues map3, combat3 and boss3 in `audio.js`.
-  - The Area 3 ships k_bats, k_wraith, k_bonegalleon, k_cultist and k_sovereign, in the atlas and in `shipart.js` HULLS.
-  - The CSS accent `body.area-3`.
-  - `map-sky-blood.jpg`.
+- **Data** (`js/data.js`):
+  - `AREAS[2]`, with `moon: true`.
+  - Parts with `area: 2`. The `blood` field is a Core-Durability cost; `lifesteal` heals the Core for that share of the damage landed.
+  - `LEGENDARY_POOLS.sovereign`.
+  - Enemies `bats`, `wraith` (`phased`), `bonegalleon` (`rises`), `cultist` (`bleedFeeds`) and `sovereign`.
+  - Intent helpers `I.bleed(dmg, stacks)`, `I.bleedRake`, `I.summon` (a ward with `bats: true`) and `I.drain`.
+  - `ENCOUNTERS.bloodaltar/crypt/moonwell`. `TOKENS.bleed` is numeric: `tokens.bleed` counts stacks.
+  - `BALANCE`: `moonMax`, `moonWane`, `beamDamage`, `bitePerBat`, `chaliceCap`.
+- **Engine** (`js/engine.js`):
+  - The moon is `game.moon`, which lasts across fights and resets at a portal. Helpers: `moonActive`, `moonBonus`, `moonAggressive`, `frenzy`, `moonName`.
+    - It rises in `beginPlayerTurn` from round 2 and wanes in `winCombat`.
+    - `intentDamage` adds `moonBonus`.
+    - `rollIntent` handles the aggression reroll, the Sovereign's moon lock (`combat.moonLocked`), the eclipse (`combat.eclipse`), and the Blood Beam (`kind: 'beam'`, alternating via `combat.beamRest`).
+  - Bleed:
+    - `placeTokenOn(uid, 'bleed', stacks)`.
+    - `tickBleed` runs at the start of your turn, and Cultists heal from it.
+    - The enemy's `en.bleed` ticks in `enemyTurn`, with `dot: true` so it reaches a phased Wraith.
+    - `executeIntent` leaves Bleed on every hit of a `bleed` rake or under Frenzy (via `this.lastPlan`, recorded by `applyPlan`).
+  - Blood:
+    - `payBlood`, `bloodBlocked` (checked in `fireInfo` and `canUseSupport`).
+    - Lifesteal is handled in `fire`. The Chalice is in `damageEnemy` (`combat.chalice`).
+    - `bladeDamage`, `mortarDamage`, `totalBleed`.
+  - Enemies:
+    - `phasedOut()` is checked in `damageEnemy`.
+    - The Bone Galleon rises in `checkEnd` (`en.risen`).
+    - Bats: `combat.bats` and `batBites()`, and `wardKind` returns 'bats'.
+    - The `drain` intent heals the enemy by what it took.
+  - Thorned Hull is in `applyPlan`. Sanguine Engine and Crimson Altar are in `supportTargets` / `useSupport`.
+  - Events: `runBloodAltar` (`altarLegends`), `runCrypt`, `runMoonWell`.
+- **Visuals:**
+  - `scene.js`:
+    - Biomes bloodmoon, bloodFog, bloodSpires and eclipse.
+    - `cathedralSprite`, `drawBat`, `drawMoon` (`Scene.moonLevel`, `Scene.eclipse`), `drawFog`, ash weather, and bat flocks.
+  - `shipart.js`: `rim` moonlight, `ghost` (Wraith phase), `flutter`, bats ward, `drawBleed`.
+  - `fx.js` handlers: moon, eclipse, bleed, enemyBleed, batBite, thorns, chalice, bloodburn, altar, rise, phasedMiss; enemyShot handles `beam` and `drain`. Drips take a colour.
+  - `ui.js`:
+    - `moonGauge()` on the battle bar and the HUD.
+    - Bleed tokens with counts (`tok-blood`).
+    - Enemy chips: bleed, phased, rises, feeds, moon.
+    - The `eclipse` body class.
+  - `skymap.js` labels now use `game.encName` (area names).
+- **Tests:** 65 pass, including 10 for Area 3.
+
+## Workshop plan (step 5)
+
+- **Meta save.** `cardships.meta.v3` is separate from the run save; migrate the v2 fields. It holds:
+  - `blueprints`
+  - `unlockedParts`, `unlockedCores`, `upgrades: {extraPart, steam, reroll}`
+  - `legendaries`
+  - `seen: {enemies, parts, bosses}`, `lore` (deciphered entries)
+  - `achievements`, `cosmetics: {paint, balloon, skin}`
+  - `tiersCleared: {coreId: tier}`, `firstClear`
+  - `lastShip` (a snapshot for the hangar display)
+- **Blueprints per run:**
+  - 5 base.
+  - +15 per area cleared, +10 per boss killed (+10 more on a first kill).
+  - +4 per contract done, +1 per elite.
+  - Losing still earns the base and the per-area rewards.
+- **Workshop hub.** A new title-screen panel over the 'dock' scene, with the last ship drawn by `Actors` in hangar mode. Tabs:
+  - **Cores:** 3 new Cores, ships k_arcanist*, k_sanguine* and k_eclipse* (already in the atlas and HULLS).
+    - Arcanist: Resonance, starts with arcane parts. Its ability, Attune, puts +2 Resonance on a module.
+    - Sanguine: Blood. Its ability, Bloodletting, pays 2 Core for 3 Steam; lifesteal on all weapons, 1.
+    - Eclipse: a hybrid. Its ability deals damage equal to the moon or Resonance plus 2.
+  - **Parts:** new players start with a smaller pool. Unlock the rest, including the Area 2 and Area 3 parts, for Blueprints.
+  - **Upgrades:** an extra starting part, +1 starting Steam, and one reroll of a loot offer per area.
+  - **Logbook:** an entry for every enemy, part, legendary and boss seen, with stats (fought, killed). Lore is deciphered for Blueprints.
+  - **Legendary Vault:** every legendary, locked or unlocked.
+  - **Cosmetics** from achievements: hull paint (tint the player sprite), balloon colour, Core skin.
+  - **Storm Tiers:** unlocked after a first full clear. Each tier adds one modifier, for example enemies +10% hp, −1 starting Steam, elites more common, the moon starting at 2, fewer shops, or the boss starting with Block. Show the best tier cleared per Core.
 
 ## Status
 
 - Step 1 is done: run structure, portals, the simulator, and tests.
 - Step 2 is done: legendaries for the Area 1 bosses, enemy defence layers, generated card art. 47 tests pass.
 - Step 3 is done: the Aurora Reaches, the Archon and its pool. 55 tests pass, and a 300-run fuzz through all areas holds its invariants.
+- Step 4 is done: the Blood Moon, the Crimson Sovereign and its pool. 65 tests pass, and the fuzz holds. Sim at step 4 (60 runs per Core): Area 1/Area 2 as before; full wins are about 0–5%, so Area 3 is too hard for now. Step 6 tunes.
 - Sim at step 3 (60 runs per Core, Area 1 clear / Area 2 clear / win): airship 58/33/20, battleship 52/5/0, zeppelin 45/27/2, clockwork 43/35/15, privateer 45/32/8, tempest 58/35/20. Area 3 is still a scaled placeholder. Step 6 tunes; the battleship needs help in Area 2.

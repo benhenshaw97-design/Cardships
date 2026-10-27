@@ -50,6 +50,11 @@
     auroraRift: { sky: ['#0a0620', '#24124a', '#3a2070'], far: '#3a2a6a', farRock: '#22184a', mid: '#1a1238', cloud: ['#d6c4ff', '#9a84e0', '#5a4a9e'], wisp: 'rgba(200,170,255,0.22)', weather: 'stardust', farKind: 'art', art: 'rift', midKind: 'runes', haze: 'rgba(20,10,50,0.25)', aurora: 0.8 },
     auroraDeep: { sky: ['#030616', '#101a40', '#2a1f5e'], far: '#3a3a8a', farRock: '#1c1c4a', mid: '#141238', cloud: ['#c8d8ff', '#8a96d8', '#4a4e90'], wisp: 'rgba(180,200,255,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(8,10,40,0.25)', aurora: 1.2 },
     archon: { sky: ['#02040e', '#0a1430', '#1a2d55'], far: '#2a4a7a', farRock: '#142640', mid: '#0e1a30', cloud: ['#d0fff4', '#86d0d8', '#3e6e8e'], wisp: 'rgba(180,255,240,0.26)', weather: 'stardust', farKind: 'art', art: 'nightCity', midKind: 'runes', haze: 'rgba(20,60,90,0.42)', aurora: 1.6 },
+    // Area 3, the Blood Moon: a vast red moon over gothic spires, wrecks, ash, bats and red fog.
+    bloodmoon: { sky: ['#07020a', '#26060c', '#5c0f16'], far: '#1c0a10', farRock: '#120609', mid: '#1a080c', cloud: ['#7a3438', '#4e1e22', '#2a0e12'], wisp: 'rgba(150,20,30,0.28)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(80,0,10,0.4)', moon: 1, fog: 0.6, bats: true },
+    bloodFog: { sky: ['#0a0306', '#300a10', '#6a1a1c'], far: '#2a0e12', farRock: '#16080a', mid: '#1e0a0e', cloud: ['#8a4044', '#5a2428', '#301216'], wisp: 'rgba(170,30,40,0.34)', weather: 'ash', farKind: 'art', art: 'derelicts', midKind: 'wrecks', haze: 'rgba(90,0,12,0.58)', moon: 0.85, fog: 1.1, bats: true },
+    bloodSpires: { sky: ['#050106', '#1e0408', '#4a0a10'], far: '#22080e', farRock: '#100406', mid: '#16060a', cloud: ['#6e2c30', '#44181c', '#240a0e'], wisp: 'rgba(130,16,26,0.3)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(60,0,8,0.4)', moon: 1.15, fog: 0.8, bats: true },
+    eclipse: { sky: ['#030003', '#1a0206', '#40060c'], far: '#1a060a', farRock: '#0c0204', mid: '#120408', cloud: ['#5e2026', '#3a1014', '#1e0608'], wisp: 'rgba(120,10,20,0.32)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(40,0,6,0.45)', moon: 1.45, fog: 0.9, bats: true },
     victory: { still: 'victory', wisp: 'rgba(255,230,190,0.4)', weather: 'motes' },
     defeat: { still: 'defeat', wisp: 'rgba(120,60,50,0.4)', weather: 'embers' },
     dock: { still: 'deck', wisp: 'rgba(255,255,255,0.4)', weather: 'steam' },
@@ -137,6 +142,50 @@
     }
     return c;
   }
+  // A gothic cathedral floating in the clouds: a nave, a tall spire or two, pointed lit windows.
+  function cathedralSprite(w, ht, body, dark) {
+    const H = Math.round(ht * 1.7);
+    const c = canvas(w, H);
+    const g = c.getContext('2d');
+    const base = H * rand(0.7, 0.85);
+    // The rock it sits on.
+    g.fillStyle = dark; g.beginPath(); g.moveTo(w * 0.05, base);
+    for (let i = 1; i < 7; i++) g.lineTo((i / 7) * w, base + Math.sin((i / 7) * Math.PI) * ht * 0.25 * rand(0.6, 1.1));
+    g.lineTo(w * 0.95, base); g.closePath(); g.fill();
+    g.fillStyle = body;
+    const naveW = w * 0.56, naveX = w * 0.22, naveH = ht * 0.3;
+    g.fillRect(naveX, base - naveH, naveW, naveH);
+    g.beginPath(); g.moveTo(naveX - 4, base - naveH); g.lineTo(naveX + naveW / 2, base - naveH - ht * 0.14); g.lineTo(naveX + naveW + 4, base - naveH); g.fill();
+    const spires = 1 + Math.floor(rand(0, 2.2));
+    for (let k = 0; k < spires; k++) {
+      const sx = naveX + (k === 0 ? naveW * 0.12 : naveW * 0.78), sw = w * 0.12, sh = ht * rand(0.55, 0.85);
+      g.fillRect(sx, base - sh, sw, sh);
+      g.beginPath(); g.moveTo(sx - 2, base - sh); g.lineTo(sx + sw / 2, base - sh - ht * 0.32); g.lineTo(sx + sw + 2, base - sh); g.fill();
+      g.fillRect(sx + sw / 2 - 1, base - sh - ht * 0.42, 2, ht * 0.12);
+      g.fillRect(sx + sw / 2 - 5, base - sh - ht * 0.39, 10, 2);
+    }
+    // Pointed windows glowing red.
+    g.fillStyle = 'rgba(255,70,50,0.55)';
+    for (let i = 0; i < 4; i++) {
+      const wx = naveX + naveW * (0.18 + i * 0.2), wy = base - naveH * 0.7;
+      g.beginPath(); g.moveTo(wx, wy + 10); g.lineTo(wx, wy + 3); g.lineTo(wx + 2.5, wy); g.lineTo(wx + 5, wy + 3); g.lineTo(wx + 5, wy + 10); g.fill();
+    }
+    return c;
+  }
+  // A bat silhouette with its wings at a flap angle (0..1).
+  function drawBat(g, x, y, s, flap, color) {
+    const up = (flap - 0.5) * 8 * s;
+    g.fillStyle = color;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x - 6 * s, y - 2 * s - up, x - 12 * s, y - up);
+    g.lineTo(x - 9 * s, y + 2 * s - up * 0.4); g.lineTo(x - 6 * s, y + 1 * s); g.lineTo(x - 3 * s, y + 3 * s);
+    g.lineTo(x, y + 2 * s);
+    g.lineTo(x + 3 * s, y + 3 * s); g.lineTo(x + 6 * s, y + 1 * s); g.lineTo(x + 9 * s, y + 2 * s - up * 0.4);
+    g.lineTo(x + 12 * s, y - up);
+    g.quadraticCurveTo(x + 6 * s, y - 2 * s - up, x, y);
+    g.fill();
+  }
   function airshipSilhouette(g, x, y, s, color) {
     g.fillStyle = color;
     g.beginPath(); g.ellipse(x, y, 40 * s, 13 * s, 0, 0, Math.PI * 2); g.fill();
@@ -180,6 +229,9 @@
         // Floating islands of rock crowned with glowing crystal shards.
         this.ridge(fg, h * 0.86, h * 0.08, def.farRock, 0.55);
         for (let i = 0; i < 8; i++) this.wrapDraw(fg, crystalIsland(rand(80, 170), rand(70, 130), def.far, def.farRock), rand(0, this.tileW), rand(h * 0.08, h * 0.5), 0.85);
+      } else if (def.farKind === 'cathedral') {
+        this.ridge(fg, h * 0.86, h * 0.08, def.farRock, 0.8);
+        for (let i = 0; i < 6; i++) this.wrapDraw(fg, cathedralSprite(rand(90, 170), rand(h * 0.35, h * 0.62), def.far, def.farRock), rand(0, this.tileW), 0, 0.9);
       } else if (def.farKind === 'spires') {
         this.ridge(fg, h * 0.8, h * 0.15, def.farRock, 1);
         for (let i = 0; i < 14; i++) {
@@ -282,12 +334,17 @@
       }
       // Weather particles.
       const P = this.particles;
-      const want = { rain: 90, soot: 45, embers: 40, motes: 25, birds: 0, steam: 14, stardust: 70 }[def.weather] || 0;
+      const want = { rain: 90, soot: 45, embers: 40, motes: 25, birds: 0, steam: 14, stardust: 70, ash: 60 }[def.weather] || 0;
       while (P.length < want) P.push(this.spawn(true));
       for (let i = P.length - 1; i >= 0; i--) {
         const p = P[i];
         p.x += (p.vx - speed * p.f) * dt; p.y += p.vy * dt; p.life -= dt;
         if (p.life <= 0 || p.x < -20 || p.y > this.h + 20 || p.y < -30) P[i] = this.spawn(false);
+      }
+      if (def.bats) {
+        this.batT = (this.batT == null ? rand(2, 5) : this.batT) - dt;
+        if (this.batT <= 0 && !this.batFlock) { this.batFlock = { x: this.w + 30, y: rand(this.h * 0.08, this.h * 0.35), n: Math.floor(rand(5, 11)), t: 0, seeds: Array.from({ length: 12 }, () => [rand(-40, 40), rand(-18, 18), rand(0, 6), rand(0.7, 1.2)]) }; this.batT = rand(7, 14); }
+        if (this.batFlock) { this.batFlock.x -= (70 + speed * 0.3) * dt; this.batFlock.t += dt; if (this.batFlock.x < -120) this.batFlock = null; }
       }
       if (def.weather === 'birds') {
         this.birdT = (this.birdT || rand(3, 8)) - dt;
@@ -313,6 +370,7 @@
       if (kind === 'soot') { p.vx = rand(-20, -5); p.vy = rand(8, 26); p.r = rand(0.8, 2.2); p.f = 0.5; p.life = rand(5, 10); }
       if (kind === 'embers') { p.y = initial ? rand(0, h) : h + 5; p.vx = rand(-30, 10); p.vy = rand(-50, -20); p.r = rand(1, 2.4); p.f = 0.4; p.life = rand(3, 7); }
       if (kind === 'motes') { p.vx = rand(-8, 8); p.vy = rand(-6, 6); p.r = rand(0.8, 1.8); p.f = 0.2; p.life = rand(4, 9); }
+      if (kind === 'ash') { p.vx = rand(-26, -6); p.vy = rand(10, 30); p.r = rand(0.8, 2.4); p.f = 0.45; p.life = rand(5, 11); p.spin = rand(0, 6); }
       if (kind === 'stardust') { p.vx = rand(-10, 4); p.vy = rand(-8, 4); p.r = rand(0.6, 1.8); p.f = 0.25; p.life = rand(3, 8); p.max = p.life; p.hue = Math.floor(rand(0, 4)); }
       if (kind === 'steam') { p.x = rand(0, w); p.y = initial ? rand(0, h) : h + 20; p.vx = rand(-6, 6); p.vy = rand(-28, -14); p.r = rand(16, 34); p.f = 0; p.life = rand(4, 8); p.max = p.life; }
       return p;
@@ -328,6 +386,7 @@
       const { w, h, def } = this;
       if (def.still) return this.drawStill(g);
       g.drawImage(this.sky, 0, 0, w, h);
+      if (def.moon) this.drawMoon(g);
       if (def.farKind === 'art') this.drawArt(g, offset * FACTORS.far);
       else this.drawTile(g, this.far, offset * FACTORS.far);
       if (this.flash > 0 && this.bolt) {
@@ -342,6 +401,7 @@
       if (this.runes) this.drawRunes(g, offset * FACTORS.mid);
       if (this.stacks) this.drawSmokeStacks(g, offset * FACTORS.mid);
       if (this.flock) this.drawBirds(g);
+      if (this.batFlock) for (let i = 0; i < this.batFlock.n; i++) { const [dx, dy, ph, k] = this.batFlock.seeds[i]; const f = this.batFlock; drawBat(g, f.x + dx, f.y + dy + Math.sin(f.t * 2 + ph) * 6, 1.1 * k, 0.5 + 0.5 * Math.sin(f.t * 14 + ph), 'rgba(10,2,4,0.85)'); }
       for (const c of this.clouds) if (c.layer === 'cloudBack') { g.globalAlpha = c.alpha; g.drawImage(c.sprite, c.x, c.y); }
       g.globalAlpha = 1;
     }
@@ -353,7 +413,14 @@
     drawFront(g) {
       for (const wsp of this.wisps) { g.globalAlpha = wsp.alpha; g.drawImage(wsp.sprite, wsp.x, wsp.y); }
       g.globalAlpha = 1;
+      if (this.def.fog) this.drawFog(g);
       this.drawParticles(g);
+      if (this.def.moon && Scene.eclipse && Scene.eclipse()) {
+        g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(150,20,24,0.55)'; g.fillRect(0, 0, this.w, this.h); g.restore();
+        const v = g.createRadialGradient(this.w / 2, this.h / 2, this.h * 0.3, this.w / 2, this.h / 2, this.w * 0.75);
+        v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(20,0,0,0.6)');
+        g.fillStyle = v; g.fillRect(0, 0, this.w, this.h);
+      }
     }
     drawTile(g, tile, off) {
       const x = -(off % this.tileW);
@@ -429,6 +496,49 @@
       }
       g.restore();
     }
+    // The Blood Moon: a vast red disc low in the sky, with craters and a glow. Under an eclipse it
+    // goes black with a burning red corona. Its glow swells with the moon gauge (Scene.moonLevel).
+    drawMoon(g) {
+      const { w, h } = this;
+      const t = this.t || 0;
+      const k = this.def.moon;
+      const r = Math.min(w, h) * 0.24 * k;
+      const x = w * 0.72, y = h * 0.34;
+      const level = Scene.moonLevel ? Scene.moonLevel() : 0.5;
+      const ecl = Scene.eclipse && Scene.eclipse();
+      const glow = g.createRadialGradient(x, y, r * 0.8, x, y, r * (2.2 + level * 0.8));
+      glow.addColorStop(0, ecl ? 'rgba(255,40,30,0.55)' : `rgba(255,60,50,${0.25 + level * 0.25})`); glow.addColorStop(1, 'rgba(120,0,0,0)');
+      g.fillStyle = glow; g.fillRect(0, 0, w, h);
+      g.save();
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip();
+      const body = g.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+      if (ecl) { body.addColorStop(0, '#1a0204'); body.addColorStop(1, '#050001'); }
+      else { body.addColorStop(0, '#ff8a6a'); body.addColorStop(0.55, '#d4282a'); body.addColorStop(1, '#6a0810'); }
+      g.fillStyle = body; g.fillRect(x - r, y - r, r * 2, r * 2);
+      if (!ecl) {
+        g.fillStyle = 'rgba(90,0,10,0.28)';
+        for (const [cx, cy, cr] of [[-0.3, -0.1, 0.18], [0.25, 0.2, 0.12], [0.05, -0.4, 0.09], [-0.1, 0.4, 0.14], [0.4, -0.25, 0.07]]) { g.beginPath(); g.arc(x + cx * r, y + cy * r, cr * r, 0, Math.PI * 2); g.fill(); }
+      }
+      g.restore();
+      if (ecl) {
+        g.save(); g.globalCompositeOperation = 'lighter';
+        g.strokeStyle = `rgba(255,60,40,${0.6 + 0.2 * Math.sin(t * 3)})`; g.lineWidth = 3; g.shadowColor = '#ff2a20'; g.shadowBlur = 24;
+        g.beginPath(); g.arc(x, y, r * 1.02, 0, Math.PI * 2); g.stroke();
+        g.restore();
+      }
+    }
+    // Red fog drifting low across the scene.
+    drawFog(g) {
+      const { w, h } = this;
+      const t = this.t || 0;
+      const k = this.def.fog;
+      for (let b = 0; b < 3; b++) {
+        const y = h * (0.62 + b * 0.13) + Math.sin(t * 0.3 + b) * 8;
+        const gr = g.createLinearGradient(0, y - 40, 0, y + 50);
+        gr.addColorStop(0, 'rgba(160,20,30,0)'); gr.addColorStop(0.5, `rgba(160,20,30,${0.14 * k})`); gr.addColorStop(1, 'rgba(160,20,30,0)');
+        g.fillStyle = gr; g.fillRect(0, y - 40, w, 90);
+      }
+    }
     drawRunes(g, off) {
       const t = this.t || 0;
       g.save();
@@ -490,6 +600,7 @@
         else if (kind === 'embers') { g.fillStyle = `rgba(255,${120 + Math.floor(p.life * 15)},60,${Math.min(1, p.life / 2)})`; }
         else if (kind === 'motes') { g.fillStyle = 'rgba(255,230,180,0.6)'; }
         else if (kind === 'steam') { g.fillStyle = `rgba(255,248,236,${0.12 * Math.sin((p.life / p.max) * Math.PI)})`; }
+        else if (kind === 'ash') { g.fillStyle = p.r > 1.8 ? 'rgba(200,190,185,0.55)' : 'rgba(150,60,60,0.6)'; g.fillRect(p.x, p.y, p.r * 1.6, p.r * 0.8); continue; }
         else if (kind === 'stardust') { const tw = Math.sin((p.life / p.max) * Math.PI) * (0.6 + 0.4 * Math.sin(p.life * 9)); g.fillStyle = ['rgba(180,255,230,', 'rgba(210,190,255,', 'rgba(255,240,190,', 'rgba(170,220,255,'][p.hue] + Math.max(0, tw) + ')'; }
         g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
       }
@@ -601,6 +712,8 @@
   Scene.fx = null;
   Scene.overlay = null;
   Scene.pixelScale = null;
+  Scene.eclipse = null; // () => whether the Crimson Sovereign's eclipse darkens the sky
+  Scene.moonLevel = null; // () => the Blood Moon gauge, 0..1
   Scene.auroraColor = null; // () => the colour of the fight's aurora, if there is one
   Scene.BIOMES = BIOMES;
   Scene.images = images;

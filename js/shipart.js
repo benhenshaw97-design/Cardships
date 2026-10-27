@@ -163,6 +163,12 @@
     barge: { hull: 'k_barge', wash: 'rgba(90,230,255,0.18)', light: '#9ff0ff', crystals: true },
     mirage: { hull: 'k_mirage', wash: 'rgba(200,180,255,0.24)', light: '#e2d4ff' },
     archon: { hull: 'k_archon', wash: 'rgba(110,255,210,0.26)', light: '#a8ffe8', ribbons: true },
+    // Area 3: gothic hulks under the Blood Moon, rimmed in red moonlight.
+    bats: { hull: 'k_bats', wash: 'rgba(120,10,20,0.28)', rim: '#ff3a3a', flutter: true },
+    wraith: { hull: 'k_wraith', wash: 'rgba(160,190,200,0.3)', rim: '#cfe8ff', ghost: true },
+    bonegalleon: { hull: 'k_bonegalleon', wash: 'rgba(230,215,180,0.22)', rim: '#ff5a4a' },
+    cultist: { hull: 'k_cultist', wash: 'rgba(150,0,20,0.3)', rim: '#ff2a3a', light: '#ff3040' },
+    sovereign: { hull: 'k_sovereign', wash: 'rgba(110,0,16,0.3)', rim: '#ff2a2a', light: '#ff2030' },
   };
 
   // Draws a ship sprite with its bottom centre at (0, 0) into an art context, its bow to the right
@@ -404,7 +410,10 @@
       if (this.lunge > 0) x -= Math.sin((1 - this.lunge) * Math.PI) * 18 * P;
       g.translate(x + sink * 30, y + sink * sink * 80);
       g.rotate(-sink * 0.4);
-      const alpha = Math.max(0, 1 - sink * 0.35) * (this.spec.flicker ? 0.8 + Math.sin(t * 9) * 0.15 : 1);
+      let alpha = Math.max(0, 1 - sink * 0.35) * (this.spec.flicker ? 0.8 + Math.sin(t * 9) * 0.15 : 1);
+      // The Wraith Clipper is barely there while it is out of phase.
+      if (this.spec.ghost) alpha *= this.phased ? 0.32 + Math.sin(t * 5) * 0.08 : 0.85;
+      if (this.spec.flutter && !sink) g.translate(0, Math.sin(t * 7) * 2 * P);
       // Illusions: ghost copies of the ship hover around it, and only one is real.
       if (this.wardKind === 'illusion' && this.ward > 0 && !sink) {
         for (let i = 0; i < Math.min(3, this.ward); i++) {
@@ -422,11 +431,38 @@
         g.fillStyle = rg; g.beginPath(); g.ellipse(0, cy, r, r * 0.7, 0, 0, TAU); g.fill();
         g.restore();
       }
+      // Blood Moon ships are rimmed in red moonlight from behind.
+      if (this.spec.rim && !sink) {
+        g.save(); g.globalAlpha = alpha * 0.55; g.filter = 'blur(3px)';
+        g.globalCompositeOperation = 'lighter';
+        blit(g, this.rimArt(), -(W / 2) * P + 3 * P, -(H - 10) * P - 2 * P, P);
+        g.restore();
+      }
       g.globalAlpha = alpha;
       blit(g, this.art, -(W / 2) * P, -(H - 10) * P, P);
       g.globalAlpha = 1;
       if (!sink) this.drawWards(g, P, t);
+      if (!sink && this.bleed > 0) this.drawBleed(g, P, t);
       g.restore();
+    }
+    // A red silhouette of the ship, used as its moonlit rim.
+    rimArt() {
+      if (!this.rimC || this.rimC.width !== this.art.width) { this.rimC = canvas(this.art.width, this.art.height); this.rimC.getContext('2d').imageSmoothingEnabled = false; }
+      const r = this.rimC.getContext('2d');
+      r.globalCompositeOperation = 'source-over'; r.clearRect(0, 0, this.rimC.width, this.rimC.height);
+      r.drawImage(this.art, 0, 0);
+      r.globalCompositeOperation = 'source-in'; r.fillStyle = this.spec.rim; r.fillRect(0, 0, this.rimC.width, this.rimC.height);
+      return this.rimC;
+    }
+    // Bleed on the enemy: red drops falling from its hull.
+    drawBleed(g, P, t) {
+      const n = Math.min(6, this.bleed);
+      for (let i = 0; i < n; i++) {
+        const k = (t * 0.8 + i / n) % 1;
+        const x = (-0.3 + (i / Math.max(1, n - 1)) * 0.6) * this.size.w * P, y = -this.size.h * 0.2 * P + k * 40 * P;
+        g.fillStyle = `rgba(200,10,24,${1 - k})`;
+        g.beginPath(); g.ellipse(x, y, 2 * P * 0.6, 3.5 * P * 0.6, 0, 0, TAU); g.fill();
+      }
     }
     // Wards as a shimmering hex shell (one ring per Ward); the Archon's focus crystals orbit it.
     drawWards(g, P, t) {
@@ -434,6 +470,20 @@
       if (!n || this.wardKind === 'illusion') return;
       const cx = 0, cy = -this.size.h * 0.5 * P, rx = this.size.w * 0.58 * P, ry = this.size.h * 0.62 * P;
       g.save();
+      if (this.wardKind === 'bats') {
+        // Summoned bats wheel around her: each one takes a hit.
+        for (let i = 0; i < n; i++) {
+          const a = -t * 1.6 + (i * TAU) / n;
+          const x = cx + Math.cos(a) * rx * 0.95, y = cy + Math.sin(a) * ry * 0.55;
+          const s = 3.2 * P * 0.6, up = Math.sin(t * 16 + i) * 5 * s;
+          g.fillStyle = '#12060a'; g.strokeStyle = 'rgba(255,60,60,0.7)'; g.lineWidth = 1;
+          g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x - 6 * s, y - 2 * s - up, x - 12 * s, y - up); g.lineTo(x - 6 * s, y + 2 * s); g.lineTo(x, y + 3 * s);
+          g.lineTo(x + 6 * s, y + 2 * s); g.lineTo(x + 12 * s, y - up); g.quadraticCurveTo(x + 6 * s, y - 2 * s - up, x, y); g.fill(); g.stroke();
+          g.fillStyle = '#ff3030'; g.fillRect(x - 1.5, y, 1.2, 1.2); g.fillRect(x + 0.5, y, 1.2, 1.2);
+        }
+        g.restore();
+        return;
+      }
       if (this.wardKind === 'crystal') {
         for (let i = 0; i < n; i++) {
           const a = t * 0.9 + (i * TAU) / n;

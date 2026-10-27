@@ -610,3 +610,30 @@ body.area-2 .skymap-inner::after { background-image: radial-gradient(circle, rgb
 .au-pick { border-color: var(--au) !important; color: var(--au); min-height: 28px !important; padding: 2px 8px !important; }
 @media (max-width: 560px) { .bb-aurora { max-width: 150px; font-size: 11px; } }
 @media (prefers-reduced-motion: reduce) { .mod-mark.hexed, body.area-2 .skymap-inner::after { animation: none; } }
+
+/* ---------- Area 3: the Blood Moon ---------- */
+/* Drifting ash over the blood-red chart. */
+body.area-3 .skymap-inner::after { background-image: radial-gradient(circle, rgba(220, 200, 195, 0.7) 0 1px, transparent 1.6px), radial-gradient(circle, rgba(200, 40, 40, 0.6) 0 1px, transparent 1.6px);
+  background-size: 43px 47px, 61px 57px; background-position: 0 0, 21px 13px; opacity: 0.45; animation: ash-fall 9s linear infinite; }
+@keyframes ash-fall { to { background-position: -43px 94px, -40px 127px; } }
+body.area-3 .win-title { text-shadow: 0 0 10px rgba(255, 40, 40, 0.35); }
+/* Bleed: a blood drop with its stack count. */
+.tok-blood { display: inline-grid; place-items: center; width: 16px; height: 18px; clip-path: path('M8 0 C10 5 16 9 16 12.5 A8 6 0 0 1 0 12.5 C0 9 6 5 8 0 Z'); background: radial-gradient(circle at 40% 60%, #e0303a, #8a0010); color: #ffe6e6; font: 700 9px/1 var(--f-mono); padding-top: 6px; }
+.tok.bleed { --tok: #e0142c; }
+.chip.blood { background: #e2a0a6; color: #3a0006; }
+/* The Blood Moon gauge: a disc that reddens and six pips. */
+.bb-moon, .hud-moon { display: inline-flex; align-items: center; gap: 6px; font: 600 12px/1.2 var(--f-body); color: #ff7a7a; max-width: 280px; }
+.hud-moon { font-size: 11px; }
+.moon-disc { width: 14px; height: 14px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 35%, #ff9a7a, #c0202a 60%, #4a0008); opacity: calc(0.45 + var(--m) * 0.55); box-shadow: 0 0 calc(4px + var(--m) * 12px) rgba(255, 40, 40, 0.8); }
+.moon-pips { display: inline-flex; gap: 2px; }
+.moon-pips i { width: 6px; height: 10px; border-radius: 3px; border: 1px solid #8a1a22; background: rgba(0, 0, 0, 0.45); }
+.moon-pips i.on { background: #ff3a3a; box-shadow: 0 0 5px #ff3a3a; }
+.bb-moon.full .moon-disc, .hud-moon.full .moon-disc { animation: moon-throb 1s ease-in-out infinite; }
+@keyframes moon-throb { 50% { transform: scale(1.18); } }
+.hud-moon > :last-child { display: none; }
+@media (max-width: 560px) { .bb-moon { max-width: 150px; font-size: 11px; } .bb-moon > :last-child { display: none; } }
+/* The eclipse: the whole frame darkens to blood red. */
+body.eclipse { --accent: #ff2a2a; }
+body.eclipse .stage { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 40px -6px #ff1a1a !important; }
+body.eclipse .battle-bar { background: linear-gradient(180deg, rgba(60, 0, 6, 0.95), rgba(20, 0, 2, 0.95)); }
+@media (prefers-reduced-motion: reduce) { body.area-3 .skymap-inner::after, .bb-moon.full .moon-disc, .hud-moon.full .moon-disc { animation: none; } }

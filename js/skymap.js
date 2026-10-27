@@ -20,8 +20,11 @@
     shrine: 'M12 3 L15 13 H9 Z M6 17 H18 L16 14 H8 Z M4 20 H20 M3 7 C7 4 17 4 21 7',
     spire: 'M10 21 L11 8 L12 3 L13 8 L14 21 Z M12 11 a3 3 0 1 0 0.1 0 M5 9 a2 2 0 1 0 0.1 0 M19 13 a2 2 0 1 0 0.1 0',
     starchart: 'M4 18 L12 15 L20 18 V7 L12 4 L4 7 Z M12 4 V15 M7 9 l1 1 M16 8 l1 1 M15 12 l1 1',
+    bloodaltar: 'M4 20 L6 13 H18 L20 20 Z M5 11 H19 V13 H5 Z M11 13 C11 16 10 18 11 20 M12 3 C13 5 15 6 15 8 a3 3 0 0 1 -6 0 C9 6 11 5 12 3 Z',
+    crypt: 'M4 21 V11 L8 8 V4 L9 2 L10 4 V8 H16 L20 11 V21 Z M6 21 V16 L7.5 14.5 L9 16 V21 M12 15 V12 M15 15 V12 M18 15 V12',
+    moonwell: 'M12 3 a4 4 0 1 0 0.1 0 M4 17 C4 14 20 14 20 17 C20 20 4 20 4 17 Z M7 17 C9 16 15 16 17 17',
   };
-  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', dusk: '#b04a3a', night: '#26305a', storm: '#3e4a5e', lair: '#5a2a26', rift: '#5a3a9a', derelict: '#9a4a3a', port: '#c9805a', aurora: '#1d6a7a', auroraRift: '#4a2a8a', auroraDeep: '#2a2a7a', archon: '#2a6a8a' };
+  const BIOME_SKY = { clear: '#6fa8cf', smog: '#8a7a62', sunset: '#d98a52', dusk: '#b04a3a', night: '#26305a', storm: '#3e4a5e', lair: '#5a2a26', rift: '#5a3a9a', derelict: '#9a4a3a', port: '#c9805a', aurora: '#1d6a7a', auroraRift: '#4a2a8a', auroraDeep: '#2a2a7a', archon: '#2a6a8a', bloodmoon: '#5a0e16', bloodFog: '#7a1a20', bloodSpires: '#3a0810', eclipse: '#200408' };
 
   function svgEl(tag, attrs) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -152,7 +155,7 @@
       const isBoss = n.enc === 'boss';
       const enc = D.ENCOUNTERS[n.enc];
       const kind = isBoss ? 'Boss' : enc.kind;
-      const label = isBoss ? D.ENEMIES[n.enemy].name.replace('The ', '') : known ? enc.name : n.cloud && n.col - cur.col <= game.sight() ? 'Cloud cover' : 'Uncharted';
+      const label = isBoss ? D.ENEMIES[n.enemy].name.replace('The ', '') : known ? game.encName(n.enc) : n.cloud && n.col - cur.col <= game.sight() ? 'Cloud cover' : 'Uncharted';
       const btn = document.createElement('button');
       btn.className = ['map-node', known ? `k-${kind.replace(' ', '')}` : 'unknown', reachable.has(n.id) ? 'reachable' : '', map.visited.includes(n.id) ? 'visited' : '', n.id === cur.id ? 'current' : '', opts.selected === n.id ? 'selected' : '', isBoss ? 'boss' : ''].join(' ');
       btn.style.left = p.x + 'px';

@@ -16,9 +16,10 @@
     telescope: 1, gasbag: 1, propeller: 0.8, cargo: 0.6, hatch: 1.6, autoloader: 1, gyro: 2.4, heart: 0.6, overpressure: 3,
     leviplating: 5, dreadnought: 4.5, galeengine: 2.6, stormheart: 4.2, mainspring: 3.6, titanfist: 4,
     runecannon: 2.8, crystalward: 3, starsail: 1.4, manalens: 1.2, prism: 1.6, auroracrown: 3.4, archonlance: 3.8,
+    bloodharpoon: 3, thornhull: 3.2, sanguine: 1.8, crimsonaltar: 1.4, moonmortar: 3, chalice: 3.6, eclipseblade: 4.4,
   };
 
-  const ARMOR = new Set(['plating', 'bulwark', 'leviplating', 'crystalward']);
+  const ARMOR = new Set(['plating', 'bulwark', 'leviplating', 'crystalward', 'thornhull']);
   function moduleValue(g, card, loc = g.locate(card.uid)) {
     const d = D.PARTS[card.id];
     const nbs = g.neighborsOf(loc);
@@ -126,11 +127,14 @@
     if (card.id === 'titanfist') dmg = g.fistDamage();
     if (card.id === 'runecannon') dmg = g.runeDamage(card);
     if (card.id === 'archonlance') dmg = g.lanceDamage();
+    if (card.id === 'eclipseblade') dmg = g.bladeDamage();
+    if (card.id === 'moonmortar') dmg = g.mortarDamage();
     dmg = Math.max(0, dmg + info.bonus);
     const en = g.combat.enemy;
     if (g.hexed(card)) return { real: -dmg, extra: -2 };
+    if (g.phasedOut()) return { real: 0, extra: -3 };
     const prism = g.combat.prism;
-    const pierce = card.id === 'tesla' || card.id === 'archonlance' || mode === 'steady' || !!d.pierceLayers || prism;
+    const pierce = card.id === 'tesla' || card.id === 'archonlance' || card.id === 'eclipseblade' || mode === 'steady' || !!d.pierceLayers || prism;
     const block = d.strip || prism ? 0 : en.block;
     const armor = pierce ? 0 : en.armor || 0;
     const hits = d.volley || 1;
@@ -144,6 +148,8 @@
     if (d.strip) extra += Math.min(en.block, 4) * 0.8;
     if (d.flak) { const p = g.previewIntent(); if (p && g.isAttack(p.intent) && !g.combat.flak) extra += Math.min(d.flak, p.dmg) * 1.4; }
     if (d.burn) extra += en.hp > 4 ? 2.5 : 1;
+    if (d.lifesteal) extra += Math.min(g.maxHp(g.core) - g.core.hp, Math.ceil(real * d.lifesteal)) * 1.5;
+    if (d.blood) extra -= d.blood * (g.core.hp <= 6 ? 4 : 1.5);
     if (d.weak) extra += en.weak > 0 ? 0.6 : 1.6;
     if (d.vuln) extra += en.vuln > 0 ? 0.6 : 1.8;
     return { real, extra };
@@ -175,6 +181,8 @@
           if (card.id === 'scrubber') s = D.PARTS[target.id] && D.PARTS[target.id].type === 'weapon' ? 1.8 : 0.8;
           if (card.id === 'deflector') { const p = g.previewIntent(); const guard = new Set([card.uid, ...g.neighbors(card.uid).map((n) => n.uid)]); s = p ? p.plan.filter((h) => guard.has(h.uid)).reduce((x, h) => x + h.dmg, 0) * 1.2 : 0; }
           if (card.id === 'repair' && g.hexed(card)) s = -5;
+          if (card.id === 'sanguine') { const want = g.cards().some((x) => { const i = g.fireInfo(x.uid); return i && i.blocked === 'Not enough Steam'; }); s = want && g.core.hp > 6 ? 2.5 : -1; }
+          if (card.id === 'crimsonaltar') s = g.core.hp > 0 ? 3 + Math.min(4, g.maxHp(g.core) - g.core.hp) * 0.5 - moduleValue(g, target) * 1.5 : -1;
           if (card.id === 'prism') {
             const shooter = g.cards().some((x) => { const i = g.fireInfo(x.uid); return i && !i.blocked && g.combat.steam - g.useCost(card) >= i.cost; });
             s = shooter ? (en.ward || 0) * (g.combat.grand ? 3.5 : 1.8) + Math.min(en.block, 4) * 0.7 + (en.armor || 0) * 0.8 : -1;
@@ -216,7 +224,7 @@
     for (const uid of g.ventTargets()) {
       if (!g.spendable(2)) break;
       const card = g.locate(uid).card;
-      const s = (card.tokens.fire ? (uid === 'core' ? 5 : 2.2) : 0) + (card.tokens.gas ? 1 : 0) + (card.tokens.glue ? 0.8 : 0);
+      const s = (card.tokens.bleed || 0) * (uid === 'core' ? 1.6 : 0.9) + (card.tokens.fire ? (uid === 'core' ? 5 : 2.2) : 0) + (card.tokens.gas ? 1 : 0) + (card.tokens.glue ? 0.8 : 0);
       acts.push({ score: s - 2 * steamWorth - 0.4, run: () => g.vent(uid) });
     }
     return acts;
@@ -301,6 +309,8 @@
       case 'Shrine': return 1.2;
       case 'Enchant': return 2;
       case 'Chart': return 0.8;
+      case 'Altar': return hpFrac > 0.6 ? 2 : -1;
+      case 'Well': return g.moon >= 3 ? 2.5 : 0.6;
       default: return 0;
     }
   }
@@ -342,6 +352,8 @@
             for (const id of ids.filter((x) => x.startsWith('ench-'))) { const card = g.locate(id.slice(5)).card; const v = moduleValue(g, card) + (D.PARTS[card.id].type === 'weapon' ? 1.5 : 0); if (v > bv) { bv = v; best = id; } }
             return best;
           }
+          case 'altar': return ids.includes('legend') && g.core.hp > 12 ? 'legend' : ids.includes('rare') && g.core.hp > 8 ? 'rare' : 'leave';
+          case 'crypt': return g.core.hp / g.maxHp(g.core) > 0.5 ? 'search' : 'leave';
           default: return ids[0];
         }
       })();

@@ -17,6 +17,8 @@
   Scene.fx = FX.drawFx;
   Scene.pixelScale = () => Actors.P || 2;
   Scene.auroraColor = () => (game && game.combat && !game.combat.over && game.combat.aurora ? D.AURORA[game.combat.aurora].color : null);
+  Scene.eclipse = () => !!(game && game.combat && !game.combat.over && game.combat.eclipse);
+  Scene.moonLevel = () => (game ? Math.min(1, (game.moon || 0) / D.BALANCE.moonMax) : 0);
   Scene.overlay = FX.drawOverlay;
   // Taps on the flight view: your ship selects the Core; animations skip.
   const touchFirst = window.matchMedia('(hover: none)').matches;
@@ -187,6 +189,7 @@
     ui.previewId = null;
     document.body.classList.toggle('single', single());
     for (let a = 1; a <= 3; a++) document.body.classList.toggle(`area-${a}`, !!game && game.core && game.area === a - 1);
+    document.body.classList.toggle('eclipse', !!(game && game.combat && !game.combat.over && game.combat.eclipse));
     const content = stageContent().filter(Boolean);
     const stage = $('stage');
     if (single() && content.length) {
@@ -246,8 +249,9 @@
   const ico = (name, cls = 'ico') => h('img', { class: cls, src: `assets/art/status/${name}.png`, alt: '', 'aria-hidden': 'true', onerror: (e) => e.target.remove() });
   const banner = (enc) => h('img', { class: 'scene-banner', src: ArtGen && ArtGen.hasBanner(enc) ? ArtGen.banner(enc) : `assets/art/scenes/${enc}.jpg`, alt: '', onerror: (e) => e.target.remove() });
   const BADGES = { tesla: 0, overpressure: 1, gyro: 3, autoloader: 4, clockwork: 7 };
-  const TOKEN_KINDS = ['fire', 'glue', 'gas', 'hex'];
-  const tokIco = (k, cls = 'tok-ico') => (k === 'hex' ? h('span', { class: `${cls} tok-rune`, 'aria-hidden': 'true' }, '✶') : ico(k, cls));
+  const TOKEN_KINDS = ['fire', 'glue', 'gas', 'hex', 'bleed'];
+  // Bleed shows its stack count in a blood drop.
+  const tokIco = (k, cls = 'tok-ico', card = null) => (k === 'hex' ? h('span', { class: `${cls} tok-rune`, 'aria-hidden': 'true' }, '✶') : k === 'bleed' ? h('span', { class: `${cls} tok-blood`, 'aria-hidden': 'true' }, card ? String(card.tokens.bleed) : '') : ico(k, cls));
   // Resonance as three pips (filled up to the module's Resonance).
   const resPips = (card) => (card.res > 0 || card.enchanted || game.isArcane(card) ? h('span', { class: 'res-pips', title: `Resonance ${card.res || 0}/3` }, [0, 1, 2].map((i) => h('i', { class: i < (card.res || 0) ? 'on' : '' }))) : null);
 
@@ -275,6 +279,7 @@
       item('Weight', fmt(game.weight()), 'Lighter ships outpace enemies and dodge cheaply; heavier ships shrug off rams and wind'),
       item('Steam', String(game.steamCap()), 'Steam per turn'),
       item('Cogs', String(game.cogs), 'Spend cogs at Trading Zeppelins'),
+      game.moonActive() ? item('Moon', moonGauge('hud-moon'), 'The Blood Moon rises each round of a fight and wanes after it') : null,
       quest ? item('Contract', quest.name, quest.goal) : null,
     ].filter(Boolean));
   }
@@ -384,7 +389,7 @@
     const pips = h('div', { class: 'pips' });
     for (let i = 0; i < info.max; i++) pips.append(h('i', { class: i < card.hp ? 'on' : '' }));
     const toks = h('div', { class: 'tokens' });
-    for (const k of TOKEN_KINDS) if (card.tokens[k]) toks.append(h('span', { class: `tok ${k}`, title: D.TOKENS[k].name }, tokIco(k), h('span', { class: 'tok-txt' }, k)));
+    for (const k of TOKEN_KINDS) if (card.tokens[k]) toks.append(h('span', { class: `tok ${k}`, title: D.TOKENS[k].name }, tokIco(k, 'tok-ico', card), h('span', { class: 'tok-txt' }, k === 'bleed' ? `bleed ${card.tokens.bleed}` : k)));
     if (card !== game.core && game.phase === 'combat' && game.isArcane(card)) toks.append(resPips(card));
     if (card.reload > 0) toks.append(h('span', { class: 'tok cd' }, 'rld'));
     return h('button', {
@@ -494,7 +499,7 @@
       if (links.length) box.append(h('ul', { class: 'notes links' }, links.map((l) => h('li', {}, l.text))));
     }
     if (card.bonusMax) box.append(h('p', { class: 'muted' }, `Reinforced: +${card.bonusMax} max Durability.`));
-    for (const k of TOKEN_KINDS) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
+    for (const k of TOKEN_KINDS) if (card.tokens[k]) box.append(h('p', {}, h('b', {}, D.TOKENS[k].name + (k === 'bleed' ? ` ${card.tokens.bleed}` : '') + ': '), D.TOKENS[k].text));
     if (card.enchanted) box.append(h('p', { class: 'muted' }, 'Enchanted: arcane, +1 max Durability, starts each fight with 2 Resonance' + (D.PARTS[card.id].type === 'weapon' ? ', +1 damage.' : '.')));
 
     const buttons = h('div', { class: 'row' });
@@ -780,24 +785,32 @@
   }
 
   // ---------- combat ----------
+  // The Blood Moon gauge: six pips that redden as it rises, and what the moon does at this level.
+  function moonGauge(cls = 'bb-moon') {
+    const m = game.moon, max = D.BALANCE.moonMax;
+    const what = m >= max ? 'Frenzy: +2 and every hit bleeds' : m >= 4 ? 'Aggressive: +1, attacks favoured' : m >= 2 ? 'Rising: enemies +1' : 'New moon';
+    return h('span', { class: `${cls} ${m >= max ? 'full' : ''}`, title: `Blood Moon ${m}/${max}: ${what}` }, h('b', { class: 'moon-disc', style: `--m:${m / max}` }), h('span', { class: 'moon-pips' }, Array.from({ length: max }, (_, i) => h('i', { class: i < m ? 'on' : '' }))), what);
+  }
   function intentText(it) {
     if (!it) return '';
     const t = it.target;
     const where = !t ? '' : t.kind === 'plunge' && !t.zone ? `bombs ${game.aimName(t)}` : t.zone ? `bombs the ${t.zone} columns` : `along the ${t.row ? 'upper deck' : 'hull'}${t.depth ? ` (module ${t.depth + 1})` : ''}`;
     switch (it.kind) {
       case 'shot': return `${game.intentDamage(it)} damage, ${where}`;
-      case 'rake': return `${game.intentDamage(it)} each, ${where}`;
+      case 'rake': return `${game.intentDamage(it)} each${it.bleed ? ' + Bleed' : ''}, ${where}`;
       case 'broadside': return `${game.intentDamage(it)} to the front of each deck`;
       case 'ram': return `Ram for ${game.intentDamage(it)} → the prow`;
-      case 'token': return `${D.TOKENS[it.token].name}${it.dmg ? ` + ${game.intentDamage(it)} damage` : ''}, ${where}`;
+      case 'token': return `${D.TOKENS[it.token].name}${it.stacks > 1 ? ` ${it.stacks}` : ''}${it.dmg ? ` + ${game.intentDamage(it)} damage` : ''}, ${where}`;
       case 'block': return `Gains ${it.amount} Block`;
       case 'repair': return `Repairs ${it.amount}`;
       case 'charge': return `Next attack +${it.amount}`;
-      case 'ward': return it.illusion ? `${it.amount} illusions: each takes a whole hit` : `+${it.amount} Wards: each stops a whole hit`;
+      case 'ward': return it.bats ? `${it.amount} bats: each takes a hit and bites` : it.illusion ? `${it.amount} illusions: each takes a whole hit` : `+${it.amount} Wards: each stops a whole hit`;
       case 'siphon': return `Steals up to ${it.amount * 2} Resonance and heals on it`;
       case 'rune': return `${game.intentDamage(it)} to every module on the ${it.target.row ? 'upper deck' : 'hull'}, past armor`;
       case 'channel': return it.broken ? 'Collapsed: loses its move' : `Grand Convergence in ${it.left} turn${it.left > 1 ? 's' : ''}: break all ${game.combat.enemy.ward} crystals!`;
       case 'grand': return `${game.intentDamage(it)} to every module and the Core: Evade it!`;
+      case 'drain': return `Drains ${game.intentDamage(it)} from every module, past armor, and heals on it`;
+      case 'beam': return `BLOOD BEAM: ${game.intentDamage(it)} down the ${it.target.row ? 'upper deck' : 'hull'}. Block or Evade!`;
       default: return '';
     }
   }
@@ -810,7 +823,12 @@
     const marks = def.phases.map((p) => p.min).filter((m) => m > 1);
     for (let i = 1; i <= en.max; i++) bar.append(h('i', { class: `${i <= en.hp ? 'on' : ''} ${marks.includes(i + 1) ? 'mark' : ''}` }));
     const chips = h('div', { class: 'chips' },
-      en.ward ? h('span', { class: 'chip ward' }, `${{ illusion: 'Illusions', crystal: 'Focus crystals', glimmer: 'Shimmer' }[game.wardKind()] || 'Wards'} ${en.ward}`) : null,
+      en.ward ? h('span', { class: 'chip ward' }, `${{ illusion: 'Illusions', crystal: 'Focus crystals', glimmer: 'Shimmer', bats: 'Bats' }[game.wardKind()] || 'Wards'} ${en.ward}`) : null,
+      en.bleed ? h('span', { class: 'chip blood' }, `Bleed ${en.bleed}`) : null,
+      def.phased ? h('span', { class: `chip ${game.phasedOut() ? 'ward' : 'gas'}` }, game.phasedOut() ? 'Phased out: immune this round' : 'Solid this round') : null,
+      def.rises ? h('span', { class: 'chip shield' }, en.risen ? 'Risen' : 'Will rise once') : null,
+      def.bleedFeeds ? h('span', { class: 'chip blood' }, 'Feeds on your Bleed') : null,
+      game.moonActive() && game.moonBonus() ? h('span', { class: 'chip blood' }, `Moon +${game.moonBonus()}${game.frenzy() ? ' · Frenzy' : ''}`) : null,
       en.block ? h('span', { class: 'chip shield' }, ico('block'), `Block ${en.block}`) : null,
       en.armor ? h('span', { class: 'chip shield' }, `Armor ${en.armor}`) : null,
       c.grand ? h('span', { class: 'chip ward' }, `Convergence in ${c.grand.left}`) : null,
@@ -962,7 +980,7 @@
       h('img', { src: cardSrc(card.id), alt: '', onerror: (e) => e.target.remove() }),
       h('span', { class: 'mod-hp' }, `${Math.max(0, card.hp)}/${info.max}`),
       resPips(card),
-      toks.length ? h('span', { class: 'mod-toks' }, toks.map((k) => tokIco(k))) : null));
+      toks.length ? h('span', { class: 'mod-toks' }, toks.map((k) => tokIco(k, 'tok-ico', card))) : null));
     }
     // Steam, the Core's ability, Evade, the Shipyard and End turn.
     const steam = h('div', { class: 'steam', 'aria-label': `${c.steam} steam` });
@@ -975,6 +993,7 @@
         ico('steam'), steam,
         game.core.id === 'zeppelin' ? h('span', { class: 'bb-note' }, ico('pressure'), game.core.pressure) : null,
         game.core.id === 'tempest' ? h('span', { class: 'bb-note' }, ico('charge'), game.core.charge || 0) : null,
+        game.moonActive() ? moonGauge() : null,
         c.aurora ? h('span', { class: 'bb-aurora', style: `--au:${D.AURORA[c.aurora].color}`, title: D.AURORA[c.aurora].text }, h('i'), `${D.AURORA[c.aurora].name}: ${D.AURORA[c.aurora].text.replace(/\.$/, '')}`) : null,
         game.has('auroracrown') && !c.auroraChosen && game.canAct()
           ? h('span', { class: 'bb-crown' }, 'Crown:', Object.entries(D.AURORA).map(([k, a]) => h('button', { class: 'btn small au-pick', style: `--au:${a.color}`, title: a.text, onclick: act(() => game.chooseAurora(k)) }, a.name)))
@@ -989,7 +1008,7 @@
     const etag = h('button', { class: 'enemy-tag', onclick: (ev) => { ev.stopPropagation(); ui.pop = ui.pop && ui.pop.uid === 'enemy' ? null : { uid: 'enemy' }; render(); } },
       h('span', { class: 'et-name' }, en.name),
       h('span', { class: 'et-bar', style: `--fill:${Math.round(Math.max(0, en.hp) / en.max * 100)}%` }, h('i')),
-      h('span', { class: 'et-num' }, `${Math.max(0, en.hp)}/${en.max}${en.ward ? ` · ${{ illusion: 'Illusions', crystal: 'Crystals', glimmer: 'Shimmer' }[game.wardKind()] || 'Wards'} ${en.ward}` : ''}${en.block ? ` · Block ${en.block}` : ''}${en.armor ? ` · Armor ${en.armor}` : ''}${en.burn ? ` · Burn ${en.burn}` : ''}`));
+      h('span', { class: 'et-num' }, `${Math.max(0, en.hp)}/${en.max}${en.ward ? ` · ${{ illusion: 'Illusions', crystal: 'Crystals', glimmer: 'Shimmer', bats: 'Bats' }[game.wardKind()] || 'Wards'} ${en.ward}` : ''}${en.block ? ` · Block ${en.block}` : ''}${en.armor ? ` · Armor ${en.armor}` : ''}${en.burn ? ` · Burn ${en.burn}` : ''}${en.bleed ? ` · Bleed ${en.bleed}` : ''}${game.phasedOut() ? ' · Phased' : ''}`));
     root.replaceChildren(...[...marks, etag, bar,
       t ? h('div', { class: 'battle-banner' }, h('span', {}, t.prompt), t.cancelable ? h('button', { class: 'btn small', onclick: () => { ui.targeting = null; render(); } }, 'Cancel') : null) : null,
       ui.pop ? popupEl() : null].filter(Boolean));
@@ -1016,7 +1035,7 @@
           h('b', {}, info.name),
           h('span', { class: 'muted' }, `${info.type === 'core' ? 'Core' : info.type} · Dur ${Math.max(0, card.hp)}/${info.max}${card !== game.core ? ` · ${game.placeName(loc)}` : ''}`))),
       rulesBlock(card));
-    for (const k of TOKEN_KINDS) if (card.tokens[k]) box.append(h('p', { class: 'pop-tok' }, tokIco(k), h('b', {}, D.TOKENS[k].name + ': '), D.TOKENS[k].text));
+    for (const k of TOKEN_KINDS) if (card.tokens[k]) box.append(h('p', { class: 'pop-tok' }, tokIco(k, 'tok-ico', card), h('b', {}, D.TOKENS[k].name + (k === 'bleed' ? ` ${card.tokens.bleed}` : '') + ': '), D.TOKENS[k].text));
     if (card !== game.core && (card.res || card.enchanted || game.isArcane(card))) box.append(h('p', { class: 'pop-tok' }, resPips(card), h('b', {}, ` Resonance ${card.res || 0}/3: `), `at 3 it casts ${D.RESONANCE.spells[D.PARTS[card.id].type].name} (${D.RESONANCE.spells[D.PARTS[card.id].type].text})${card.enchanted ? '. Enchanted.' : '.'}`));
     const btns = uid === 'core' ? [] : combatButtons(uid, loc, close);
     if (uid === 'core') {

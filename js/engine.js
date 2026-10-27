@@ -26,9 +26,9 @@
   const ix = (col) => col + SIDE_COLS;
   const ROW_NAME = ['hull', 'upper deck'];
   const BRACE = 3; // damage a braced Deflector Vane turns aside
-  const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 }, leviplating: { soak: 2, reduce: 2 }, crystalward: { soak: 1, reduce: 1 } };
+  const ARMOR = { plating: { soak: 1, reduce: 0 }, bulwark: { soak: 2, reduce: 1 }, leviplating: { soak: 2, reduce: 2 }, crystalward: { soak: 1, reduce: 1 }, thornhull: { soak: 1, reduce: 1 } };
 
-  function noTokens() { return { fire: false, glue: false, gas: false, hex: false }; }
+  function noTokens() { return { fire: false, glue: false, gas: false, hex: false, bleed: 0 }; }
   function cap(s) { return s[0].toUpperCase() + s.slice(1); }
   function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1); }
   // 'The Pirate Cutter', but never 'The The Iron Leviathan'.
@@ -64,7 +64,8 @@
       this.shop = null;
       this.quest = null;
       this.combatBonusSteam = 0;
-      this.blessings = { weapon: 0, core: 0, steam: 0 }; // permanent run blessings (Aurora Shrine)
+      this.blessings = { weapon: 0, core: 0, steam: 0 }; // permanent run blessings (Aurora Shrine, Crimson Altar)
+      this.moon = 0; // the Blood Moon gauge (Area 3): rises each round of a fight, wanes after it
 
       this.combat = null;
       this.event = null;
@@ -562,6 +563,7 @@
       this.depth = 0;
       this.sightMoves = 0;
       this.bossCharted = false;
+      this.moon = 0;
       this.maxDepth = this.areaDef().cols;
       this.generateMap();
       this.emit('portal', { area: this.area });
@@ -696,6 +698,9 @@
       else if (node.enc === 'shrine') this.runShrine();
       else if (node.enc === 'spire') this.runSpire();
       else if (node.enc === 'starchart') this.runStarChart();
+      else if (node.enc === 'bloodaltar') this.runBloodAltar();
+      else if (node.enc === 'crypt') this.runCrypt();
+      else if (node.enc === 'moonwell') this.runMoonWell();
     }
     totalHp() { return this.core.hp + this.cards().reduce((s, c) => s + c.hp, 0); }
     setOptions(stage, options) { this.event.stage = stage; this.event.options = options; }
@@ -912,6 +917,34 @@
       this.bossCharted = true;
       this.say(`The astronomer's charts show every route in ${this.areaDef().name}, and the tactics of ${ENEMIES[this.bossId].name}.`, 'good');
     }
+    // ---------- Area 3 places ----------
+    // Blood Altar: bleed the Core into the altar for a rare part, or more for a legendary.
+    runBloodAltar() {
+      this.say('The altar drinks whatever is poured on it. It pays in steel.', 'sys');
+      const hp = this.core.hp;
+      this.setOptions('altar', [
+        { id: 'rare', label: 'Bleed 4 Core', desc: hp > 4 ? 'Pick 1 of 2 rare parts.' : 'Your Core is too weak.', disabled: hp <= 4 },
+        { id: 'legend', label: 'Bleed 8 Core', desc: hp > 8 ? 'Pick 1 of 2 legendaries.' : 'Your Core is too weak.', disabled: hp <= 8 || !this.altarLegends().length },
+        { id: 'leave', label: 'Leave the altar', desc: 'Fly on with your blood.' },
+      ].filter((o) => !o.disabled));
+    }
+    altarLegends() { return Object.keys(PARTS).filter((id) => PARTS[id].rarity === 'legendary' && !this.has(id)); }
+    // Crypt Wreck: search it (a d6, a third of the time something guards it) or fly on.
+    runCrypt() {
+      this.say('Its bells still toll in the red fog. The crypt doors stand open.', 'sys');
+      this.setOptions('crypt', [
+        { id: 'search', label: 'Search the crypt', desc: 'Roll a d6. 1-2: an ambush (win it for salvage). 3-6: treasure.' },
+        { id: 'leave', label: 'Leave it be', desc: 'Fly on.' },
+      ]);
+    }
+    // Moon Well: the Blood Moon wanes to nothing, and its water mends the Core.
+    runMoonWell() {
+      const was = this.moon;
+      this.moon = 0;
+      this.emit('moon', { moon: 0, well: true });
+      this.say(was ? `You draw the moon's light into the well: the Blood Moon wanes from ${was} to 0.` : 'The well is calm: the moon is already new.', 'good');
+      this.healCore(2);
+    }
     chooseOption(id) {
       const ev = this.event;
       if (this.phase !== 'event' || !ev || !ev.options || !ev.options.some((o) => o.id === id)) return false;
@@ -968,6 +1001,39 @@
           this.hit(card.uid);
           this.emit('enchant', { uid: card.uid });
           this.say(`Runes crawl over your ${this.def(card).name}: it is enchanted.`, 'good');
+        }
+      } else if (stage === 'altar') {
+        if (id === 'leave') this.say('You leave the altar dry.', 'muted');
+        else {
+          const cost = id === 'rare' ? 4 : 8;
+          this.payBlood(cost, 'the altar');
+          if (id === 'rare') this.event.loot = { ids: this.partOffer(2, 'normal', (x) => x.rarity === 'rare'), keep: 1 };
+          else {
+            const pool = this.altarLegends().slice();
+            const ids = [];
+            while (ids.length < 2 && pool.length) ids.push(pool.splice(Math.floor(this.rand() * pool.length), 1)[0]);
+            this.event.loot = { ids, keep: 1, legendary: true };
+          }
+          this.emit('altar', {});
+          this.say('Steel rises from the blood on the altar.', 'good');
+        }
+      } else if (stage === 'crypt') {
+        if (id === 'leave') this.say('You leave the dead to their rest.', 'muted');
+        else {
+          const r = this.d6('Crypt Wreck');
+          this.event.rolls.push(r);
+          if (r <= 2) {
+            this.event.next = r === 1 ? 'bonegalleon' : 'bats';
+            this.event.loot = { ids: this.partOffer(2), keep: 1 };
+            this.say(r === 1 ? 'Rolled 1: the crypt was a ship. A Bone Galleon rises from the dark!' : 'Rolled 2: the bell tower erupts: a Bat Swarm!', 'warn');
+          } else if (r === 3) {
+            const cards = this.cards();
+            this.say('Rolled 3: a cursed reliquary. Its thorns bite as you take it.', 'warn');
+            if (cards.length) this.placeTokenOn(this.pick(cards).uid, 'bleed', 2);
+            this.event.loot = { ids: this.partOffer(3), keep: 1 };
+          } else if (r === 4) { this.say('Rolled 4: offering plates, heavy with coin.', 'good'); this.gainCogs(22, 'crypt'); }
+          else if (r === 5) { this.say('Rolled 5: the crypt armory.', 'good'); this.event.loot = { ids: this.partOffer(3), keep: 1 }; }
+          else { const pid = this.randomPart('normal', (x) => x.rarity === 'rare'); this.pendingLoot.push(pid); this.say(`Rolled 6: the bishop's hoard. You carry out a ${PARTS[pid].name}.`, 'good'); }
         }
       } else if (stage === 'guild') {
         if (id !== 'none') {
@@ -1269,6 +1335,7 @@
       return this.planDirect(aim.row, aim.depth || 0, dmg);
     }
     applyPlan(plan, src) {
+      this.lastPlan = plan;
       for (const p of plan) {
         if (this.coreDead()) return;
         if (p.uid !== 'core' && !this.locate(p.uid)) continue;
@@ -1284,6 +1351,7 @@
         else this.damageModule(p.uid, p.dmg, p.bolt ? 'lightning' : src);
         if (shards) { this.emit('shards', { uid: p.uid, dmg: 1 }); this.say('Crystal shards fly back at the attacker.', 'good'); this.damageEnemy(1, { pierce: true, source: 'shards', noVuln: true }); }
         if (card && this.isArcane(card) && this.locate(p.uid) && this.combat && !this.combat.over) this.resonate(p.uid, 1);
+        if (card && card.id === 'thornhull' && ['attack', 'ram'].includes(src) && this.combat && !this.combat.over) { this.combat.enemy.bleed += 2; this.emit('thorns', { uid: p.uid }); this.say('The Thorned Hull tears into the attacker: Bleed 2.', 'good'); }
       }
       this.reflect(plan, src);
     }
@@ -1300,14 +1368,21 @@
     // Where a token aimed this way lands (front armor catches it too).
     tokenTarget(aim) { return this.planAim(aim, 1)[0].uid; }
     tokenImmune(card, token) {
-      if (card === this.core) return false;
+      if (card === this.core || token === 'bleed') return false;
       const nbs = this.neighbors(card.uid);
       if (token === 'fire') return nbs.some((c) => c.id === 'sprinkler');
       return nbs.some((c) => c.id === 'scrubber');
     }
-    placeToken(token, aim) { this.placeTokenOn(this.tokenTarget(aim), token); }
-    placeTokenOn(uid, token) {
+    placeToken(token, aim, stacks = 1) { this.placeTokenOn(this.tokenTarget(aim), token, stacks); }
+    placeTokenOn(uid, token, stacks = 1) {
       const card = this.locate(uid).card;
+      if (token === 'bleed') {
+        card.tokens.bleed = (card.tokens.bleed || 0) + stacks;
+        this.hit(uid);
+        this.emit('token', { uid, token, stacks: card.tokens.bleed });
+        this.say(`Your ${this.nameOf(card)} bleeds (${card.tokens.bleed}).`, 'bad');
+        return;
+      }
       if (this.tokenImmune(card, token)) { this.say(`${this.nameOf(card)} is protected from ${TOKENS[token].name}.`, 'good'); return; }
       card.tokens[token] = true;
       this.hit(uid);
@@ -1384,6 +1459,57 @@
     empowered(type) { return !!this.combat && this.combat.aurora && (this.combat.aurora === type || (this.combat.aurora === 'utility' && type === 'support')); }
     hexed(card) { return !!card && !!card.tokens && !!card.tokens.hex; }
 
+    // ---------- the Blood Moon (Area 3) ----------
+    // The moon gauge rises 1 each round of an Area 3 fight (up to 6) and wanes 3 after it.
+    // At 2+ enemies deal +1; at 4+ they grow aggressive (a move that isn't an attack is rerolled
+    // once); at 6 they Frenzy: +2, and every hit leaves 1 Bleed.
+    moonActive() { return !!this.areaDef().moon; }
+    moonBonus() { return !this.moonActive() ? 0 : this.moon >= BALANCE.moonMax ? 2 : this.moon >= 2 ? 1 : 0; }
+    moonAggressive() { return this.moonActive() && this.moon >= 4; }
+    frenzy() { return this.moonActive() && this.moon >= BALANCE.moonMax; }
+    moonName() { return this.moon >= BALANCE.moonMax ? 'Frenzy' : this.moon >= 4 ? 'Aggressive' : this.moon >= 2 ? 'Rising' : 'New'; }
+    // Blood costs come out of the Core.
+    payBlood(n, what) {
+      this.core.hp -= n;
+      this.hit('core');
+      this.emit('hit', { uid: 'core', dmg: n, src: 'blood', hp: this.core.hp });
+      this.say(`You bleed ${n} Core Durability into ${what} (${this.core.hp}/${this.maxHp(this.core)}).`, 'warn');
+    }
+    bloodBlocked(card) { const b = this.def(card).blood || 0; return b && this.core.hp <= b ? 'Core too weak to bleed' : null; }
+    totalBleed() { return [this.core, ...this.cards()].reduce((n, x) => n + (x.tokens.bleed || 0), 0) + (this.combat ? this.combat.enemy.bleed || 0 : 0); }
+    bladeDamage() { return 6 + this.totalBleed(); }
+    mortarDamage() { return 2 + Math.min(3, Math.floor(this.moon / 2)); }
+    // Bleed ticks at the start of your turn: each stack deals 1, then it loses a stack.
+    tickBleed() {
+      const feeds = this.enemyDef().bleedFeeds;
+      for (const x of [this.core, ...this.cards()].filter((y) => y.tokens.bleed > 0)) {
+        if (this.coreDead() || (x !== this.core && !this.locate(x.uid))) continue;
+        const n = x.tokens.bleed;
+        x.tokens.bleed--;
+        this.emit('bleed', { uid: x.uid, dmg: n });
+        this.say(`Your ${this.nameOf(x)} bleeds for ${n}.`, 'bad');
+        this.damageModule(x.uid, n, 'bleed');
+        if (feeds && !this.combat.over) {
+          const en = this.combat.enemy, b = en.hp;
+          en.hp = Math.min(en.max, en.hp + n);
+          if (en.hp > b) { this.emit('enemyHeal', { amount: en.hp - b }); this.say(`The cultists drink it: ${theName(en.name)} heals ${en.hp - b}.`, 'bad'); }
+        }
+      }
+    }
+    // Bats summoned by the Crimson Sovereign bite at the start of her turn: 1 damage and 1 Bleed each.
+    batBites() {
+      const c = this.combat;
+      for (let i = 0; i < c.bats && !this.coreDead(); i++) {
+        const mods = this.cards();
+        const t = mods.length ? this.pick(mods) : this.core;
+        this.emit('batBite', { uid: t.uid });
+        this.say(`A bat bites your ${this.nameOf(t)}.`, 'bad');
+        this.applyPlan(this.planOn(t, BALANCE.bitePerBat), 'attack');
+        if (this.coreDead()) return;
+        if (t === this.core || this.locate(t.uid)) this.placeTokenOn(t.uid, 'bleed', 1);
+      }
+    }
+
     // ---------- combat ----------
     // Pirates further along the route are tougher (BALANCE.hpPerColumn, BALANCE.veteranColumns).
     startCombat(enemyId, node, opts = {}) {
@@ -1398,7 +1524,7 @@
       this.event = null;
       this.combat = {
         enc: node.enc || 'patrol', enemyId, col, elite,
-        enemy: { id: enemyId, name: elite ? `Elite ${e.name}` : e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, ward: 0, armor: e.armor || 0, burn: 0, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
+        enemy: { id: enemyId, name: elite ? `Elite ${e.name}` : e.name, weight: e.weight, hp, max: hp, hpScale, dmgBonus, block: opts.block || 0, ward: 0, armor: e.armor || 0, burn: 0, bleed: 0, risen: false, weak: 0, vuln: 0, charge: 0, phase: 0, intent: null, wound: 0, stunned: false },
         galeSide: 'bow', turnDamage: 0, rodCharge: 0, spring: 0, firedThisRound: false,
         round: 0, steam: 0, active: null, over: false,
         evading: false, evadeUsed: false, evadeStreak: 0, freeSwapUsed: false, gyroUsed: false, overclock: false, abilityUsed: false,
@@ -1406,6 +1532,7 @@
         fireAfflicted: this.cards().some((c) => c.tokens.fire) || this.core.tokens.fire,
         lastSource: null, loot: opts.loot || null,
         aurora: null, auroraChosen: false, prism: false, surge: 0, lensUsed: false, grand: null, grandRest: 0, illusions: 0,
+        bats: 0, chalice: 0, sanguineUsed: false, altarUsed: false, eclipse: false, beamRest: 0, moonLocked: false,
       };
       // Enchanted modules start every fight humming with 2 Resonance.
       for (const c of this.cards()) { c.fired = 0; c.reload = 0; c.res = c.enchanted ? 2 : 0; }
@@ -1414,6 +1541,7 @@
       this.say(`${e.name} engages! Weight ${e.weight}, Durability ${hp}.`, 'warn');
       if (e.gimmick) this.say(e.gimmick, 'warn');
       if (this.combat.enemy.block) this.say(`It starts behind ${this.combat.enemy.block} Block.`, 'warn');
+      if (this.moonActive()) this.say(`The Blood Moon stands at ${this.moon}/${BALANCE.moonMax} (${this.moonName()}).`, this.moon >= 2 ? 'warn' : 'sys');
       const lighter = this.weight() < e.weight;
       if (lighter) { this.combatBonusSteam += 1; this.say(`Your ship is lighter (${fmt(this.weight())} vs ${e.weight}): you outpace it for +1 Steam on your first turn.`, 'good'); }
       this.rollIntent();
@@ -1439,11 +1567,26 @@
       const p = this.enemyDef().phases[pi];
       const c = this.combat;
       let intent;
+      // The Crimson Sovereign: the moon locks full in Crimson Tide; the Eclipse brings the blood beam.
+      if (c.enemyId === 'sovereign') {
+        if (pi >= 1 && !c.moonLocked) { c.moonLocked = true; this.moon = BALANCE.moonMax; this.emit('moon', { moon: this.moon, locked: true }); this.say('The Blood Moon swells to full and locks in place. Every hit leaves Bleed.', 'warn'); }
+        if (pi === 2 && !c.eclipse) { c.eclipse = true; this.emit('eclipse', {}); this.say('Eclipse! The moon goes black and the sky runs red. She gathers a blood beam.', 'warn'); }
+      }
       if (c.enemyId === 'archon' && pi === 2 && c.grandRest <= 0) intent = this.grandIntent();
-      else {
+      else if (c.eclipse && c.beamRest <= 0) {
+        c.beamRest = 1;
+        intent = { kind: 'beam', name: 'Blood Beam', dmg: BALANCE.beamDamage, roll: 0, target: { kind: 'direct', row: this.d6('Beam deck') <= 3 ? HULL : UPPER, depth: 0, beam: true } };
+      } else {
         if (c.grandRest > 0) c.grandRest--;
+        if (c.beamRest > 0) c.beamRest--;
         const r = this.d6(`${en.name}: ${p.name}`);
         intent = { ...p.table[r - 1], roll: r };
+        // Under an aggressive moon, a move that isn't an attack is rerolled once.
+        if (this.moonAggressive() && !this.isAttack(intent)) {
+          const r2 = this.d6('Blood Moon: aggression');
+          intent = { ...p.table[r2 - 1], roll: r2, rerolled: r };
+          this.say(`The Blood Moon drives it on: rolled ${r}, rerolled ${r2}.`, 'warn');
+        }
       }
       // Prismatic Shift: the aurora will turn again on the Archon's half of the turn, and it copies the colour.
       c.enemyAurora = c.enemyId === 'archon' && pi === 1 ? Object.keys(AURORA)[Math.floor((this.d6('Aurora (Archon)') - 1) / 2)] : null;
@@ -1459,7 +1602,7 @@
       en.intent = intent;
       this.emit('intent', { intent });
     }
-    isAttack(intent) { return ['shot', 'rake', 'broadside', 'ram', 'rune', 'grand'].includes(intent.kind) || (intent.kind === 'token' && intent.dmg > 0); }
+    isAttack(intent) { return ['shot', 'rake', 'broadside', 'ram', 'rune', 'grand', 'drain', 'beam'].includes(intent.kind) || (intent.kind === 'token' && intent.dmg > 0); }
     // Grand Convergence: 4 focus crystals rise and the Archon channels for 2 turns, then unleashes it.
     grandIntent() {
       const c = this.combat, en = c.enemy;
@@ -1486,7 +1629,7 @@
     intentDamage(intent) {
       const en = this.combat.enemy;
       let d = (intent.dmg || 0) + en.charge - (en.weak > 0 ? 1 : 0);
-      if (intent.dmg) d += this.enrage() + en.dmgBonus + en.wound + this.copyBonus(intent);
+      if (intent.dmg) d += this.enrage() + en.dmgBonus + en.wound + this.copyBonus(intent) + this.moonBonus();
       if (this.isAttack(intent)) d -= this.combat.flak || 0;
       if (intent.kind === 'ram') d -= this.ramResist();
       return Math.max(intent.kind === 'ram' ? 1 : 0, d);
@@ -1511,6 +1654,8 @@
       if (it.kind === 'rake') return this.rakePlan(it.target, dmg);
       if (it.kind === 'rune') return this.runePlan(it.target.row, dmg);
       if (it.kind === 'grand') return this.grandPlan(dmg);
+      if (it.kind === 'drain') return this.cards().map((m) => this.magicHit(m, dmg));
+      if (it.kind === 'beam') return this.planDirect(it.target.row, 0, dmg);
       return [];
     }
     // A broadside hits the front of the hull (or the Core) and the front of the upper deck.
@@ -1562,6 +1707,13 @@
         this.damageModule(x.uid, 1, 'fire');
       }
       if (this.checkEnd()) return;
+      this.tickBleed();
+      if (this.checkEnd()) return;
+      if (this.moonActive() && c.round > 1 && this.moon < BALANCE.moonMax) {
+        this.moon++;
+        this.emit('moon', { moon: this.moon });
+        this.say(`The Blood Moon rises: ${this.moon}/${BALANCE.moonMax}${[2, 4, 6].includes(this.moon) ? ` (${this.moonName()})` : ''}.`, this.moon >= 2 ? 'warn' : 'sys');
+      }
       if (this.heartOnCore() && this.core.hp < this.maxHp(this.core)) { this.say('The Clockwork Heart ticks: +1 Core.', 'good'); this.healCore(1); }
       if (this.core.id === 'clockwork') {
         const hurt = this.cards().filter((x) => x.hp < this.maxHp(x)).sort((a, b) => (a.hp - this.maxHp(a)) - (b.hp - this.maxHp(b)))[0];
@@ -1580,7 +1732,7 @@
       c.firedThisRound = false;
       for (const x of this.cards()) { x.fired = 0; if (x.reload > 0) x.reload--; }
       c.evadeUsed = false; c.freeSwapUsed = false; c.galeSwaps = 0; c.gyroUsed = false; c.overclock = false; c.abilityUsed = false;
-      c.lensUsed = false; c.prism = false; c.auroraChosen = false;
+      c.lensUsed = false; c.prism = false; c.auroraChosen = false; c.chalice = 0; c.sanguineUsed = false;
       if (c.surge) { c.steam += c.surge; this.say(`Banked Surges: +${c.surge} Steam.`, 'good'); c.surge = 0; }
       this.emit('steam', { steam: c.steam });
       this.say(`Round ${c.round}: ${c.steam} Steam.`, 'sys');
@@ -1603,6 +1755,7 @@
         this.core.pressure = Math.min(MAX_PRESSURE, this.core.pressure + c.steam);
         if (this.core.pressure > before) this.say(`${this.core.pressure - before} Steam banked as Pressure (${this.core.pressure}).`, 'sys');
       }
+      if (this.combat.enemyId && this.enemyDef().phased && c.round % 2 === 1) this.say(`${theName(c.enemy.name)} drifts back into the world.`, 'warn');
       if (c.steam > 0) for (const v of this.cards().filter((x) => x.id === 'overpressure')) { this.say('The Overpressure Valve strains with unspent Steam.', 'warn'); this.damageModule(v.uid, 1, 'strain'); }
       for (const x of this.cards()) if (x.tokens.hex) { x.tokens.hex = false; this.emit('cleanse', { uid: x.uid, quiet: true }); }
       if (this.checkEnd()) return true;
@@ -1630,10 +1783,19 @@
         if (c.enemyAurora === 'defense') { en.block += 5; this.emit('enemyBlock', { amount: 5 }); this.say('The Archon drinks the teal light: +5 Block.', 'warn'); }
         if (c.enemyAurora === 'utility') { const b = en.hp; en.hp = Math.min(en.max, en.hp + 3); en.ward = Math.min(4, en.ward + 1); this.emit('enemyHeal', { amount: en.hp - b }); this.say('The Archon drinks the violet light: it mends 3 and raises a Ward.', 'warn'); }
       }
+      if (c.bats > 0) { this.batBites(); if (this.checkEnd()) return; }
+      if (en.bleed > 0) {
+        const n = en.bleed;
+        en.bleed--;
+        this.emit('enemyBleed', { dmg: n });
+        this.say(`${theName(en.name)} bleeds for ${n}.`, 'good');
+        this.damageEnemy(n, { pierce: true, source: 'bleed', noVuln: true, dot: true });
+        if (this.checkEnd()) return;
+      }
       if (en.burn > 0) {
         this.emit('enemyBurn', { dmg: en.burn });
         this.say(`${theName(en.name)} burns for ${en.burn}.`, 'good');
-        this.damageEnemy(en.burn, { pierce: true, source: 'burn', noVuln: true });
+        this.damageEnemy(en.burn, { pierce: true, source: 'burn', noVuln: true, dot: true });
         en.burn--;
         if (this.checkEnd()) return;
       }
@@ -1697,8 +1859,9 @@
       if (it.kind === 'ward') {
         en.ward = Math.min(4, en.ward + it.amount);
         c.illusions = it.illusion ? en.ward : c.illusions;
-        this.emit('enemyWard', { amount: it.amount, illusion: !!it.illusion });
-        this.say(it.illusion ? `${en.ward} illusions of it shimmer in the sky. Only one is real.` : `It raises Wards (${en.ward}).`, 'warn');
+        c.bats = it.bats ? en.ward : c.bats;
+        this.emit('enemyWard', { amount: it.amount, illusion: !!it.illusion, bats: !!it.bats });
+        this.say(it.illusion ? `${en.ward} illusions of it shimmer in the sky. Only one is real.` : it.bats ? `A swarm of ${en.ward} bats wheels around her. Each takes a whole hit, and each bites.` : `It raises Wards (${en.ward}).`, 'warn');
         return;
       }
       if (it.kind === 'siphon') { this.siphon(it.amount); return; }
@@ -1739,11 +1902,27 @@
       } else if (it.kind === 'grand') {
         this.emit('enemyShot', { grand: true, dmg });
         this.applyPlan(this.intentPlan(it, dmg), 'attack');
+      } else if (it.kind === 'drain') {
+        // Crimson Tide: every module bleeds into her, and she heals what she takes.
+        const plan = this.intentPlan(it, dmg);
+        const before = this.cards().reduce((n, x) => n + Math.max(0, x.hp), 0);
+        this.emit('enemyShot', { drain: true, dmg });
+        this.applyPlan(plan, 'attack');
+        const taken = before - this.cards().reduce((n, x) => n + Math.max(0, x.hp), 0);
+        if (taken > 0) { const b = en.hp; en.hp = Math.min(en.max, en.hp + taken); this.emit('enemyHeal', { amount: en.hp - b }); this.say(`She drinks ${taken} Durability from your ship and heals ${en.hp - b}.`, 'bad'); }
+      } else if (it.kind === 'beam') {
+        this.emit('enemyShot', { target: it.target, beam: true, dmg });
+        this.applyPlan(this.intentPlan(it, dmg), 'attack');
       } else if (it.kind === 'token') {
         this.emit('enemyShot', { target: it.target, dmg, token: it.token });
         if (dmg > 0) this.applyPlan(this.intentPlan(it, dmg), 'attack');
-        if (!this.coreDead()) this.placeToken(it.token, it.target);
+        if (!this.coreDead()) this.placeToken(it.token, it.target, it.stacks || 1);
       }
+      // Bleeding strikes, and every hit under a Frenzied moon, leave 1 Bleed where they land.
+      if ((it.bleed || this.frenzy()) && this.lastPlan && !this.coreDead()) {
+        for (const p of this.lastPlan) if (p.dmg > 0 && (p.uid === 'core' || this.locate(p.uid))) this.placeTokenOn(p.uid, 'bleed', 1);
+      }
+      this.lastPlan = null;
       en.charge = 0;
       if (it.kind === 'grand') this.endGrand();
     }
@@ -1760,7 +1939,7 @@
       this.damageEnemy(BALANCE.grandBacklash, { pierce: true, source: 'spell' });
     }
     // How the enemy's Wards look: illusions, focus crystals, a shimmer, or plain Wards.
-    wardKind() { const c = this.combat; if (c.illusions) return 'illusion'; return c.grand ? 'crystal' : this.enemyDef().wardKind || 'ward'; }
+    wardKind() { const c = this.combat; if (c.illusions) return 'illusion'; if (c.bats) return 'bats'; return c.grand ? 'crystal' : this.enemyDef().wardKind || 'ward'; }
     // Siphon Light: drains Resonance from your most resonant modules and heals on it; with none to
     // take it shimmers behind a Ward instead.
     siphon(amount) {
@@ -1787,6 +1966,12 @@
       const c = this.combat;
       const en = c.enemy;
       if (n <= 0 || c.over) return 0;
+      // The Wraith Clipper is out of phase on odd rounds: only Bleed and Burn still reach it.
+      if (this.phasedOut() && !opts.dot) {
+        this.emit('phasedMiss', {});
+        this.say('It is out of phase: the hit passes straight through.', 'warn');
+        return 0;
+      }
       if (en.vuln > 0 && !opts.noVuln) n += 1;
       const present = this.enemyLayers();
       const skip = new Set(opts.prism ? present : opts.pierce ? ['block', 'armor'] : present.slice(0, opts.pierceLayers || 0));
@@ -1794,15 +1979,16 @@
         this.say(`The prism splits the shot: ${[en.ward ? `${en.ward} Ward${en.ward > 1 ? 's' : ''} shattered` : '', en.block ? `${en.block} Block stripped` : ''].filter(Boolean).join(', ')}.`, 'good');
         this.emit('enemyLayers', { prism: true, ward: en.ward, block: en.block });
         const hadCrystals = c.grand && en.ward > 0;
-        en.ward = 0; en.block = 0; c.illusions = 0;
+        en.ward = 0; en.block = 0; c.illusions = 0; c.bats = 0;
         if (hadCrystals) this.shatterGrand();
       }
       if (en.ward > 0 && !skip.has('ward')) {
         const kind = this.wardKind();
         en.ward--;
         if (c.illusions) c.illusions = Math.min(c.illusions, en.ward);
+        if (c.bats) c.bats = Math.min(c.bats, en.ward);
         this.emit('wardPop', { left: en.ward, kind });
-        this.say(`${{ illusion: 'An illusion bursts: it was not the real ship', crystal: 'A focus crystal shatters', glimmer: 'Its shimmer breaks' }[kind] || 'A Ward takes the whole hit'} (${en.ward} left).`, en.ward ? 'warn' : 'good');
+        this.say(`${{ illusion: 'An illusion bursts: it was not the real ship', crystal: 'A focus crystal shatters', glimmer: 'Its shimmer breaks', bats: 'A bat takes the hit and falls' }[kind] || 'A Ward takes the whole hit'} (${en.ward} left).`, en.ward ? 'warn' : 'good');
         if (!en.ward && c.grand) this.shatterGrand();
         return 0;
       }
@@ -1824,12 +2010,22 @@
       c.lastSource = opts.source || 'weapon';
       this.emit('enemyHit', { dmg: n, source: opts.source || 'weapon', hp: en.hp, pierce: !!(opts.pierce || opts.pierceLayers || opts.prism) });
       this.say(`${en.name} takes ${n} (${Math.max(0, en.hp)}/${en.max}).`, 'good');
+      if (this.has('chalice') && c.chalice < BALANCE.chaliceCap && this.core.hp < this.maxHp(this.core) && !this.coreDead()) { c.chalice++; this.emit('chalice', {}); this.healCore(1); }
       return n;
     }
+    phasedOut() { const c = this.combat; return !!c && !!this.enemyDef().phased && c.round % 2 === 1; }
     checkEnd() {
       const c = this.combat;
       if (!c || c.over) return true;
       if (this.coreDead()) { if (this.phase !== 'gameover') this.gameOver(); return true; }
+      // The Bone Galleon rises once at half Durability.
+      if (c.enemy.hp <= 0 && this.enemyDef().rises && !c.enemy.risen) {
+        const en = c.enemy;
+        en.risen = true; en.hp = Math.round(en.max / 2); en.bleed = 0; en.burn = 0; en.block = 0;
+        this.emit('rise', { hp: en.hp });
+        this.say(`${theName(en.name)} shudders, and its bones knit back together! It rises at ${en.hp}.`, 'warn');
+        return false;
+      }
       if (c.enemy.hp <= 0) { this.winCombat(); return true; }
       return false;
     }
@@ -1853,6 +2049,7 @@
       const def = this.enemyDef();
       const elite = def.elite || c.elite;
       for (const x of this.cards()) x.res = 0;
+      if (this.moonActive() && this.moon > 0) { this.moon = Math.max(0, this.moon - BALANCE.moonWane); this.say(`The Blood Moon wanes to ${this.moon}/${BALANCE.moonMax}.`, 'sys'); }
       if (elite) { this.stats.elites++; this.questEvent('eliteKill'); }
       if (c.fireAfflicted) this.questEvent('fireWin');
       if (c.round <= 3) this.questEvent('quickWin');
@@ -1909,6 +2106,7 @@
       else if (card.reload > 0) blocked = 'Reloading';
       else if (card.fired >= this.shotsAllowed(card)) blocked = 'Already fired';
       else if (this.combat && this.combat.steam < cost) blocked = 'Not enough Steam';
+      else if (this.bloodBlocked(card)) blocked = this.bloodBlocked(card);
       const under = loc.row === UPPER ? this.at(loc.col, HULL) : null;
       const bonus = (under && under.id === 'harpoon' ? 1 : 0)
         + (card.id === 'sniper' && this.touching(uid, 'telescope') ? 1 : 0)
@@ -1924,6 +2122,8 @@
       else if (card.id === 'titanfist') summary = `${this.fistDamage() + bonus}`;
       else if (card.id === 'runecannon') summary = `${this.runeDamage(card) + bonus}`;
       else if (card.id === 'archonlance') summary = `${this.lanceDamage() + bonus}, ignores Block and Armor`;
+      else if (card.id === 'eclipseblade') summary = `${this.bladeDamage() + bonus} piercing`;
+      else if (card.id === 'moonmortar') summary = `${this.mortarDamage() + bonus}`;
       else summary = `${Math.max(0, d.dmg + bonus)}`;
       if (d.burn) summary += ` +${d.burn} Burn`;
       if (d.weak) summary += ` +${d.weak} Gummed`;
@@ -1932,6 +2132,8 @@
       if (d.flak) summary += `, next attack −${d.flak}`;
       if (d.vuln) summary += ` +${d.vuln} Choking`;
       if (d.pierceLayers) summary += `, pierces ${d.pierceLayers} layers`;
+      if (d.lifesteal) summary += ', heals the Core';
+      if (d.blood) summary += ` · Blood ${d.blood}`;
       if (this.combat && this.combat.prism) summary += ', through the prism';
       if (this.hexed(card)) summary = `HEXED: heals the enemy ${summary}`;
       return { card, loc, cost, blocked, bonus, summary, modes: card.id === 'cannon' ? ['normal', 'aimed'] : card.id === 'sniper' ? ['normal', 'steady'] : ['normal'] };
@@ -1946,6 +2148,7 @@
       const { card, loc } = w;
       const d = this.def(card);
       this.pay(w.cost);
+      if (d.blood) this.payBlood(d.blood, `the ${d.name}`);
       card.fired++;
       const times = this.combat.overclock ? 2 : 1;
       this.combat.overclock = false;
@@ -1965,6 +2168,8 @@
         if (card.id === 'tesla') { dmg = this.weaponsInstalled(); pierce = true; }
         if (card.id === 'titanfist') dmg = this.fistDamage();
         if (card.id === 'runecannon') dmg = this.runeDamage(card);
+        if (card.id === 'eclipseblade') { dmg = this.bladeDamage(); pierce = true; }
+        if (card.id === 'moonmortar') dmg = this.mortarDamage();
         if (card.id === 'archonlance') { dmg = this.lanceDamage(); pierce = true; for (const x of this.cards()) x.res = 0; this.say('The lance drinks every note of Resonance on the ship.', 'good'); }
         dmg = Math.max(0, dmg + w.bonus);
         const en = this.combat.enemy;
@@ -1980,7 +2185,8 @@
           if (dmg <= 0) continue;
           const prism = this.combat.prism;
           this.combat.prism = false;
-          this.damageEnemy(dmg, { pierce, pierceLayers: d.pierceLayers || 0, prism, source: card.id });
+          const landed = this.damageEnemy(dmg, { pierce, pierceLayers: d.pierceLayers || 0, prism, source: card.id });
+          if (d.lifesteal && landed > 0 && !this.coreDead()) this.healCore(Math.ceil(landed * d.lifesteal));
         }
         if (d.flak) { this.combat.flak = Math.min(4, (this.combat.flak || 0) + d.flak); this.say(`Flak fills the sky: its next attack deals ${this.combat.flak} less.`, 'good'); }
         if (d.burn) { en.burn += d.burn; this.say(`It catches fire: Burn ${en.burn}.`, 'good'); }
@@ -2094,7 +2300,7 @@
       if (this.has('galeengine')) { this.emit('galeShift', {}); this.damageEnemy(1, { pierce: true, source: 'lightning' }); this.checkEnd(); }
       return true;
     }
-    ventTargets() { return [this.core, ...this.cards()].filter((c) => c.tokens.fire || c.tokens.gas || c.tokens.glue || c.tokens.hex).map((c) => c.uid); }
+    ventTargets() { return [this.core, ...this.cards()].filter((c) => c.tokens.fire || c.tokens.gas || c.tokens.glue || c.tokens.hex || c.tokens.bleed > 0).map((c) => c.uid); }
     vent(uid) {
       if (!this.spendable(VENT_COST) || !this.ventTargets().includes(uid)) return false;
       this.pay(VENT_COST);
@@ -2118,6 +2324,8 @@
       if (id === 'scrubber') return [this.core, ...this.cards()].filter((c) => c.tokens.gas || c.tokens.glue).map((c) => c.uid);
       if (id === 'deflector') return this.combat && !this.combat.braced.includes(uid) ? [uid] : [];
       if (id === 'prism') return this.combat && !this.combat.prism ? [uid] : [];
+      if (id === 'sanguine') return this.combat && !this.combat.sanguineUsed ? [uid] : [];
+      if (id === 'crimsonaltar') return this.combat && !this.combat.altarUsed ? this.neighborsOf(loc).filter((c) => c !== this.core).map((c) => c.uid) : [];
       return [];
     }
     canUseSupport(uid) {
@@ -2125,7 +2333,7 @@
       if (!loc || loc.card === this.core) return false;
       const d = this.def(loc.card);
       if (d.type === 'weapon' || d.cost == null) return false;
-      return this.spendable(this.useCost(loc.card)) && loc.card.fired < 1;
+      return this.spendable(this.useCost(loc.card)) && loc.card.fired < 1 && !this.bloodBlocked(loc.card);
     }
     useSupport(uid, targetUid) {
       if (!this.canUseSupport(uid) || !this.supportTargets(uid).includes(targetUid)) return false;
@@ -2140,6 +2348,18 @@
         if (target === this.core) this.healCore(this.def(card).heal);
         else this.healCard(target, this.def(card).heal);
         this.say(`The Repair Bay patches your ${this.nameOf(target)}.`, 'you');
+      }
+      if (this.def(card).blood) this.payBlood(this.def(card).blood, `the ${this.def(card).name}`);
+      if (card.id === 'sanguine') { this.combat.sanguineUsed = true; this.combat.steam += 2; this.emit('steam', { steam: this.combat.steam }); this.emit('bloodburn', { uid }); this.say('The Sanguine Engine burns blood for +2 Steam.', 'you'); }
+      if (card.id === 'crimsonaltar') {
+        this.combat.altarUsed = true;
+        const gain = Math.max(0, target.hp);
+        this.say(`Blood Rite: the ${this.def(target).name} is given to the altar.`, 'warn');
+        this.emit('altar', { uid: targetUid });
+        this.removeCard(targetUid, 'scrap');
+        this.blessings.weapon++;
+        this.say(`Your weapons deal +1 damage for the rest of the run (+${this.blessings.weapon} in all).`, 'good');
+        if (gain) this.healCore(gain);
       }
       if (card.id === 'prism') { this.combat.prism = true; this.emit('prism', { uid }); this.say('The Prism Array aligns: your next shot will split across every layer.', 'you'); }
       if (this.isArcane(card) && this.locate(uid)) this.resonate(uid, 1);

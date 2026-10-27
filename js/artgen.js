@@ -42,6 +42,15 @@
     for (let i = 0; i < 6; i++) { const a = (i * TAU) / 6; g.beginPath(); g.moveTo(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7); g.lineTo(x + Math.cos(a + 1.2) * r * 0.25, y + Math.sin(a + 1.2) * r * 0.25); g.stroke(); }
     g.restore();
   }
+  const BLOOD = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#ff8a80'], [0.45, '#c0182a'], [1, '#4a0008']]);
+  const BONE = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#fff4dc'], [0.5, '#d8c8a0'], [1, '#7a6a4a']]);
+  const SILVER = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#e8e8f0'], [0.5, '#9a9aa8'], [1, '#3a3a48']]);
+  // A drop of blood.
+  function drop(g, x, y, r) { shape(g, BLOOD(g, y - r * 2, y + r), () => { g.moveTo(x, y - r * 2); g.bezierCurveTo(x + r * 0.6, y - r, x + r, y - r * 0.2, x + r, y + r * 0.2); g.arc(x, y + r * 0.2, r, 0, Math.PI); g.bezierCurveTo(x - r, y - r * 0.2, x - r * 0.6, y - r, x, y - r * 2); }, 2.5); g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.ellipse(x - r * 0.35, y, r * 0.18, r * 0.35, -0.3, 0, TAU); g.fill(); }
+  // A big red moon with craters.
+  function moon(g, x, y, r) { glow(g, x, y, r * 2.2, 'rgba(255,50,40,0.45)'); shape(g, rgrad(g, x - r * 0.3, y - r * 0.3, r * 1.3, [[0, '#ff9a7a'], [0.55, '#d0282a'], [1, '#6a0810']]), () => g.arc(x, y, r, 0, TAU), 3); g.fillStyle = 'rgba(90,0,10,0.3)'; for (const [cx, cy, cr] of [[-0.3, -0.1, 0.2], [0.25, 0.25, 0.13], [0.1, -0.45, 0.1]]) { g.beginPath(); g.arc(x + cx * r, y + cy * r, cr * r, 0, TAU); g.fill(); } }
+  // A bat silhouette.
+  function bat(g, x, y, s, col = '#120408') { g.fillStyle = col; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x - 6 * s, y - 3 * s, x - 13 * s, y - 2 * s); g.lineTo(x - 10 * s, y + 2 * s); g.lineTo(x - 7 * s, y + 1 * s); g.lineTo(x - 4 * s, y + 4 * s); g.lineTo(x, y + 3 * s); g.lineTo(x + 4 * s, y + 4 * s); g.lineTo(x + 7 * s, y + 1 * s); g.lineTo(x + 10 * s, y + 2 * s); g.lineTo(x + 13 * s, y - 2 * s); g.quadraticCurveTo(x + 6 * s, y - 3 * s, x, y); g.fill(); }
   const BRASS = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#f6d98a'], [0.45, '#c8923a'], [1, '#6e4614']]);
   const IRON = (g, y0, y1) => grad(g, 0, y0, 0, y1, [[0, '#c9d2d8'], [0.5, '#7a858f'], [1, '#353c44']]);
 
@@ -211,6 +220,82 @@
       g.restore();
       for (const [x, y, r] of [[60, 160, 6], [190, 40, 7], [170, 160, 4]]) sparkle(g, x, y, r, '#c8fff0');
     } },
+    // ---------- Area 3: the Blood Moon ----------
+    // Blood Harpoon: a barbed silver harpoon trailing a blood line into a drop.
+    bloodharpoon: { theme: 'blood', draw(g) {
+      moon(g, 186, 52, 26);
+      g.save(); g.translate(112, 112); g.rotate(-0.55);
+      shape(g, '#5a3a24', () => g.rect(-96, -6, 130, 12), 3);
+      shape(g, SILVER(g, -24, 24), () => path(g, [[30, -14], [92, 0], [30, 14], [42, 0]]), 3);
+      shape(g, SILVER(g, -20, 0), () => path(g, [[46, -6], [58, -22], [62, -4]]), 2.5);
+      shape(g, SILVER(g, 0, 20), () => path(g, [[46, 6], [58, 22], [62, 4]]), 2.5);
+      g.restore();
+      g.strokeStyle = '#a0101c'; g.lineWidth = 4; g.beginPath(); g.moveTo(40, 168); g.bezierCurveTo(60, 120, 30, 110, 50, 70); g.stroke();
+      drop(g, 62, 168, 12); drop(g, 168, 158, 8);
+    } },
+    // Thorned Hull: a dark iron plate bristling with bloody thorns.
+    thornhull: { theme: 'blood', draw(g) {
+      shape(g, IRON(g, 30, 170), () => path(g, [[60, 40], [180, 40], [192, 100], [180, 162], [60, 162], [48, 100]]), 4);
+      for (const [x, y, a] of [[60, 40, -2.3], [180, 40, -0.8], [192, 100, 0], [180, 162, 0.8], [60, 162, 2.3], [48, 100, 3.14], [120, 40, -1.57], [120, 162, 1.57]]) {
+        shape(g, SILVER(g, y - 20, y + 20), () => path(g, [[x + Math.cos(a - 0.35) * 8, y + Math.sin(a - 0.35) * 8], [x + Math.cos(a) * 34, y + Math.sin(a) * 34], [x + Math.cos(a + 0.35) * 8, y + Math.sin(a + 0.35) * 8]]), 2.5);
+        g.fillStyle = '#c0182a'; g.beginPath(); g.arc(x + Math.cos(a) * 26, y + Math.sin(a) * 26, 3, 0, TAU); g.fill();
+      }
+      for (const [x, y] of [[80, 60], [160, 60], [80, 142], [160, 142]]) rivet(g, x, y, 4);
+      shape(g, BLOOD(g, 80, 120), () => g.arc(120, 100, 18, 0, TAU), 3);
+    } },
+    // Sanguine Engine: a brass boiler with a glass heart full of blood, venting red steam.
+    sanguine: { theme: 'blood', draw(g) {
+      glow(g, 120, 110, 80, 'rgba(255,40,40,0.3)');
+      shape(g, BRASS(g, 50, 176), () => g.roundRect(64, 60, 112, 116, 18), 4);
+      shape(g, 'rgba(255,220,220,0.25)', () => g.arc(120, 112, 34, 0, TAU), 3);
+      g.save(); g.beginPath(); g.arc(120, 112, 31, 0, TAU); g.clip(); g.fillStyle = BLOOD(g, 100, 150); g.fillRect(86, 106, 70, 40); g.restore();
+      for (const [x, y] of [[74, 70], [166, 70], [74, 166], [166, 166]]) rivet(g, x, y, 4);
+      shape(g, IRON(g, 30, 60), () => g.rect(104, 30, 32, 30), 3);
+      for (let i = 0; i < 4; i++) { g.fillStyle = `rgba(220,60,70,${0.5 - i * 0.1})`; g.beginPath(); g.arc(120 + i * 12, 22 - i * 6, 10 + i * 4, 0, TAU); g.fill(); }
+    } },
+    // Crimson Altar: a black altar under a red moon, a dagger and a pooling chalice.
+    crimsonaltar: { theme: 'blood', draw(g) {
+      moon(g, 120, 52, 36);
+      shape(g, '#1e1014', () => path(g, [[50, 176], [64, 120], [176, 120], [190, 176]]), 4);
+      shape(g, '#2e1a20', () => g.rect(56, 108, 128, 16), 3);
+      g.fillStyle = BLOOD(g, 108, 180); g.beginPath(); g.moveTo(90, 120); g.quadraticCurveTo(96, 150, 88, 176); g.lineTo(100, 176); g.quadraticCurveTo(106, 150, 100, 120); g.fill();
+      g.save(); g.translate(150, 96); g.rotate(0.5);
+      shape(g, SILVER(g, -40, 0), () => path(g, [[-4, -50], [4, -50], [3, 0], [-3, 0]]), 2.5);
+      shape(g, BRASS(g, -2, 6), () => g.rect(-12, 0, 24, 6), 2); shape(g, '#3a1a10', () => g.rect(-3, 6, 6, 16), 2);
+      g.restore();
+    } },
+    // Moon Mortar: a squat silver mortar aimed at a swollen red moon.
+    moonmortar: { theme: 'blood', draw(g) {
+      moon(g, 170, 56, 34);
+      g.save(); g.translate(96, 136); g.rotate(-0.7);
+      shape(g, SILVER(g, -30, 30), () => g.roundRect(-26, -30, 80, 60, 10), 4);
+      shape(g, '#1a0a0c', () => g.ellipse(56, 0, 8, 26, 0, 0, TAU), 3);
+      g.restore();
+      shape(g, IRON(g, 150, 184), () => path(g, [[50, 184], [70, 150], [130, 150], [148, 184]]), 4);
+      for (const [x, y] of [[140, 88], [124, 104]]) drop(g, x, y, 5);
+    } },
+    // Sovereign's Chalice: a tall silver-and-gold chalice brimming with blood.
+    chalice: { theme: 'legendary', draw(g) {
+      glow(g, 120, 70, 90, 'rgba(255,40,40,0.4)');
+      shape(g, BRASS(g, 30, 110), () => { g.moveTo(66, 40); g.lineTo(174, 40); g.quadraticCurveTo(170, 110, 120, 116); g.quadraticCurveTo(70, 110, 66, 40); }, 4);
+      shape(g, BLOOD(g, 34, 56), () => g.ellipse(120, 42, 52, 10, 0, 0, TAU), 3);
+      shape(g, SILVER(g, 116, 160), () => path(g, [[112, 114], [128, 114], [124, 160], [116, 160]]), 3);
+      shape(g, BRASS(g, 156, 180), () => g.ellipse(120, 168, 40, 10, 0, 0, TAU), 3);
+      g.fillStyle = BLOOD(g, 46, 100); g.beginPath(); g.moveTo(150, 46); g.quadraticCurveTo(160, 70, 152, 96); g.lineTo(158, 96); g.quadraticCurveTo(166, 70, 156, 46); g.fill();
+      for (const x of [86, 120, 154]) { shape(g, '#c0182a', () => g.arc(x, 76, 6, 0, TAU), 2); }
+    } },
+    // Eclipse Blade: a black sword ringed by an eclipsed moon's corona.
+    eclipseblade: { theme: 'legendary', draw(g) {
+      g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(255,60,40,0.9)'; g.lineWidth = 6; g.shadowColor = '#ff2a20'; g.shadowBlur = 20; g.beginPath(); g.arc(120, 96, 52, 0, TAU); g.stroke(); g.restore();
+      shape(g, '#0a0204', () => g.arc(120, 96, 48, 0, TAU), 3);
+      g.save(); g.translate(120, 100); g.rotate(-0.78);
+      shape(g, grad(g, -10, 0, 10, 0, [[0, '#2a2a34'], [0.5, '#8a8a9a'], [1, '#1a1a22']]), () => path(g, [[-7, 40], [-7, -78], [0, -96], [7, -78], [7, 40]]), 3);
+      g.strokeStyle = '#ff3040'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -80); g.lineTo(0, 34); g.stroke();
+      shape(g, BRASS(g, 36, 48), () => g.rect(-28, 38, 56, 10), 3);
+      shape(g, '#3a1a10', () => g.rect(-6, 48, 12, 34), 3);
+      shape(g, BLOOD(g, 80, 96), () => g.arc(0, 88, 8, 0, TAU), 3);
+      g.restore();
+    } },
   });
 
   // ---------- map icons and event banners for the later areas' places ----------
@@ -230,6 +315,25 @@
       g.strokeStyle = '#5a4a3a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(48, 32); g.lineTo(48, 60); g.stroke();
       for (const [x, y] of [[28, 46], [36, 54], [60, 44], [68, 56], [54, 50]]) sparkle(g, x, y, 3, '#3a6ad8');
       for (const [x, y] of [[20, 20], [74, 16], [50, 14]]) sparkle(g, x, y, 4);
+    } },
+    bloodaltar: { sky: ['#4a0a10', '#120204'], draw(g) {
+      moon(g, 48, 30, 16);
+      shape(g, '#1e1014', () => path(g, [[20, 82], [28, 58], [68, 58], [76, 82]]), 2);
+      shape(g, '#2e1a20', () => g.rect(22, 52, 52, 8), 2);
+      g.fillStyle = '#c0182a'; g.beginPath(); g.moveTo(40, 58); g.quadraticCurveTo(44, 70, 40, 82); g.lineTo(46, 82); g.quadraticCurveTo(48, 70, 46, 58); g.fill();
+    } },
+    crypt: { sky: ['#2a0a12', '#080204'], draw(g) {
+      shape(g, '#2a2228', () => path(g, [[16, 84], [16, 48], [30, 36], [30, 24], [34, 14], [38, 24], [38, 36], [60, 36], [80, 50], [80, 84]]), 2);
+      g.fillStyle = 'rgba(255,60,50,0.7)'; for (const x of [44, 56, 68]) { g.beginPath(); g.moveTo(x, 62); g.lineTo(x, 54); g.lineTo(x + 3, 50); g.lineTo(x + 6, 54); g.lineTo(x + 6, 62); g.fill(); }
+      shape(g, '#100608', () => path(g, [[22, 84], [22, 66], [28, 60], [34, 66], [34, 84]]), 2);
+      bat(g, 64, 22, 1.3); bat(g, 76, 30, 0.9);
+    } },
+    moonwell: { sky: ['#3a0810', '#0a0204'], draw(g) {
+      moon(g, 48, 26, 13);
+      shape(g, SILVER(g, 56, 82), () => g.ellipse(48, 68, 30, 12, 0, 0, TAU), 2);
+      shape(g, '#0a0610', () => g.ellipse(48, 66, 24, 8, 0, 0, TAU), 2);
+      g.fillStyle = 'rgba(255,80,60,0.75)'; g.beginPath(); g.ellipse(48, 66, 8, 3, 0, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(255,90,70,0.25)'; g.beginPath(); g.moveTo(42, 34); g.lineTo(54, 34); g.lineTo(60, 64); g.lineTo(36, 64); g.fill();
     } },
   };
   function nodeIcon(id) {
@@ -275,6 +379,35 @@
       shape(g, BRASS(g, h * 0.7, h * 0.86), () => path(g, [[w * 0.53, h * 0.72], [w * 0.47, h * 0.86], [w * 0.5, h * 0.86], [w * 0.55, h * 0.74], [w * 0.6, h * 0.86], [w * 0.63, h * 0.86]]), 2);
     } },
   };
+  // The Blood Moon's places: a red moon over gothic silhouettes and fog.
+  function bloodSky(g, w, h, mx = 0.72) {
+    moon(g, w * mx, h * 0.34, h * 0.26);
+    for (let i = 0; i < 6; i++) bat(g, w * (0.2 + Math.random() * 0.6), h * (0.12 + Math.random() * 0.3), 1 + Math.random());
+    for (let b = 0; b < 2; b++) { const y = h * (0.78 + b * 0.1); const gr = grad(g, 0, y - 30, 0, y + 30, [[0, 'rgba(160,20,30,0)'], [0.5, 'rgba(160,20,30,0.35)'], [1, 'rgba(160,20,30,0)']]); g.fillStyle = gr; g.fillRect(0, y - 30, w, 60); }
+  }
+  BANNERS.bloodaltar = { sky: ['#0a0204', '#3a0810'], draw(g, w, h) {
+    bloodSky(g, w, h, 0.5);
+    island(g, w * 0.5, h * 0.92, 160, '#160a0c');
+    shape(g, '#1e1014', () => path(g, [[w * 0.5 - 90, h * 0.86], [w * 0.5 - 70, h * 0.6], [w * 0.5 + 70, h * 0.6], [w * 0.5 + 90, h * 0.86]]), 3);
+    shape(g, '#2e1a20', () => g.rect(w * 0.5 - 84, h * 0.55, 168, 16), 3);
+    g.fillStyle = BLOOD(g, h * 0.6, h * 0.9); g.beginPath(); g.moveTo(w * 0.5 - 30, h * 0.62); g.quadraticCurveTo(w * 0.5 - 20, h * 0.75, w * 0.5 - 34, h * 0.88); g.lineTo(w * 0.5 - 14, h * 0.88); g.quadraticCurveTo(w * 0.5 - 6, h * 0.75, w * 0.5 - 12, h * 0.62); g.fill();
+  } };
+  BANNERS.crypt = { sky: ['#050103', '#2a060c'], draw(g, w, h) {
+    bloodSky(g, w, h, 0.2);
+    island(g, w * 0.58, h * 0.95, 200, '#120809');
+    shape(g, '#221a20', () => path(g, [[w * 0.38, h * 0.88], [w * 0.38, h * 0.5], [w * 0.44, h * 0.38], [w * 0.44, h * 0.14], [w * 0.46, h * 0.02], [w * 0.48, h * 0.14], [w * 0.48, h * 0.38], [w * 0.7, h * 0.38], [w * 0.78, h * 0.52], [w * 0.78, h * 0.88]]), 3);
+    g.fillStyle = 'rgba(255,60,50,0.7)';
+    for (let i = 0; i < 5; i++) { const x = w * (0.52 + i * 0.05); g.beginPath(); g.moveTo(x, h * 0.66); g.lineTo(x, h * 0.54); g.lineTo(x + 6, h * 0.48); g.lineTo(x + 12, h * 0.54); g.lineTo(x + 12, h * 0.66); g.fill(); }
+    g.save(); g.translate(w * 0.28, h * 0.62); g.rotate(-0.3); shape(g, '#1a1418', () => g.rect(-80, -10, 130, 26), 3); g.restore();
+  } };
+  BANNERS.moonwell = { sky: ['#0a0204', '#2a060a'], draw(g, w, h) {
+    moon(g, w * 0.5, h * 0.3, h * 0.24);
+    g.fillStyle = 'rgba(255,90,70,0.18)'; g.beginPath(); g.moveTo(w * 0.46, h * 0.5); g.lineTo(w * 0.54, h * 0.5); g.lineTo(w * 0.62, h * 0.78); g.lineTo(w * 0.38, h * 0.78); g.fill();
+    island(g, w * 0.5, h * 0.95, 180, '#140a0c');
+    shape(g, SILVER(g, h * 0.7, h * 0.88), () => g.ellipse(w * 0.5, h * 0.8, 110, 22, 0, 0, TAU), 3);
+    shape(g, '#0a0610', () => g.ellipse(w * 0.5, h * 0.79, 96, 16, 0, 0, TAU), 3);
+    g.fillStyle = 'rgba(255,70,60,0.8)'; g.beginPath(); g.ellipse(w * 0.5, h * 0.79, 30, 6, 0, 0, TAU); g.fill();
+  } };
   function auroraBands(g, w, h, cols) {
     g.save(); g.globalCompositeOperation = 'lighter';
     cols.forEach((c, b) => {

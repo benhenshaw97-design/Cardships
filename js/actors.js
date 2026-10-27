@@ -46,6 +46,8 @@
         this.enemy.ward = c.enemy.ward || 0;
         this.enemy.wardKind = game.wardKind();
         this.enemy.armor = c.enemy.armor || 0;
+        this.enemy.bleed = c.enemy.bleed || 0;
+        this.enemy.phased = game.phasedOut();
       }
       // Highlights: selection and the modules the telegraphed intent will hit.
       this.selectedUid = ui.selected;
@@ -137,7 +139,7 @@
     drawIntent(g, v) {
       const { it, plan, text, evading, stunned } = this.intent;
       const ep = this.enemy.pointOf();
-      const attack = ['shot', 'rake', 'broadside', 'ram', 'rune', 'grand'].includes(it.kind) || (it.kind === 'token');
+      const attack = ['shot', 'rake', 'broadside', 'ram', 'rune', 'grand', 'drain', 'beam'].includes(it.kind) || (it.kind === 'token');
       g.font = '400 15px "IM Fell English SC", Georgia, serif';
       const title = stunned ? 'Stunned' : evading && attack ? `${it.name} (evading)` : it.name;
       g.font = '600 11px "IBM Plex Mono", monospace';
@@ -146,7 +148,7 @@
       const w = Math.max(110, Math.min(v.w * 0.46, Math.max(measure(g, '400 15px "IM Fell English SC", Georgia, serif', title), measure(g, '600 11px "IBM Plex Mono", monospace', sub)) + 40));
       const px = Math.max(w / 2 + 6, Math.min(v.w - w / 2 - 6, ep.x));
       const py = Math.max(8, ep.y - ep.r * 0.95 - 50);
-      const color = stunned || (evading && attack) ? '#93a6b3' : it.kind === 'grand' || it.kind === 'channel' ? '#b98cff' : attack ? '#ec5f3f' : it.kind === 'block' ? '#93a6b3' : it.kind === 'ward' || it.kind === 'siphon' ? '#6ff0d0' : it.kind === 'repair' ? '#5db394' : '#f0b85c';
+      const color = stunned || (evading && attack) ? '#93a6b3' : it.kind === 'grand' || it.kind === 'channel' ? '#b98cff' : it.kind === 'beam' || it.kind === 'drain' || it.bleed || it.token === 'bleed' || it.bats ? '#ff3a4a' : attack ? '#ec5f3f' : it.kind === 'block' ? '#93a6b3' : it.kind === 'ward' || it.kind === 'siphon' ? '#6ff0d0' : it.kind === 'repair' ? '#5db394' : '#f0b85c';
       // Arrows first, so the plate sits on top.
       if (attack && !evading && !stunned) {
         const seen = new Set();
@@ -195,7 +197,10 @@
     if (it.kind === 'block') { g.beginPath(); g.moveTo(0, -9); g.lineTo(8, -5); g.lineTo(6, 6); g.lineTo(0, 10); g.lineTo(-6, 6); g.lineTo(-8, -5); g.closePath(); g.stroke(); }
     else if (it.kind === 'repair') { g.beginPath(); g.moveTo(-7, 7); g.lineTo(4, -4); g.stroke(); g.beginPath(); g.arc(5, -5, 4, 0.8, Math.PI * 2 - 0.8); g.stroke(); }
     else if (it.kind === 'charge') { g.beginPath(); g.moveTo(0, -9); g.lineTo(-7, 0); g.lineTo(-2, 0); g.lineTo(-4, 9); g.lineTo(7, -2); g.lineTo(2, -2); g.closePath(); g.fill(); }
-    else if (it.kind === 'token') { g.fillStyle = { fire: '#ff8a3a', glue: '#9fd05a', gas: '#b6a7d8' }[it.token]; g.beginPath(); g.arc(0, 0, 7 + Math.sin(t * 5), 0, Math.PI * 2); g.fill(); }
+    else if (it.kind === 'token') { g.fillStyle = { fire: '#ff8a3a', glue: '#9fd05a', gas: '#b6a7d8', hex: '#c08cff', bleed: '#e0142c' }[it.token]; g.beginPath(); g.arc(0, 0, 7 + Math.sin(t * 5), 0, Math.PI * 2); g.fill(); }
+    else if (it.kind === 'ward' && it.bats) { const up = Math.sin(t * 14) * 3; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(-5, -2 - up, -10, -up); g.lineTo(-5, 3); g.lineTo(0, 5); g.lineTo(5, 3); g.lineTo(10, -up); g.quadraticCurveTo(5, -2 - up, 0, 0); g.fill(); }
+    else if (it.kind === 'drain') { g.beginPath(); g.moveTo(0, -9); g.quadraticCurveTo(8, 2, 0, 9); g.quadraticCurveTo(-8, 2, 0, -9); g.fill(); g.strokeStyle = '#1a0004'; g.beginPath(); g.moveTo(-3, 2); g.lineTo(3, 2); g.stroke(); }
+    else if (it.kind === 'beam') { g.save(); g.shadowColor = '#ff2030'; g.shadowBlur = 10; g.lineWidth = 4 + Math.sin(t * 8); g.beginPath(); g.moveTo(-10, 0); g.lineTo(10, 0); g.stroke(); g.beginPath(); g.arc(-8, 0, 5, 0, Math.PI * 2); g.fill(); g.restore(); }
     else if (it.kind === 'ward') { g.beginPath(); for (let i = 0; i <= 6; i++) { const a = (i * Math.PI) / 3; g.lineTo(Math.cos(a) * 9, Math.sin(a) * 9); } g.stroke(); }
     else if (it.kind === 'siphon') { g.beginPath(); g.arc(0, 0, 8, 0.4, Math.PI * 2 - 0.4); g.stroke(); g.beginPath(); g.arc(0, 0, 3 + Math.sin(t * 6) * 1.5, 0, Math.PI * 2); g.fill(); }
     else if (it.kind === 'rune' || it.kind === 'channel' || it.kind === 'grand') { g.save(); g.rotate(t * 1.5); g.beginPath(); g.arc(0, 0, 9, 0, Math.PI * 2); g.stroke(); for (let i = 0; i < 3; i++) { const a = (i * Math.PI * 2) / 3; g.beginPath(); g.moveTo(Math.cos(a) * 9, Math.sin(a) * 9); g.lineTo(Math.cos(a + 2.1) * 4, Math.sin(a + 2.1) * 4); g.stroke(); } g.restore(); }
