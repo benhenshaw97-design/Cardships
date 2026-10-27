@@ -721,6 +721,9 @@
   let portal = null; // the transit in progress: { to, t, onMid, onDone, midDone, sparks }
   let portalIdleT = 0;
   const ease = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+  // Your painted vortices, by destination (Area II aurora blue, Area III blood red).
+  const PORTAL_ART = {};
+  for (const [k, n] of [[1, 'aurora'], [2, 'blood']]) { if (typeof Image === 'undefined') break; const im = new Image(); im.src = `assets/art/fx/portal-${n}.png`; PORTAL_ART[k] = im; }
   function portalTo() { const g = window.cardships && window.cardships.game; return portal ? portal.to : g ? g.area + 1 : 1; }
   // Where the vortex sits: off the bow where the boss fell, then (after the crossing) mid-screen.
   function portalSpot(v) { return portal && portal.midDone ? { x: v.w * 0.5, y: v.h * 0.44 } : { x: v.w * 0.78, y: v.h * 0.42 }; }
@@ -768,6 +771,12 @@
       else { const k = (t - PORTAL_MID) / (PORTAL_T - PORTAL_MID); r = big * (1 - ease(k * 1.25)); alpha = 1 - ease((k - 0.6) / 0.4); }
     }
     vortex(g, at.x, at.y, r, v.t * (portal ? 5 : 2.2), ink, alpha);
+    const art = PORTAL_ART[portalTo()];
+    if (art && art.complete && art.naturalWidth && r > 4) {
+      g.save(); g.globalAlpha = alpha * 0.92; g.translate(at.x, at.y); g.scale(1, 0.86); g.rotate(-v.t * (portal ? 3.2 : 1.1));
+      g.drawImage(art, -r * 1.1, -r * 1.1, r * 2.2, r * 2.2);
+      g.restore();
+    }
     // Sparks spiralling in.
     const S = portal ? portal.sparks : (drawPortal.sparks = drawPortal.sparks || []);
     while (S.length < (portal ? 60 : 26)) S.push({ a: rand(0, TAU), d: rand(0.8, 1.6), s: rand(0.5, 1.2), c: ink.arms[Math.floor(rand(0, ink.arms.length))] });

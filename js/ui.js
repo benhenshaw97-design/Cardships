@@ -154,7 +154,7 @@
     syncMusic();
     if (!game) {
       // The Workshop: the hangar deck, with your last ship berthed on display.
-      scene.setBiome('dock'); scene.setMode('docked');
+      scene.setBiome('workshop'); scene.setMode('docked');
       const L = meta.lastShip;
       overlay.replaceChildren(h('div', { class: 'title-hero' },
         h('span', { class: 'eyebrow' }, 'A steampunk skyship roguelike · The Workshop'),
@@ -453,10 +453,21 @@
   function vaultTab() {
     const rows = Object.entries(D.LEGENDARY_POOLS).map(([boss, ids]) => h('div', { class: 'stack vault-row' },
       h('h4', {}, D.ENEMIES[boss].name, h('span', { class: 'muted' }, ` · ${D.AREAS[D.ENEMIES[boss].area || 0].name}`)),
-      h('div', { class: 'ws-list two' }, ids.map((id) => meta.legendaries.includes(id)
-        ? partEntry(id, meta.lore.includes(id) ? h('i', { class: 'ws-lore' }, D.LORE[id]) : buyBtn(D.BLUEPRINTS.lore, () => Meta.buyLore(meta, id), 'Decipher the lore'))
-        : h('div', { class: 'ws-part vault-locked' }, h('div', { class: 'vault-sil', 'aria-hidden': 'true' }, '★'), h('div', { class: 'stack' }, h('b', {}, 'Sealed'), h('span', { class: 'muted' }, `Sink ${D.ENEMIES[boss].name} to unlock it.`)))))));
-    return [h('section', { class: 'panel stack' }, h('h3', {}, 'The Legendary Vault'), h('p', { class: 'muted' }, 'Each boss\'s first defeat unlocks its two legendaries. Once unlocked they can turn up as very rare loot on any run.'), rows)];
+      h('div', { class: 'ws-list two' }, ids.map((id) => {
+        const open = meta.legendaries.includes(id);
+        const d = D.PARTS[id];
+        return h('div', { class: `vault-item ${open ? 'open' : 'sealed'}` },
+          h('div', { class: `vault-pedestal ${open ? 'open' : 'sealed'}` }, open ? h('img', { src: cardSrc(id), alt: '' }) : null),
+          open
+            ? h('div', { class: 'stack', style: 'gap:3px' }, h('b', { class: 'vault-name' }, d.name), h('span', { class: `tag ${d.type}` }, d.type),
+              d.rules.map(([k, t]) => h('span', { class: 'ws-rule' }, h('b', {}, k + ': '), t)),
+              meta.lore.includes(id) ? h('i', { class: 'ws-lore' }, D.LORE[id]) : buyBtn(D.BLUEPRINTS.lore, () => Meta.buyLore(meta, id), 'Decipher the lore'))
+            : h('div', { class: 'stack', style: 'gap:3px' }, h('b', { class: 'vault-name' }, 'Sealed'), h('span', { class: 'muted' }, `Sink ${D.ENEMIES[boss].name} to unlock it.`)));
+      }))));
+    return [h('section', { class: 'panel stack vault' },
+      h('div', { class: 'vault-hero' }, h('img', { class: 'vault-room', src: 'assets/art/ui/vault-room.jpg', alt: '' }), h('img', { class: 'vault-plaque', src: 'assets/art/ui/vault-plaque.png', alt: 'Legendary Vault' })),
+      h('p', { class: 'muted' }, `${meta.legendaries.length} of ${Object.keys(D.LEGENDARY_POOLS).length * 2} unlocked. Each boss's first defeat unlocks its two legendaries. Once unlocked they can turn up as very rare loot on any run.`),
+      rows)];
   }
   function liveryTab() {
     const C = D.COSMETICS;

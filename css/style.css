@@ -696,9 +696,21 @@ body.eclipse .battle-bar { background: linear-gradient(180deg, rgba(60, 0, 6, 0.
 .bp-ledger { display: flex; flex-direction: column; gap: 4px; max-width: 420px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 4px; background: rgba(0, 0, 0, 0.2); }
 .bp-ledger .total { border-top: 1px solid var(--rule); padding-top: 4px; margin-top: 2px; }
 /* The hangar berth on the title scene. */
-.hangar-berth { position: absolute; right: 6%; bottom: 8%; width: min(300px, 32vw); aspect-ratio: 300 / 170; filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); animation: berth-bob 4s ease-in-out infinite; pointer-events: none; }
+.hangar-berth { position: absolute; left: 74%; bottom: 20%; translate: -50% 0; width: min(300px, 30vw); aspect-ratio: 300 / 170; filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); animation: berth-bob 4s ease-in-out infinite; pointer-events: none; }
 .hangar-berth .ship-thumb { image-rendering: pixelated; width: 100%; height: 100%; }
 /* The Core's skin: its badge and glow take the skin's colour. */
 .mod-mark.core { border-color: var(--core-skin, var(--brass)); box-shadow: 0 0 10px -2px var(--core-skin, transparent); }
 @media (max-width: 760px) { .ws-head, .ws-livery { grid-template-columns: 1fr; } .hangar-berth { display: none; } .ws-list { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .ws-display .ship-thumb, .hangar-berth { animation: none; } }
+/* The Legendary Vault: your vault room, gold-lit pedestals for unlocked legendaries, chained frames for sealed ones. */
+.vault-hero { position: relative; border-radius: 4px; overflow: hidden; border: 1.5px solid var(--brass-2); }
+.vault-room { display: block; width: 100%; height: auto; }
+.vault-plaque { position: absolute; right: 2%; top: 50%; translate: 0 -50%; width: clamp(110px, 20%, 220px); filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.6)); }
+.vault-item { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--rule); border-radius: 4px; background: rgba(0, 0, 0, 0.2); }
+.vault-item.open { border-color: rgba(255, 211, 106, 0.6); box-shadow: 0 0 16px -6px rgba(255, 211, 106, 0.7); }
+.vault-item.sealed { opacity: 0.8; }
+.vault-pedestal { position: relative; width: 150px; aspect-ratio: 260 / 250; background: url(../assets/art/ui/vault-open.png) center / contain no-repeat; }
+.vault-pedestal.sealed { background-image: url(../assets/art/ui/vault-sealed.png); }
+.vault-pedestal img { position: absolute; left: 34%; top: 23%; width: 33%; height: 47%; object-fit: cover; border-radius: 2px; box-shadow: 0 0 12px rgba(255, 200, 90, 0.8); }
+.vault-name { font: 400 18px/1.1 var(--f-display); color: var(--brass); }
+@media (max-width: 560px) { .vault-item { grid-template-columns: 110px minmax(0, 1fr); } .vault-pedestal { width: 110px; } }

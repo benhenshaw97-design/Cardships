@@ -22,6 +22,10 @@
     rift: 'assets/art/skies/sky-rift.jpg',
     port: 'assets/art/skies/sky-port.jpg',
     victory: 'assets/art/skies/sky-victory.jpg',
+    auroraSky: 'assets/art/skies/sky-aurora.jpg',
+    bloodMoon: 'assets/art/skies/sky-blood-moon.jpg',
+    pirateDusk: 'assets/art/skies/sky-pirate-dusk.jpg',
+    hangar: 'assets/art/workshop-hangar.jpg',
     defeat: 'assets/art/skies/sky-defeat.jpg',
   };
   const images = {};
@@ -39,25 +43,26 @@
     storm: { sky: ['#1d2533', '#3a4659', '#5c6878'], far: '#2b3443', farRock: '#222a36', mid: '#384353', cloud: ['#77808e', '#5d6573', '#3f4653'], wisp: 'rgba(120,128,140,0.55)', weather: 'rain', farKind: 'art', art: 'stormMesa', haze: 'rgba(20,26,44,0.45)', lightning: true },
     smog: { sky: ['#5e4a38', '#8c7356', '#b59a76'], far: '#6d5944', farRock: '#5a4838', mid: '#4a3c30', cloud: ['#b7a58a', '#988670', '#6f604f'], wisp: 'rgba(120,105,85,0.5)', weather: 'soot', farKind: 'art', art: ['canyon', 'railYard', 'chimneys', 'smokeWrecks'], haze: 'rgba(120,96,70,0.35)', midKind: 'chimneys' },
     sunset: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: ['sunset', 'sunsetIsles'], haze: 'rgba(80,40,70,0.18)', midKind: 'airships' },
-    dusk: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: 'cloudsea', haze: 'rgba(70,20,30,0.16)', midKind: 'airships' },
+    dusk: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: ['cloudsea', 'pirateDusk'], haze: 'rgba(70,20,30,0.16)', midKind: 'airships' },
     night: { sky: ['#070b1c', '#141d3a', '#26305a'], far: '#1a2240', farRock: '#121933', mid: '#0f1428', cloud: ['#59658a', '#3c4668', '#252c48'], wisp: 'rgba(110,125,170,0.4)', weather: 'motes', farKind: 'art', art: ['night', 'nightCity'], haze: 'rgba(8,12,30,0.22)', midKind: 'airships' },
     lair: { sky: ['#160c0e', '#3a1414', '#7a2a1c'], far: '#2a1214', farRock: '#1d0d0f', mid: '#2c1416', cloud: ['#6e4a48', '#4e3232', '#2e1c1e'], wisp: 'rgba(90,50,50,0.5)', weather: 'embers', farKind: 'art', art: ['canyonCity', 'pirateLair'], haze: 'rgba(90,20,14,0.3)', midKind: 'wrecks' },
     derelict: { sky: ['#3a1c2c', '#9a3a32', '#e0704a'], far: '#6a2a2e', farRock: '#4e1e24', mid: '#3a1820', cloud: ['#ffb08a', '#d9705a', '#8e3e46'], wisp: 'rgba(255,170,140,0.42)', weather: 'motes', farKind: 'art', art: 'derelicts', haze: 'rgba(40,20,20,0.12)', midKind: 'none' },
     rift: { sky: ['#160c2c', '#3a1d5c', '#6a3aa0'], far: '#2a1a48', farRock: '#1d1236', mid: '#170e2a', cloud: ['#8a6ac8', '#6a4aa8', '#3c2868'], wisp: 'rgba(170,130,240,0.4)', weather: 'motes', farKind: 'art', art: 'rift', haze: 'rgba(20,8,40,0.12)', midKind: 'none' },
     port: { sky: ['#2f2a55', '#c9605a', '#f4b46a'], far: '#7a4a5e', farRock: '#5e3a4c', mid: '#3d2638', cloud: ['#ffd9b0', '#f2a07e', '#b9677a'], wisp: 'rgba(255,214,170,0.45)', weather: 'motes', farKind: 'art', art: 'port', haze: 'rgba(80,40,70,0.1)', midKind: 'none' },
     // Area 2, the Aurora Reaches: auroras over crystal islands, runes and star-dust.
-    aurora: { sky: ['#040a1c', '#0b2638', '#17465a'], far: '#2a6a7a', farRock: '#16384a', mid: '#123044', cloud: ['#bfeee8', '#7fc4cc', '#3e7a8e'], wisp: 'rgba(160,255,230,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(10,30,50,0.2)', aurora: 1 },
+    aurora: { sky: ['#040a1c', '#0b2638', '#17465a'], far: '#2a6a7a', farRock: '#16384a', mid: '#123044', cloud: ['#bfeee8', '#7fc4cc', '#3e7a8e'], wisp: 'rgba(160,255,230,0.22)', weather: 'stardust', farKind: 'art', art: 'auroraSky', midKind: 'runes', haze: 'rgba(10,30,50,0.12)', aurora: 0.55 },
     auroraRift: { sky: ['#0a0620', '#24124a', '#3a2070'], far: '#3a2a6a', farRock: '#22184a', mid: '#1a1238', cloud: ['#d6c4ff', '#9a84e0', '#5a4a9e'], wisp: 'rgba(200,170,255,0.22)', weather: 'stardust', farKind: 'art', art: 'rift', midKind: 'runes', haze: 'rgba(20,10,50,0.25)', aurora: 0.8 },
     auroraDeep: { sky: ['#030616', '#101a40', '#2a1f5e'], far: '#3a3a8a', farRock: '#1c1c4a', mid: '#141238', cloud: ['#c8d8ff', '#8a96d8', '#4a4e90'], wisp: 'rgba(180,200,255,0.22)', weather: 'stardust', farKind: 'crystals', midKind: 'runes', haze: 'rgba(8,10,40,0.25)', aurora: 1.2 },
     archon: { sky: ['#02040e', '#0a1430', '#1a2d55'], far: '#2a4a7a', farRock: '#142640', mid: '#0e1a30', cloud: ['#d0fff4', '#86d0d8', '#3e6e8e'], wisp: 'rgba(180,255,240,0.26)', weather: 'stardust', farKind: 'art', art: 'nightCity', midKind: 'runes', haze: 'rgba(20,60,90,0.42)', aurora: 1.6 },
     // Area 3, the Blood Moon: a vast red moon over gothic spires, wrecks, ash, bats and red fog.
-    bloodmoon: { sky: ['#07020a', '#26060c', '#5c0f16'], far: '#1c0a10', farRock: '#120609', mid: '#1a080c', cloud: ['#7a3438', '#4e1e22', '#2a0e12'], wisp: 'rgba(150,20,30,0.28)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(80,0,10,0.4)', moon: 1, fog: 0.6, bats: true },
+    bloodmoon: { sky: ['#07020a', '#26060c', '#5c0f16'], far: '#1c0a10', farRock: '#120609', mid: '#1a080c', cloud: ['#7a3438', '#4e1e22', '#2a0e12'], wisp: 'rgba(150,20,30,0.28)', weather: 'ash', farKind: 'art', art: 'bloodMoon', midKind: 'none', haze: 'rgba(40,0,6,0.12)', fog: 0.6, bats: true },
     bloodFog: { sky: ['#0a0306', '#300a10', '#6a1a1c'], far: '#2a0e12', farRock: '#16080a', mid: '#1e0a0e', cloud: ['#8a4044', '#5a2428', '#301216'], wisp: 'rgba(170,30,40,0.34)', weather: 'ash', farKind: 'art', art: 'derelicts', midKind: 'wrecks', haze: 'rgba(90,0,12,0.58)', moon: 0.85, fog: 1.1, bats: true },
     bloodSpires: { sky: ['#050106', '#1e0408', '#4a0a10'], far: '#22080e', farRock: '#100406', mid: '#16060a', cloud: ['#6e2c30', '#44181c', '#240a0e'], wisp: 'rgba(130,16,26,0.3)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(60,0,8,0.4)', moon: 1.15, fog: 0.8, bats: true },
     eclipse: { sky: ['#030003', '#1a0206', '#40060c'], far: '#1a060a', farRock: '#0c0204', mid: '#120408', cloud: ['#5e2026', '#3a1014', '#1e0608'], wisp: 'rgba(120,10,20,0.32)', weather: 'ash', farKind: 'cathedral', midKind: 'wrecks', haze: 'rgba(40,0,6,0.45)', moon: 1.45, fog: 0.9, bats: true },
     victory: { still: 'victory', wisp: 'rgba(255,230,190,0.4)', weather: 'motes' },
     defeat: { still: 'defeat', wisp: 'rgba(120,60,50,0.4)', weather: 'embers' },
     dock: { still: 'deck', wisp: 'rgba(255,255,255,0.4)', weather: 'steam' },
+    workshop: { still: 'hangar', wisp: 'rgba(255,240,220,0.3)', weather: 'steam', glow: [0.5, 0.74] },
     interior: { still: 'engine', wisp: 'rgba(255,240,220,0.35)', weather: 'steam', glow: [0.405, 0.5] },
   };
   // Scroll speed of the cloud bank layer in px/s for each mode.

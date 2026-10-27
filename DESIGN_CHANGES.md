@@ -810,3 +810,14 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
     - The Sovereign: Ghost Battle 2. It closes right down under the eclipse.
 
   Each track is stored as an Opus copy and an AAC copy for Safari, like the others.
+
+## Your art pack for the expansion
+
+- **Painted skies.**
+  - The Aurora sky is the far parallax of the Aurora Reaches' first stretch. The code-drawn aurora curtains sit lighter over it and still show the turn's colour. Deeper in, the drawn crystal islands give variety.
+  - The Blood Moon sky is the far parallax of the Blood Moon's first stretch, with ash, fog and bat flocks over it. The cathedral-spire band and the eclipse keep the code-drawn moon, so it can go black.
+  - The pirate dusk sky joins the Open Skies' dusk band.
+- **The Workshop** now sits in your hangar interior, with your last ship berthed on the display platform.
+- **The Legendary Vault** uses your vault room as its header, with the plaque on it. Each unlocked legendary sits in the gold-lit pedestal frame; sealed ones show the chained frame.
+- **Portals** spin your painted vortex over the drawn swirl: the Aurora vortex into Area II, the Blood Moon vortex into Area III.
+- **Filed for later.** The originals are in `assets/art/source/uploads/` under descriptive names. Not used yet: the FX sheets (explosions, weapons, shields, weather, aurora ribbons and blood effects), the third UI kit, the second hangar picture, and the three pirate and airship sheets. Those three sheets sit on a painted checkerboard rather than a keyed colour, so they need their backgrounds removed by hand before they can be cut.
