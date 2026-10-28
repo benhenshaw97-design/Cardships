@@ -874,3 +874,10 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
 - The six Area 2/3 places (Aurora Shrine, Enchanter's Spire, Star Chart, Blood Altar, Crypt Wreck, Moon Well) now show painted map icons and panel banners instead of the code-drawn ones.
 - Banners are area-aware: in the Aurora Reaches and under the Blood Moon, the Distress Beacon, Pirate Lair and boss panels show that area's painting (and the Aether Rift in Area 2), falling back to the Area 1 picture where no version exists.
 - Fixed a canvas error: shrinking ring effects (the Sovereign rising, channelled spells) could overshoot to a negative radius on their last frame.
+
+## Painted skies for the later areas' ports, endings and maps
+
+- In the Aurora Reaches and under the Blood Moon, Trading Zeppelins, Sky Docks and Mercenary Islands fly into their own painted sky and show their own banner (`AREAS[].placeBiomes`).
+- Eleven more painted skies join the Area 2 and 3 rotations, including the Archon's keep and the Sovereign's keep for the boss fights.
+- The final victory shows dawn breaking through the Blood Moon. A defeat shows the area the ship went down in.
+- Areas 2 and 3 have painted map charts instead of recolours of the Area 1 chart.

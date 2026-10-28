@@ -620,7 +620,7 @@
           if (n.enc === 'patrol') n.enemy = this.pick(A.tiers.find((t) => col <= t.upTo).pool);
           if (n.enc === 'lair') n.enemy = this.pick(A.elites);
           if (n.enc === 'beacon') n.enemy = A.beacon[col <= 4 ? 0 : 1];
-          n.biome = n.enc === 'boss' ? A.bossBiome : (this.area === 0 && ENCOUNTERS[n.enc].biome) || A.bands.find((b) => col <= b.upTo).biome;
+          n.biome = n.enc === 'boss' ? A.bossBiome : (this.area === 0 ? ENCOUNTERS[n.enc].biome : A.placeBiomes && A.placeBiomes[n.enc]) || A.bands.find((b) => col <= b.upTo).biome;
           n.cloud = col > 1 && col < BOSS_COL && this.rand() < 0.22; // type hidden until close or spotted
         }
         // Connect without crossings: each previous node links to the proportionally nearest node(s).

@@ -165,7 +165,7 @@
     const node = game.map && game.currentNode();
     const here = node && (node.enc !== 'start' || game.area > 0) ? node.biome : 'clear';
     const phase = game.phase;
-    if (phase === 'victory' || phase === 'gameover') { scene.setBiome(phase === 'victory' ? 'victory' : 'defeat'); scene.setMode('docked'); }
+    if (phase === 'victory' || phase === 'gameover') { scene.setBiome(phase === 'victory' ? (game.area === 2 ? 'victoryBlood' : 'victory') : ['defeat', 'defeatAurora', 'defeatBlood'][game.area] || 'defeat'); scene.setMode('docked'); }
     else if (phase === 'hangar') { scene.setBiome('skydock'); scene.setMode('docked'); }
     else if (phase === 'shop') { scene.setBiome('interior'); scene.setMode('docked'); }
     else if (phase === 'combat') { scene.setBiome(here); scene.setMode('combat'); }
@@ -257,7 +257,8 @@
   const ico = (name, cls = 'ico') => h('img', { class: cls, src: `assets/art/status/${name}.png`, alt: '', 'aria-hidden': 'true', onerror: (e) => e.target.remove() });
   // Painted banners in assets/art/scenes beyond the Area 1 set (tools/build_scene_banners.py).
   // A '-a2'/'-a3' name is that area's version of a shared place.
-  const PAINTED_BANNERS = new Set(['shrine', 'spire', 'starchart', 'moonwell', 'bloodaltar', 'crypt', 'rift-a2', 'beacon-a2', 'lair-a2', 'boss-a2', 'beacon-a3', 'lair-a3', 'boss-a3']);
+  const PAINTED_BANNERS = new Set(['shrine', 'spire', 'starchart', 'moonwell', 'bloodaltar', 'crypt', 'rift-a2', 'beacon-a2', 'lair-a2', 'boss-a2', 'beacon-a3', 'lair-a3', 'boss-a3',
+    'trader-a2', 'hangar-a2', 'guild-a2', 'trader-a3', 'hangar-a3', 'guild-a3']);
   const bannerSrc = (enc) => {
     const local = game && game.area ? `${enc}-a${game.area + 1}` : null;
     if (local && PAINTED_BANNERS.has(local)) return `assets/art/scenes/${local}.jpg`;

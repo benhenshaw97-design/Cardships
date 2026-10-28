@@ -214,5 +214,5 @@ Update this file after each step: mark the step done and note anything left for 
   - Every biome's far layer is a painting (`BIOMES` in `scene.js`).
   - Unused uploads are filed in `assets/art/source/uploads/`.
 - **Painted place art:** the six later-area places have painted map icons (`tools/build_place_icons.py`) and banners, and Areas 2 and 3 have their own Distress Beacon, Pirate Lair and boss banners, plus an Area 2 Aether Rift (`tools/build_scene_banners.py`; `PAINTED_BANNERS` in `js/ui.js` picks `<place>-a2`/`-a3` when it exists). `scene-blood-battlefield.png` is filed as a spare.
-- **Still shared or recoloured:** Trading Zeppelin, Sky Dock and Mercenary Island banners reuse the Area 1 paintings in every area; the Area 2 and 3 map charts are recolours of the Area 1 chart. The code-drawn `js/artgen.js` icons and banners remain as fallbacks.
+- **Later-area places and endings:** Trading Zeppelin, Sky Dock and Mercenary Island have their own Area 2/3 banners and flight skies (`AREAS[].placeBiomes`); Areas 2 and 3 have painted map charts; the final victory shows the broken Blood Moon and a defeat shows the sky the ship fell in. The code-drawn `js/artgen.js` icons and banners remain as fallbacks.
 - **Balance:** see "Balance pass (step 6)" above and BALANCE_REPORT.md.

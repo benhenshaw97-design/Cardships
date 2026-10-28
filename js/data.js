@@ -664,7 +664,8 @@
   // a portal to the next. cols: map columns including the boss column. midCol: a Trading Zeppelin
   // or Sky Dock is guaranteed there. hp / dmg: how much tougher its pirates are than Area 1's
   // (Durability multiplier, and + damage per hit); bossHp scales its boss the same way.
-  // tiers / elites / beacon: which enemies fly there. bands: biome bands across its route.
+  // tiers / elites / beacon: which enemies fly there. bands: biome bands across its route;
+  // placeBiomes: the sky flown into at particular places (Area 1 uses ENCOUNTERS[].biome).
   const AREAS = [
     {
       id: 'skies', name: 'The Open Skies', numeral: 'I', blurb: 'Pirate-held trade lanes over the cloud sea.', cols: 12, midCol: 6, lairFrom: 4,
@@ -678,7 +679,7 @@
       nodeWeights: { patrol: 32, lair: 10, shrine: 8, spire: 8, starchart: 6, trader: 10, beacon: 8, guild: 6, hangar: 8, rift: 6 },
       names: { patrol: 'Spell Patrol', lair: 'Arcane Bastion', beacon: 'Glimmering Lure' },
       bands: [{ upTo: 3, biome: 'aurora' }, { upTo: 7, biome: 'auroraRift' }, { upTo: 99, biome: 'auroraDeep' }],
-      hp: 1.2, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'archon', aurora: true, accent: '#6ff0d0',
+      hp: 1.2, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'archon', placeBiomes: { guild: 'auroraPort', trader: 'auroraTrade', hangar: 'auroraDock' }, aurora: true, accent: '#6ff0d0',
     },
     {
       id: 'bloodmoon', name: 'The Blood Moon', numeral: 'III', blurb: 'A crimson night under a vast red moon, haunted by gothic wrecks.', cols: 11, midCol: 5, lairFrom: 3,
@@ -687,7 +688,7 @@
       nodeWeights: { patrol: 32, lair: 10, bloodaltar: 7, crypt: 8, moonwell: 7, trader: 10, beacon: 8, guild: 6, hangar: 8 },
       names: { patrol: 'Night Hunters', lair: 'Gothic Keep', beacon: 'Bleeding Beacon' },
       bands: [{ upTo: 3, biome: 'bloodmoon' }, { upTo: 7, biome: 'bloodFog' }, { upTo: 99, biome: 'bloodSpires' }],
-      hp: 0.85, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'eclipse', moon: true, accent: '#ff5a5a',
+      hp: 0.85, dmg: 0, bossHp: 1, veteranColumns: [6], bossBiome: 'eclipse', placeBiomes: { guild: 'bloodPort', trader: 'bloodTrade', hangar: 'bloodDock' }, moon: true, accent: '#ff5a5a',
     },
   ];
   AREAS.forEach((a, i) => { a.index = i; });
