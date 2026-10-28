@@ -61,13 +61,24 @@
   };
   const FADE = 1.2;
 
-  // Drop real sound files in here (name → url) and they replace the synthesised versions.
+  // Real sound files (name → url) replace the synthesised versions (tools/build_audio.py makes them).
   const SFX_FILES = {};
+  for (const n of ['cannon', 'explode', 'bigHit', 'flame', 'spell', 'splat', 'whoosh']) SFX_FILES[n] = `assets/audio/sfx/${n}.mp3`;
+  // How loud each recording plays against the synthesised sounds.
+  const SFX_GAIN = { cannon: 0.45, explode: 0.6, bigHit: 0.55, flame: 0.5, spell: 0.45, splat: 0.5, whoosh: 0.4 };
+  // Ambience beds looping quietly under each sky (name → level), by biome.
+  const AMBIENCE = { rain: 0.32, wind: 0.22, birds: 0.18, voices: 0.12, bloodstorm: 0.26, roomtone: 0.3 };
+  const BIOME_AMBIENCE = {
+    clear: 'birds', storm: 'rain', smog: 'wind', sunset: 'wind', dusk: 'wind', night: 'wind', lair: 'wind', derelict: 'wind', rift: 'voices', port: 'birds',
+    aurora: 'voices', auroraRift: 'voices', auroraDeep: 'voices', archon: 'voices', auroraPort: 'wind', auroraTrade: 'wind', auroraDock: 'wind',
+    bloodmoon: 'bloodstorm', bloodFog: 'bloodstorm', bloodSpires: 'bloodstorm', eclipse: 'bloodstorm', bloodPort: 'roomtone', bloodTrade: 'roomtone', bloodDock: 'roomtone',
+    victory: 'birds', victoryBlood: 'wind', defeat: 'roomtone', defeatAurora: 'roomtone', defeatBlood: 'roomtone',
+  };
 
   const prefs = () => (window.CardshipsFX ? window.CardshipsFX.prefs : { music: 0.6, sfx: 0.8, mute: false });
   const fileMode = location.protocol === 'file:'; // WebAudio can't read media elements from file://
 
-  let ctx = null, master = null, musicBus = null, musicFilter = null, sfxBus = null, noiseBuf = null;
+  let ctx = null, master = null, musicBus = null, musicFilter = null, sfxBus = null, ambBus = null, noiseBuf = null;
   let current = null; // { cue, players, step }
   let wanted = null;
   let tension = false;
@@ -94,12 +105,16 @@
       musicBus.connect(master);
       sfxBus = ctx.createGain();
       sfxBus.connect(master);
+      ambBus = ctx.createGain();
+      ambBus.connect(sfxBus);
       noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 1.5, ctx.sampleRate);
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     } catch (e) { ctx = null; }
     applyPrefs(prefs());
     if (wanted) setScene(wanted.name, true);
+    if (ambWanted) { const n = ambWanted; ambWanted = null; setAmbience(n); }
+    if (ctx) for (const n of Object.keys(SFX_FILES)) loadSample(n); // ready before the first shot
   }
   ['pointerdown', 'keydown', 'touchstart'].forEach((t) => window.addEventListener(t, unlock, { passive: true }));
 
@@ -265,6 +280,7 @@
     alarm: (t) => { for (let i = 0; i < 3; i++) { tone(t + i * 0.32, 0.15, 'square', 880, 0.12); tone(t + i * 0.32 + 0.16, 0.15, 'square', 660, 0.12); } },
     ram: (t) => { tone(t, 0.6, 'sine', 60, 1, 22); noise(t, 0.7, 'lowpass', 1600, 1, 0.5, 120); metal(t + 0.02, 140, 0.3, 0.7); },
     ui: (t) => tone(t, 0.05, 'triangle', 1200, 0.08),
+    spell: (t) => { tone(t, 0.3, 'sine', 600, 0.25, 1400); noise(t, 0.3, 'bandpass', 1200, 0.25, 1, 3000); },
   };
   function loadSample(name) {
     if (sampleCache[name] !== undefined) return sampleCache[name];
@@ -281,12 +297,47 @@
     lastSfx[name] = now;
     if (SFX_FILES[name]) {
       const buf = loadSample(name);
-      if (buf) { const s = ctx.createBufferSource(); s.buffer = buf; s.connect(sfxBus); s.start(); return; }
+      if (buf) {
+        const s = ctx.createBufferSource(), g = ctx.createGain();
+        s.buffer = buf; s.playbackRate.value = 0.94 + Math.random() * 0.12; // a little variety on repeats
+        g.gain.value = (SFX_GAIN[name] || 0.5) * (opts && opts.enemy ? 0.85 : 1);
+        s.connect(g); g.connect(sfxBus); s.start();
+        return;
+      }
     }
     const f = SYNTH[name];
     if (f) f(now + 0.005, opts);
   }
   function registerSfx(name, url) { SFX_FILES[name] = url; delete sampleCache[name]; }
 
-  window.CardshipsAudio = { setScene, bossPhase, setTension, sting, sfx, registerSfx, applyPrefs, unlock, CUES };
+  // Ambience: one bed loops under the current sky and cross-fades when the sky changes.
+  const ambCache = {};
+  let amb = null, ambWanted = null; // amb: { name, src, gain }
+  function loadBed(name) {
+    if (!ambCache[name]) ambCache[name] = fetch(`assets/audio/ambience/${name}.mp3`).then((r) => r.arrayBuffer()).then((b) => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no))).catch(() => null);
+    return ambCache[name];
+  }
+  function setAmbience(biome) {
+    const name = BIOME_AMBIENCE[biome] || null;
+    if (!ctx) { ambWanted = biome; return; }
+    if ((amb ? amb.name : null) === name) return;
+    if (amb) { const old = amb; old.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.5); setTimeout(() => { try { old.src.stop(); } catch (e) { /* already stopped */ } }, 3000); }
+    amb = null;
+    if (!name) return;
+    const mine = { name, src: null, gain: ctx.createGain() };
+    mine.gain.gain.value = 0;
+    mine.gain.connect(ambBus);
+    amb = mine;
+    loadBed(name).then((buf) => {
+      if (!buf || amb !== mine) return;
+      const src = ctx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      src.connect(mine.gain);
+      src.start(0, Math.random() * buf.duration);
+      mine.src = src;
+      mine.gain.gain.setTargetAtTime(AMBIENCE[name], ctx.currentTime, 0.8);
+    });
+  }
+
+  window.CardshipsAudio = { setScene, setAmbience, bossPhase, setTension, sting, sfx, registerSfx, applyPrefs, unlock, CUES };
 })();

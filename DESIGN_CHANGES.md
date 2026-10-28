@@ -881,3 +881,11 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
 - Eleven more painted skies join the Area 2 and 3 rotations, including the Archon's keep and the Sovereign's keep for the boss fights.
 - The final victory shows dawn breaking through the Blood Moon. A defeat shows the area the ship went down in.
 - Areas 2 and 3 have painted map charts instead of recolours of the Area 1 chart.
+
+## Recorded sound effects and ambience
+
+- Cannon fire, explosions, heavy hits, flamethrowers, splats, Evade and magic casts now play recordings instead of synthesised sounds. Repeats vary slightly in pitch. Tesla and lightning keep the synthesised crackle, and magic casts have their own `spell` sound.
+- A quiet ambience bed loops under every sky and cross-fades when the sky changes:
+  - Birdsong in clear skies, rain and thunder in storms, wind on the trade lanes.
+  - Eerie voices in the Aurora Reaches, an evil storm under the Blood Moon, and a dark room tone after a defeat.
+- It follows the sound-effects volume.

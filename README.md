@@ -97,4 +97,4 @@ Your original uploads are kept in `assets/art/source/` (the later ones in `asset
 | `tools/build_scene_banners.py` | The Area 2/3 place banners and area versions of shared ones (`assets/art/scenes/`) |
 | `tools/build_fx_strips.py` | Explosion, magic and shield frame strips (`assets/art/fx/`) + `js/fxstrips.js` |
 
-Each music track ships as the original Opus file (`.opus.m4a`) and an AAC copy (`.aac.mp4`) for Safari. To use real sound effects, add them to `SFX_FILES` in `js/audio.js`; each replaces the synthesised sound of the same name.
+Each music track ships as the original Opus file (`.opus.m4a`) and an AAC copy (`.aac.mp4`) for Safari. Recorded sound effects and the looping ambience under each sky come from `assets/audio/source/` via `tools/build_audio.py`. `SFX_FILES` in `js/audio.js` lists the recordings; each replaces the synthesised sound of the same name, and `BIOME_AMBIENCE` picks the bed for each sky.

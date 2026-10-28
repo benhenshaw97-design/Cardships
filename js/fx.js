@@ -450,14 +450,14 @@
       strip(p.x, p.y, ev.kind === 'weapon' ? 'magic-blue' : ev.kind === 'defense' ? 'magic-green' : 'magic-purple', 70 * ev.mult, 0.5, { add: true });
       if (ev.kind === 'weapon') { shoot({ x: p.x, y: p.y }, enemyPt(), 'lightning', 0.2); lastFire = 'tesla'; const e = enemyPt(); setTimeout(() => strip(e.x, e.y, 'magic-blue', 110, 0.5, { add: true }), 200); }
       numberAt(p.x, p.y - 34, { weapon: 'Arcane Bolt', defense: 'Aegis', support: 'Surge', utility: 'Surge' }[ev.kind] + (ev.mult > 1 ? ' ×2' : ''), '#aef7e4', 16);
-      sfx('zap');
+      sfx('spell');
       return 300;
     },
     aurora() { flash(0.06); return 0; },
-    prism(ev) { const p = playerPt(ev.uid); for (const [c, r] of [['rgba(255,110,110,0.9)', 26], ['rgba(110,255,150,0.9)', 34], ['rgba(110,170,255,0.9)', 42]]) ring(p.x, p.y, c, 6, r, 0.5, 3); sfx('zap'); return 220; },
+    prism(ev) { const p = playerPt(ev.uid); for (const [c, r] of [['rgba(255,110,110,0.9)', 26], ['rgba(110,255,150,0.9)', 34], ['rgba(110,170,255,0.9)', 42]]) ring(p.x, p.y, c, 6, r, 0.5, 3); sfx('spell'); return 220; },
     enemyWard(ev) { const p = enemyPt(); if (!ev.bats && !ev.illusion) strip(p.x, p.y, 'shield-up', p.r * 2.4, 0.7, { add: true, alpha: 0.85 }); ring(p.x, p.y, ev.bats ? 'rgba(255,50,60,0.8)' : ev.illusion ? 'rgba(220,200,255,0.8)' : ev.crystal ? 'rgba(170,255,230,0.95)' : 'rgba(170,255,230,0.75)', p.r * 0.3, p.r * 1.2, 0.6, 4); sfx('clang'); return 240; },
     enemyArmor() { const p = enemyPt(); burst(p.x, p.y, 14, 'spark', { min: 30, max: 120, life: 0.5, color: '#bff6ff' }); sfx('clank'); return 160; },
-    channel() { const p = enemyPt(); ring(p.x, p.y, 'rgba(200,160,255,0.9)', p.r * 1.4, p.r * 0.2, 0.7, 5); sfx('zap'); return 260; },
+    channel() { const p = enemyPt(); ring(p.x, p.y, 'rgba(200,160,255,0.9)', p.r * 1.4, p.r * 0.2, 0.7, 5); sfx('spell'); return 260; },
     grandBroken() { const p = enemyPt(); flash(0.5); shake(14); for (let i = 0; i < 3; i++) ring(p.x, p.y, 'rgba(200,255,240,0.95)', 8, 90 + i * 30, 0.6, 6); explosion(p.x, p.y, 140, true); phaseBanner = { text: 'Convergence broken!', life: 1.3, max: 1.3 }; sfx('bigHit'); return 500; },
     shards(ev) { const from = playerPt(ev.uid), to = enemyPt(); for (let i = 0; i < 2 + ev.dmg; i++) setTimeout(() => shoot({ x: from.x, y: from.y }, { x: to.x + rand(-20, 20), y: to.y + rand(-14, 14) }, 'tracer', 0.2), i * 50); sfx('clang'); return 180; },
     // ---------- Area 3 ----------
@@ -473,7 +473,7 @@
     rise() { const p = enemyPt(); flash(0.3); for (let i = 0; i < 3; i++) ring(p.x, p.y, 'rgba(230,220,190,0.9)', p.r * 1.2, 10, 0.7, 5); phaseBanner = { text: 'It rises again!', life: 1.3, max: 1.3 }; sfx('bigHit'); return 600; },
     phasedMiss() { const p = enemyPt(); numberAt(p.x, p.y - 30, 'PHASED', '#cfe8ff', 16); ring(p.x, p.y, 'rgba(200,230,255,0.6)', p.r * 0.5, p.r * 1.1, 0.4, 3); return 160; },
     blessing() { const c = playerPt('core'); for (let i = 0; i < 3; i++) ring(c.x, c.y, ['rgba(93,255,168,0.9)', 'rgba(79,216,255,0.9)', 'rgba(192,140,255,0.9)'][i], 10, 70 + i * 20, 0.8, 4); sfx('ratchet'); return 400; },
-    enchant(ev) { const p = playerPt(ev.uid); ring(p.x, p.y, 'rgba(160,255,230,0.95)', 4, 50, 0.7, 4); burst(p.x, p.y, 16, 'spark', { min: 30, max: 120, life: 0.8, g: -30, color: '#9fffe8' }); sfx('zap'); return 400; },
+    enchant(ev) { const p = playerPt(ev.uid); ring(p.x, p.y, 'rgba(160,255,230,0.95)', 4, 50, 0.7, 4); burst(p.x, p.y, 16, 'spark', { min: 30, max: 120, life: 0.8, g: -30, color: '#9fffe8' }); sfx('spell'); return 400; },
     // Leviathan Plating: a golden flare at the bow, then the blocked force flung back.
     reflect(ev) {
       const from = playerPt(A().player.mods.size ? [...A().player.mods.values()].find((m) => m.legendary)?.uid : 'core'), to = enemyPt();
@@ -494,7 +494,7 @@
     galeShift() { const to = enemyPt(); sprite(to.x + rand(-20, 20), to.y + rand(-14, 14), ['zap_crack', 'zap_blue'], 46, 0.3, { add: true }); lastFire = 'tesla'; sfx('zap'); return 120; },
     // A Ward shatters in a ring of light; a prism shot breaks every layer at once.
     wardPop(ev) { const p = enemyPt(); if (!ev || !['illusion', 'bats'].includes(ev.kind)) strip(p.x, p.y, 'shield-break', p.r * 2.4, 0.55, { add: true }); ring(p.x, p.y, 'rgba(170,255,230,0.95)', p.r * 0.5, p.r * 1.3, 0.45, 5); burst(p.x, p.y, 18, 'spark', { min: 120, max: 320, life: 0.5 }); numberAt(p.x, p.y - p.r * 0.7, 'Ward!', '#aef7e4', 18); sfx('clang'); return 260; },
-    enemyLayers() { const p = enemyPt(); for (let i = 0; i < 3; i++) ring(p.x, p.y, ['rgba(255,120,120,0.9)', 'rgba(140,255,170,0.9)', 'rgba(150,180,255,0.9)'][i], p.r * 0.4, p.r * (1.1 + i * 0.25), 0.5, 4); sfx('zap'); return 280; },
+    enemyLayers() { const p = enemyPt(); for (let i = 0; i < 3; i++) ring(p.x, p.y, ['rgba(255,120,120,0.9)', 'rgba(140,255,170,0.9)', 'rgba(150,180,255,0.9)'][i], p.r * 0.4, p.r * (1.1 + i * 0.25), 0.5, 4); sfx('spell'); return 280; },
     discharge(ev) {
       const c = playerPt('core'), to = enemyPt();
       for (let i = 0; i < 1 + Math.min(3, Math.floor(ev.charge / 2)); i++) setTimeout(() => shoot({ x: c.x, y: c.y - 10 }, { x: to.x + rand(-20, 20), y: to.y + rand(-14, 14) }, 'lightning', 0.2), i * 80);
@@ -568,7 +568,7 @@
         for (const uid of targets) { const p = playerPt(uid); ring(p.x, p.y, ev.grand ? 'rgba(200,160,255,0.95)' : 'rgba(160,255,230,0.95)', 30, 6, 0.5, 4); strip(p.x, p.y, 'magic-purple', ev.grand ? 90 : 64, 0.5, { add: true }); }
         if (ev.grand) { flash(0.6); shake(18); hitStop(140); }
         lastBolt = true;
-        sfx(ev.grand ? 'bigHit' : 'zap', { enemy: true });
+        sfx(ev.grand ? 'bigHit' : 'spell', { enemy: true });
         return ev.grand ? 520 : 360;
       }
       lastBolt = !!ev.lightning;

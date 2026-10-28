@@ -580,6 +580,7 @@
       this.prev = null;
     }
     setBiome(name) {
+      if (window.CardshipsAudio && window.CardshipsAudio.setAmbience) window.CardshipsAudio.setAmbience(name);
       if (!BIOMES[name]) name = 'clear';
       if (this.biome && this.biome.name === name) return;
       this.prev = this.biome;
