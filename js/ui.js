@@ -255,7 +255,16 @@
   // ---------- painted icons ----------
   // Status and stat icons (assets/art/status), event banners (assets/art/scenes), unlock badges.
   const ico = (name, cls = 'ico') => h('img', { class: cls, src: `assets/art/status/${name}.png`, alt: '', 'aria-hidden': 'true', onerror: (e) => e.target.remove() });
-  const banner = (enc) => h('img', { class: 'scene-banner', src: ArtGen && ArtGen.hasBanner(enc) ? ArtGen.banner(enc) : `assets/art/scenes/${enc}.jpg`, alt: '', onerror: (e) => e.target.remove() });
+  // Painted banners in assets/art/scenes beyond the Area 1 set (tools/build_scene_banners.py).
+  // A '-a2'/'-a3' name is that area's version of a shared place.
+  const PAINTED_BANNERS = new Set(['shrine', 'spire', 'starchart', 'moonwell', 'bloodaltar', 'crypt', 'rift-a2', 'beacon-a2', 'lair-a2', 'boss-a2', 'beacon-a3', 'lair-a3', 'boss-a3']);
+  const bannerSrc = (enc) => {
+    const local = game && game.area ? `${enc}-a${game.area + 1}` : null;
+    if (local && PAINTED_BANNERS.has(local)) return `assets/art/scenes/${local}.jpg`;
+    if (PAINTED_BANNERS.has(enc) || !(ArtGen && ArtGen.hasBanner(enc))) return `assets/art/scenes/${enc}.jpg`;
+    return ArtGen.banner(enc);
+  };
+  const banner = (enc) => h('img', { class: 'scene-banner', src: bannerSrc(enc), alt: '', onerror: (e) => e.target.remove() });
   const TOKEN_KINDS = ['fire', 'glue', 'gas', 'hex', 'bleed'];
   // Bleed shows its stack count in a blood drop.
   const tokIco = (k, cls = 'tok-ico', card = null) => (k === 'hex' ? h('span', { class: `${cls} tok-rune`, 'aria-hidden': 'true' }, '✶') : k === 'bleed' ? h('span', { class: `${cls} tok-blood`, 'aria-hidden': 'true' }, card ? String(card.tokens.bleed) : '') : ico(k, cls));

@@ -309,7 +309,7 @@
     for (let i = parts.length - 1; i >= 0; i--) if (parts[i].life <= 0) parts.splice(i, 1);
     if (parts.length > 900) parts.splice(0, parts.length - 900);
     for (const r of rings) {
-      r.life -= dt; const k = 1 - r.life / r.max;
+      r.life -= dt; const k = Math.min(1, 1 - r.life / r.max); // shrinking rings must not overshoot below zero
       g.strokeStyle = r.color; g.globalAlpha = Math.max(0, r.life / r.max); g.lineWidth = r.width;
       g.beginPath(); g.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * k, 0, TAU); g.stroke();
     }

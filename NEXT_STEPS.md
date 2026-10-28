@@ -213,5 +213,6 @@ Update this file after each step: mark the step done and note anything left for 
 - **Art.** Every sky, part, Core and enemy now uses your painted art; the code-drawn versions remain only as fallbacks (`js/artgen.js`, listed in `DRAWN_ONLY`).
   - Every biome's far layer is a painting (`BIOMES` in `scene.js`).
   - Unused uploads are filed in `assets/art/source/uploads/`.
-- **Still code-drawn:** the six later-area place icons and banners (`js/artgen.js`), and the Area 2 and 3 map charts (recoloured Area 1 chart).
+- **Painted place art:** the six later-area places have painted map icons (`tools/build_place_icons.py`) and banners, and Areas 2 and 3 have their own Distress Beacon, Pirate Lair and boss banners, plus an Area 2 Aether Rift (`tools/build_scene_banners.py`; `PAINTED_BANNERS` in `js/ui.js` picks `<place>-a2`/`-a3` when it exists). `scene-blood-battlefield.png` is filed as a spare.
+- **Still shared or recoloured:** Trading Zeppelin, Sky Dock and Mercenary Island banners reuse the Area 1 paintings in every area; the Area 2 and 3 map charts are recolours of the Area 1 chart. The code-drawn `js/artgen.js` icons and banners remain as fallbacks.
 - **Balance:** see "Balance pass (step 6)" above and BALANCE_REPORT.md.

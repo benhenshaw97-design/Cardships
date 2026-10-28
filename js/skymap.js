@@ -32,7 +32,8 @@
     return el;
   }
   // The painted icons (assets/art/icons) for map nodes; the line icons stay for the legend and as fallbacks.
-  const ART_ICONS = new Set(['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar', 'derelict', 'rift', 'boss', 'unknown', 'cloud']);
+  const ART_ICONS = new Set(['patrol', 'lair', 'storm', 'smog', 'trader', 'beacon', 'guild', 'hangar', 'derelict', 'rift', 'boss', 'unknown', 'cloud',
+    'shrine', 'spire', 'starchart', 'bloodaltar', 'crypt', 'moonwell']);
   function artIcon(name) {
     const gen = window.CardshipsArtGen;
     if (!ART_ICONS.has(name) && gen && gen.hasIcon(name)) {

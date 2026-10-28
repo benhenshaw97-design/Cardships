@@ -868,3 +868,9 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
   - The 70 rules tests.
   - 300 bot-played fuzz runs through all three areas.
   - Repeated click-through playthroughs of real runs at desktop and phone sizes (menu, launch, loot, map and its sailing leg, events, fights, defeat, back to the menu), with no errors and no sideways scrolling.
+
+## Painted place art for the later areas
+
+- The six Area 2/3 places (Aurora Shrine, Enchanter's Spire, Star Chart, Blood Altar, Crypt Wreck, Moon Well) now show painted map icons and panel banners instead of the code-drawn ones.
+- Banners are area-aware: in the Aurora Reaches and under the Blood Moon, the Distress Beacon, Pirate Lair and boss panels show that area's painting (and the Aether Rift in Area 2), falling back to the Area 1 picture where no version exists.
+- Fixed a canvas error: shrinking ring effects (the Sovereign rising, channelled spells) could overshoot to a negative radius on their last frame.
