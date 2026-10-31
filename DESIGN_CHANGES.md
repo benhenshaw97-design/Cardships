@@ -845,7 +845,7 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
   - **Second hangar picture.** It is the backdrop for every Sky Dock.
   - **Pirate and airship sheets.** `tools/unchecker.py` replaces their painted checkerboards with a green key.
     - **Elite hulls.** A lair's guardian now fights in a grander pirate ship from your sheet: the Elite Cutter flies a red-sailed galleon, the Elite Gunship a black skull warship, and so on, including bone and kraken ships for Area 3's elites.
-    - **Fourth ships.** Each of the first six Cores gains a fourth ship from the airship sheets, each with its own trait: Striped Skylark, Cargo Dreadnought, Grey Whale, Steam Crane, Jolly Scrapper and Teal Swift.
+    - **Fourth ships.** Each of the first six Cores gains a fourth ship, each with its own trait: Striped Skylark, Cargo Dreadnought, Grey Whale, Steam Crane, Gilded Corsair and Brass Swift.
   - **Third UI kit.** Its icons become the nine honour badges (anchor, skull, gem, star, wheel, chest, shells, tornado, gold star), and its water drop, turned red, becomes the Bleed token. `tools/build_ui_kit3.py` makes them.
 - **Your painted cards** (latest upload) replace every code-drawn picture. `tools/build_card_art.py` cuts them.
   - Card art for all 10 legendaries, the 10 Area 2 and Area 3 parts, and Gas Grenadiers. The painted header and name plate are trimmed, because the game draws its own.
@@ -889,3 +889,9 @@ The full numbers are in BALANCE_REPORT.md. Across all nine Cores at the base tie
   - Birdsong in clear skies, rain and thunder in storms, wind on the trade lanes.
   - Eerie voices in the Aurora Reaches, an evil storm under the Blood Moon, and a dark room tone after a defeat.
 - It follows the sound-effects volume.
+
+## Sprite clean-up (from the sprite review)
+
+- The six fourth ships (Striped Skylark, Cargo Dreadnought, Grey Whale, Steam Crane and the renamed Gilded Corsair and Brass Swift) are now cut from the original high-resolution ship sheets. The later airship sheet packed its ships too small and too close to cut cleanly.
+- The Clockwork Colossus is drawn side-on like every other ship; the old sprite was a top-down view.
+- The sticky-fire splash had holes where its dark centre was keyed out with the backdrop; burning modules use the clean fire splashes instead.

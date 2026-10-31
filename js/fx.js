@@ -624,7 +624,7 @@
     },
     token(ev) {
       const p = playerPt(ev.uid);
-      if (ev.token === 'fire') { sprite(p.x, p.y - 8, ['napalm', 'sticky_fire', 'fire_sticky'], 44, 0.7, { grow: 0.15 }); burst(p.x, p.y - 4, 10, 'flame', { min: 20, max: 120, g: -60, life: 0.6, rmin: 4, rmax: 9 }); }
+      if (ev.token === 'fire') { sprite(p.x, p.y - 8, ['napalm', 'fire_sticky'], 44, 0.7, { grow: 0.15 }); burst(p.x, p.y - 4, 10, 'flame', { min: 20, max: 120, g: -60, life: 0.6, rmin: 4, rmax: 9 }); }
       if (ev.token === 'glue') { sprite(p.x, p.y - 4, 'glue_spray', 40, 0.6, { grow: 0.2 }); burst(p.x, p.y, 10, 'drip', { min: 40, max: 160, g: 300, life: 0.7, rmin: 2, rmax: 4 }); }
       if (ev.token === 'bleed') { burst(p.x, p.y, 10, 'drip', { min: 40, max: 140, g: 300, life: 0.7, rmin: 2, rmax: 4, color: '#c8101e' }); ring(p.x, p.y, 'rgba(220,20,40,0.9)', 6, 26, 0.3, 4); }
       if (ev.token === 'gas') smokeCloud(p.x, p.y - 6, 60, 'green', { life: 1.4, vy: -8 });
@@ -632,7 +632,7 @@
       sfx(ev.token === 'fire' ? 'crackle' : 'splat');
       return 220;
     },
-    burn(ev) { const p = playerPt(ev.uid); sprite(p.x, p.y - 10, 'sticky_fire', 34, 0.6, { grow: 0.2 }); burst(p.x, p.y - 8, 12, 'flame', { up: 80, min: 10, max: 60, g: -80, life: 0.5, rmin: 4, rmax: 9 }); ring(p.x, p.y, 'rgba(255,140,60,0.9)', 6, 30, 0.3, 4); return 120; },
+    burn(ev) { const p = playerPt(ev.uid); sprite(p.x, p.y - 10, 'fire_sticky', 34, 0.6, { grow: 0.2 }); burst(p.x, p.y - 8, 12, 'flame', { up: 80, min: 10, max: 60, g: -80, life: 0.5, rmin: 4, rmax: 9 }); ring(p.x, p.y, 'rgba(255,140,60,0.9)', 6, 30, 0.3, 4); return 120; },
     enemyBurn() { const p = enemyPt(); sprite(p.x, p.y - 4, ['fire_big_3', 'fire_big_1'], 70, 0.6, { grow: 0.2 }); burst(p.x, p.y, 18, 'flame', { up: 90, min: 10, max: 80, g: -80, life: 0.6, rmin: 6, rmax: 11 }); sfx('crackle'); return 200; },
     heal(ev) {
       const p = playerPt(ev.uid);

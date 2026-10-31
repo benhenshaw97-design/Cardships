@@ -203,7 +203,7 @@ KEYED_CUTS = {
  'k_airship': ('7696', 1), 'k_zeppelin': ('7696', 0), 'k_battleship': ('7708', 7), 'k_clockwork': ('7710', 2),
  'k_cutter': ('7710', 0), 'k_skiff': ('7706', 3), 'k_gunship': ('7697', 6), 'k_bomber': ('7703', 3),
  'k_sentinel': ('7709', 6), 'k_flagship': ('7696', 2), 'k_monitor': ('7710', 4), 'k_leviathan': ('7711', 4),
- 'k_stormqueen': ('7706', 7), 'k_colossus': ('7708', 5),
+ 'k_stormqueen': ('7706', 7), 'k_colossus': ('7705', 4),
  'k_privateer': ('7697', 5), 'k_tempest': ('7705', 3),
  # The other two ships each class can fly.
  'k_kite': ('7698', 0), 'k_comet': ('7709', 4),
@@ -224,9 +224,10 @@ KEYED_CUTS = {
  # checkerboard removed by tools/unchecker.py).
  'k_e_cutter': ('pirates2', 2), 'k_e_skiff': ('pirates2', 8), 'k_e_gunship': ('pirates2', 0), 'k_e_bomber': ('pirates2', 11),
  'k_e_sentinel': ('pirates2', 10), 'k_e_bonegalleon': ('pirates2', 4), 'k_e_cultist': ('pirates2', 6),
- # A fourth ship for each of the first six Cores (uploaded airship sheets).
- 'k_skylark': ('airships', 1), 'k_cargodread': ('airships', 15), 'k_greywhale': ('airships', 19),
- 'k_steamcrane': ('airships', 9), 'k_scrapper': ('pirateparts', 0), 'k_tealswift': ('airships', 23),
+ # A fourth ship for each of the first six Cores, from the original sheets (the later airship
+ # sheet's ships were too small and crowded to cut cleanly).
+ 'k_skylark': ('7698', 6), 'k_cargodread': ('7706', 1), 'k_greywhale': ('7698', 5),
+ 'k_steamcrane': ('7698', 4), 'k_scrapper': ('7697', 0), 'k_tealswift': ('7709', 0),
 }
 
 

@@ -111,7 +111,7 @@
     k_monitor: { w: 160, faces: 'R', hull: 0.78, upper: 0.5, span: 0.4 },
     k_leviathan: { w: 196, faces: 'R', hull: 0.7, upper: 0.45, span: 0.4 },
     k_stormqueen: { w: 196, faces: 'R', hull: 0.74, upper: 0.58, span: 0.38 },
-    k_colossus: { w: 186, faces: 'R', hull: 0.72, upper: 0.42, span: 0.4 },
+    k_colossus: { w: 200, faces: 'R', hull: 0.76, upper: 0.46, span: 0.4 },
     k_privateer: { w: 128, faces: 'R', hull: 0.8, upper: 0.62, span: 0.36 },
     k_tempest: { w: 132, faces: 'R', hull: 0.8, upper: 0.62, span: 0.36 },
     k_kite: { w: 104, faces: 'R', hull: 0.86, upper: 0.74, span: 0.32 },
